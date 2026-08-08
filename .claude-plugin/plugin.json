@@ -1,0 +1,9 @@
+{
+  "name": "stiff-skills",
+  "version": "1.0.0",
+  "description": "50-skill agent library covering marketing, SEO, animation, design, UI/UX, software engineering, and product strategy",
+  "author": {
+    "name": "STIFF"
+  },
+  "skills": "${CLAUDE_PLUGIN_ROOT}/.claude/skills"
+}

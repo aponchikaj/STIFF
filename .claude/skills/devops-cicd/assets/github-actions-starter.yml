@@ -1,0 +1,183 @@
+# Annotated CI/CD starter workflow.
+# Shape: lint + typecheck + test run in PARALLEL (no shared outputs, so no reason
+# to serialize) -> build with dependency + build caching -> deploy gated on ALL
+# FOUR jobs plus GitHub environment protection rules.
+#
+# Adapt: swap the Node toolchain for your stack; the structure (parallel checks,
+# build-once artifact, protected deploy, OIDC) transfers unchanged.
+#
+# NOTE on action pinning: every third-party action below is pinned to a full
+# commit SHA with the tag as a trailing comment. Tags are mutable -- the
+# tj-actions/changed-files compromise (2025) retagged existing releases with
+# credential-stealing code. A SHA cannot be retagged. Verify/update SHAs with:
+#   gh api repos/actions/checkout/git/ref/tags/v4.2.2 --jq .object.sha
+
+name: CI/CD
+
+on:
+  pull_request:            # every PR gets the full check suite
+  push:
+    branches: [main]       # pushes to main additionally build + deploy
+
+# Cancel superseded runs: 3 pushes in a minute should not burn 3 full pipelines.
+# github.ref scopes the group per-branch, so PRs never cancel each other.
+# Deploys get their OWN concurrency group below with cancel-in-progress: false --
+# killing a deploy mid-flight leaves the environment half-updated.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Default-deny token. Jobs that need more (OIDC, deployments) request it
+# explicitly. A compromised step in `lint` should not be able to push code.
+permissions:
+  contents: read
+
+jobs:
+  # ---- Parallel checks -----------------------------------------------------
+  # Lint, typecheck, and test start simultaneously. Wall time = the slowest
+  # job, not the sum. Each reports independently so a developer sees every
+  # failure in one pass instead of fixing one, pushing, and finding the next.
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5          # cheapest check; if lint takes >5min something is wrong
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: 20
+          cache: npm            # built-in cache keyed on the lockfile hash
+      - run: npm ci             # ci, not install: exact lockfile, fails on drift
+      - run: npm run lint
+
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck  # e.g. tsc --noEmit
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15         # hard ceiling keeps a hung test from eating the 10-min budget
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test -- --ci
+    # If the suite exceeds ~8 min, shard it instead of accepting the wait:
+    # strategy:
+    #   fail-fast: false        # want the full failure picture, not the first shard
+    #   matrix:
+    #     shard: [1, 2, 3, 4]
+    # run: npm test -- --ci --shard=${{ matrix.shard }}/4
+
+  # ---- Build ---------------------------------------------------------------
+  # Runs in parallel with the checks (it does not consume their output), so a
+  # green run is as fast as the slowest job. The artifact built HERE is the
+  # artifact that deploys -- build once, promote everywhere. Rebuilding at
+  # deploy time would mean prod runs code the checks never saw.
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: 20
+          cache: npm            # dependency cache: lockfile-hash keyed
+      - run: npm ci
+
+      # Build-output cache (incremental compilation), separate from the dep
+      # cache. Key = lockfile + source hash for exact hits; restore-keys falls
+      # back to the newest partial match so a near-miss still speeds the build.
+      - uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        with:
+          path: .next/cache     # or .turbo, dist/.cache, target/, etc.
+          key: build-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('src/**') }}
+          restore-keys: |
+            build-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}-
+            build-${{ runner.os }}-
+
+      - run: npm run build
+
+      # Version the artifact with the immutable commit SHA. Rollback later is
+      # just "deploy the previous SHA's artifact" -- no rebuild, no surprises.
+      - uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
+        with:
+          name: build-${{ github.sha }}
+          path: dist/           # adjust to your build output
+          retention-days: 30    # keeps recent releases redeployable
+
+  # ---- Deploy --------------------------------------------------------------
+  # Gated three ways:
+  #  1. `needs`: every check AND the build must be green. A failed lint job
+  #     blocks deploy even though deploy never reads lint's output.
+  #  2. `if`: only pushes to main deploy -- PRs run checks, never touch prod.
+  #  3. `environment: production`: activates the protection rules configured in
+  #     repo Settings > Environments (required reviewers, wait timer, branch
+  #     allowlist). Those rules live in settings, NOT in this file, so a PR
+  #     editing this YAML cannot remove the approval gate.
+
+  deploy:
+    needs: [lint, typecheck, test, build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: https://example.com          # shown on the run + deployments page
+    # Deploys queue, never cancel: cancel-in-progress here could kill a run
+    # between "migrations applied" and "new code serving" -- the worst state.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write         # REQUIRED for OIDC: lets the job mint an identity token
+    steps:
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: build-${{ github.sha }}   # deploy exactly what CI tested
+          path: dist/
+
+      # OIDC instead of stored keys. A long-lived AWS_SECRET_ACCESS_KEY in repo
+      # secrets never expires, works from any machine, and is a permanent theft
+      # target. With OIDC, GitHub signs a short-lived token asserting
+      # "repo X, branch main, environment production"; the cloud role's trust
+      # policy checks those claims and issues credentials that expire in
+      # minutes. Nothing sits at rest to steal, nothing to rotate.
+      - uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/github-deploy-prod
+          aws-region: us-east-1
+
+      - name: Deploy
+        run: ./scripts/deploy.sh dist/ "${{ github.sha }}"
+        # The SHA travels with the deploy so the environment records exactly
+        # which artifact is live -- the same identifier rollback will use.
+
+      # A deploy that returns 500s "succeeded" as far as YAML is concerned.
+      # Smoke-test the health endpoint plus 2-3 critical user paths against
+      # the LIVE environment before calling it done.
+      - name: Post-deploy smoke test
+        run: |
+          curl --fail --retry 5 --retry-delay 5 --retry-all-errors \
+            https://example.com/healthz
+          npm run smoke:prod
+
+      # Automated rollback: redeploy the previous artifact the moment the smoke
+      # test fails, instead of paging a human to do it manually at 2am.
+      # Requires immutable, versioned artifacts (see build job) to exist.
+      - name: Rollback on failure
+        if: failure()
+        run: ./scripts/deploy.sh --rollback-to-previous
