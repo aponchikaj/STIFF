@@ -19,6 +19,10 @@ import { AppService } from './app.service';
         username: config.get<string>('DB_USERNAME', 'stiff'),
         password: config.get<string>('DB_PASSWORD', 'stiff'),
         database: config.get<string>('DB_NAME', 'stiff'),
+        ssl:
+          config.get<string>('DB_SSL') === 'true'
+            ? { rejectUnauthorized: false }
+            : false,
         autoLoadEntities: true,
         synchronize: config.get<string>('NODE_ENV') !== 'production',
       }),

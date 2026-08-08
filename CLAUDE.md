@@ -32,6 +32,10 @@ means push directly to `main`, no intermediate steps required.
 
 ## Conventions
 
+- **Archivo Black is the brand's main font.** It's the `body` default in
+  `frontend/src/app/globals.css` (via `--font-archivo-black`) — all text uses it
+  unless a component opts out. Geist remains loaded as a fallback/secondary.
+
 - **No Docker.** PostgreSQL runs as a local install on the machine
   (EDB installer, `/Library/PostgreSQL/`). Never add Docker files or suggest
   Docker-based workflows.
