@@ -24,23 +24,11 @@ Monorepo for the STIFF brand project. Two independent apps, each with its own
 - `npm run test:e2e` — e2e tests
 - `npm run lint` — ESLint (flat config)
 
-## Branch workflow
+## Branches
 
-Promotion pipeline: **local → `stage` → `pre-prod` → `main`**. Never skip a stage,
-and never push work directly to `main`.
-
-1. **Local** — build and test features locally (working branch or directly, per task).
-2. **`stage`** — first remote destination for all new work. Push here and run
-   functional testing (does it work at all).
-3. **`pre-prod`** — promote from `stage` once stage testing passes. This is the
-   human-testing gate: real staff members test the build here before anything
-   goes further. Nothing reaches `main` without passing staff testing on `pre-prod`.
-4. **`main`** — production. Only receives code promoted from `pre-prod` after
-   staff sign-off. A push to `main` means "this is live."
-
-Promotions are merges in one direction (stage → pre-prod → main); don't merge
-backwards from main into stage except to sync after a release. Hotfixes still
-flow through the same pipeline, just faster.
+Branches `stage`, `pre-prod`, and `main` exist, but there is no mandatory
+promotion pipeline. Push to whichever branch the user names — "push to main"
+means push directly to `main`, no intermediate steps required.
 
 ## Conventions
 
