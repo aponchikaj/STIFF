@@ -11,7 +11,7 @@ const links = [
 
 export function Navbar() {
   return (
-    <header className="sticky top-0 z-50 border-b border-subtle bg-background/90 backdrop-blur">
+    <header className="site-header sticky top-0 z-50 border-b border-subtle bg-background/90 backdrop-blur">
       <nav
         aria-label="Main"
         className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6"

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AsteriskMark } from "@/components/asterisk-mark";
 import { CategoryRows } from "@/components/category-rows";
+import { IntroOverlay } from "@/components/intro-overlay";
 import { MarqueeBand } from "@/components/marquee-band";
 import { Magnetic, Reveal } from "@/components/motion";
 import { ProductCard } from "@/components/product-card";
@@ -9,6 +10,7 @@ import { featuredProducts } from "@/lib/products";
 export default function Home() {
   return (
     <>
+      <IntroOverlay />
       <section className="flex h-[87svh] items-center justify-center px-6">
         <div className="flex items-center gap-4 sm:gap-6">
           <AsteriskMark className="spin-on-hover size-16 sm:size-28" />

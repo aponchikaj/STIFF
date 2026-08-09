@@ -55,6 +55,26 @@ h2 {
   }
 }
 
+/* Intro: group starts shifted right by 40% (≈ half the wordmark) so the
+   asterisk reads as centered, then settles left while STIFF slides out. */
+@keyframes intro-shift {
+  from {
+    transform: translateX(40%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes intro-slide {
+  from {
+    transform: translateX(-108%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
 /* Ambient motion is decorative — skipped under reduced motion. */
 @media (prefers-reduced-motion: no-preference) {
   .animate-spin-slow {
@@ -68,5 +88,23 @@ h2 {
   }
   .marquee-track {
     animation: marquee 22s linear infinite;
+  }
+  .intro-hold {
+    transform: translateX(40%);
+  }
+  .intro-shift-run {
+    animation: intro-shift 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .intro-slide-run {
+    animation: intro-slide 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  /* Navbar stays parked above the viewport while the intro plays,
+     then drops in once the overlay starts fading. */
+  html.intro-nav-wait .site-header {
+    transform: translateY(-100%);
+  }
+  html.intro-nav-drop .site-header {
+    transform: translateY(0);
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
   }
 }
