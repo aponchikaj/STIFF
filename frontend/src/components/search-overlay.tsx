@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { searchApi } from "@/lib/api";
 import type { SearchResults } from "@/lib/api";
 import { formatPrice } from "@/lib/format";
@@ -72,7 +73,9 @@ export function SearchOverlay({
   const empty =
     results && results.products.length === 0 && results.gallery.length === 0;
 
-  return (
+  // Portaled to <body>: the navbar's backdrop-blur would otherwise make the
+  // header the containing block for this fixed overlay.
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -181,6 +184,7 @@ export function SearchOverlay({
           </section>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

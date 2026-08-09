@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { AsteriskMark } from "./asterisk-mark";
 import { MenuIcon, XIcon } from "./icons";
@@ -12,7 +13,12 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 export function MobileMenu() {
   const { user, shopEnabled, cartCount, unreadCount } = useSession();
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const reduce = useReducedMotion();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -65,9 +71,14 @@ export function MobileMenu() {
         <MenuIcon className="size-5" />
       </button>
 
-      <AnimatePresence>
-        {open && (
-          <>
+      {/* Portaled to <body>: the navbar's backdrop-blur makes the header the
+          containing block for fixed children, which pinned this panel to the
+          64px bar and let page content stack over it. */}
+      {mounted &&
+        createPortal(
+          <AnimatePresence>
+            {open && (
+              <>
             <motion.button
               type="button"
               aria-label="Close menu"
@@ -135,9 +146,11 @@ export function MobileMenu() {
                 ))}
               </ul>
             </motion.nav>
-          </>
+              </>
+            )}
+          </AnimatePresence>,
+          document.body,
         )}
-      </AnimatePresence>
     </>
   );
 }
