@@ -8,7 +8,7 @@ import { featuredProducts } from "@/lib/products";
 export default function Home() {
   return (
     <>
-      <section className="flex h-[calc(100svh-4rem)] flex-col items-center justify-center gap-6 px-6">
+      <section className="flex h-[90svh] flex-col items-center justify-center gap-6 px-6">
         <div className="flex items-center gap-4 sm:gap-6">
           <AsteriskMark className="spin-on-hover size-16 sm:size-28" />
           <h1 className="text-7xl uppercase leading-none tracking-tight sm:text-9xl">
