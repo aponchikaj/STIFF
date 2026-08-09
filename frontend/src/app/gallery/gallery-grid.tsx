@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { galleryApi } from "@/lib/api";
 import { useAsync } from "@/lib/hooks";
-import { Reveal } from "@/components/motion";
+import { ScaleIn } from "@/components/motion";
 import { ErrorNote, Loading } from "@/components/ui";
 import { ProductImage } from "@/components/product-image";
 
@@ -38,7 +38,7 @@ export function GalleryGrid() {
   return (
     <div className="mt-10 columns-2 gap-4 sm:mt-12 sm:columns-3 lg:columns-4 xl:columns-5">
       {items.map((item, i) => (
-        <Reveal
+        <ScaleIn
           key={item.id}
           delay={(i % 3) * 0.06}
           className="mb-4 break-inside-avoid"
@@ -62,7 +62,7 @@ export function GalleryGrid() {
               </figcaption>
             </figure>
           </Link>
-        </Reveal>
+        </ScaleIn>
       ))}
     </div>
   );

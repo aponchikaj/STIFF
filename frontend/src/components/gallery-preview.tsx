@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { galleryApi } from "@/lib/api";
 import { useAsync } from "@/lib/hooks";
-import { Reveal } from "./motion";
+import { ScaleIn } from "./motion";
 import { ProductImage } from "./product-image";
 
 /** Latest gallery shots for the home page; renders nothing while empty. */
@@ -20,7 +20,7 @@ export function GalleryPreview() {
     <ul className="mt-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
       {items.map((item, i) => (
         <li key={item.id}>
-          <Reveal delay={i * 0.06}>
+          <ScaleIn delay={i * 0.06}>
             <Link
               href={`/gallery/${item.id}`}
               className="group block rounded-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
@@ -35,7 +35,7 @@ export function GalleryPreview() {
                 {item.title}
               </p>
             </Link>
-          </Reveal>
+          </ScaleIn>
         </li>
       ))}
     </ul>

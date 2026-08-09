@@ -10,7 +10,7 @@ import { HomeHero } from "@/components/home-hero";
 import { IfGuest, IfShop } from "@/components/if-shop";
 import { IntroOverlay } from "@/components/intro-overlay";
 import { MarqueeBand } from "@/components/marquee-band";
-import { Magnetic, Reveal } from "@/components/motion";
+import { Magnetic, Parallax, Reveal } from "@/components/motion";
 import { ProductCarousel } from "@/components/product-carousel";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
@@ -112,8 +112,8 @@ export default function Home() {
       </section>
 
       {/* 4 — Brand statement, admin-editable */}
-      <section className="border-y border-subtle bg-surface">
-        <div className="mx-auto w-full max-w-3xl px-4 py-24 text-center sm:px-6 sm:py-32">
+      <section className="overflow-hidden border-y border-subtle bg-surface">
+        <Parallax range={28} className="mx-auto w-full max-w-3xl px-4 py-24 text-center sm:px-6 sm:py-32">
           <Reveal>
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
               05 — The idea
@@ -127,7 +127,7 @@ export default function Home() {
               </Link>
             </Magnetic>
           </Reveal>
-        </div>
+        </Parallax>
       </section>
 
       {/* 6 — What we stand for: inverted black band */}

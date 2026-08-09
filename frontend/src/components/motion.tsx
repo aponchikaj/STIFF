@@ -5,10 +5,105 @@ import {
   motion,
   useMotionValue,
   useReducedMotion,
+  useScroll,
   useSpring,
+  useTransform,
 } from "framer-motion";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
+
+/** Hairline page-scroll progress bar pinned under the navbar. */
+export function ScrollProgress() {
+  const reduce = useReducedMotion();
+  const { scrollYProgress } = useScroll();
+  const scaleX = useSpring(scrollYProgress, {
+    stiffness: 200,
+    damping: 40,
+    restDelta: 0.001,
+  });
+  if (reduce) return null;
+  return (
+    <motion.div
+      aria-hidden="true"
+      style={{ scaleX }}
+      className="fixed inset-x-0 top-16 z-40 h-0.5 origin-left bg-foreground"
+    />
+  );
+}
+
+/** Image-tile entrance: slight scale + fade as it enters the viewport. */
+export function ScaleIn({
+  children,
+  delay = 0,
+  className,
+}: {
+  children: React.ReactNode;
+  delay?: number;
+  className?: string;
+}) {
+  const reduce = useReducedMotion();
+  return (
+    <motion.div
+      className={className}
+      initial={reduce ? false : { opacity: 0, scale: 0.94 }}
+      whileInView={{ opacity: 1, scale: 1 }}
+      viewport={{ once: true, margin: "-8% 0px" }}
+      transition={{ duration: 0.7, ease: EASE, delay }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/** Scroll-linked drift: children move vertically as the section scrolls by. */
+export function Parallax({
+  children,
+  range = 32,
+  className,
+}: {
+  children: React.ReactNode;
+  range?: number;
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const reduce = useReducedMotion();
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start end", "end start"],
+  });
+  const y = useTransform(scrollYProgress, [0, 1], [range, -range]);
+  return (
+    <motion.div ref={ref} style={reduce ? undefined : { y }} className={className}>
+      {children}
+    </motion.div>
+  );
+}
+
+/** Rotates its child (the asterisk) as the page scrolls past it. */
+export function ScrollSpin({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const reduce = useReducedMotion();
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start end", "end start"],
+  });
+  const rotate = useTransform(scrollYProgress, [0, 1], [0, 360]);
+  return (
+    <motion.div
+      ref={ref}
+      style={reduce ? undefined : { rotate }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
 
 export function Reveal({
   children,

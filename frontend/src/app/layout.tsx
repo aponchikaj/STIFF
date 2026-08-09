@@ -3,6 +3,7 @@ import { Archivo, Archivo_Black } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { ScrollProgress } from "@/components/motion";
 import { Providers } from "@/components/providers";
 import {
   IS_INDEXABLE,
@@ -112,6 +113,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <Providers>
           <Navbar />
+          <ScrollProgress />
           {/* Fills at least one full screen (minus the h-16 navbar), so the
               footer is only reached by scrolling. */}
           <div className="flex min-h-[calc(100svh-4rem)] flex-1 flex-col">

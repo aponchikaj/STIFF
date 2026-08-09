@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AsteriskMark } from "@/components/asterisk-mark";
-import { Magnetic, Reveal } from "@/components/motion";
+import { Magnetic, Reveal, ScrollSpin } from "@/components/motion";
 import { AboutIntro } from "./about-intro";
 
 export const metadata: Metadata = {
@@ -29,7 +29,10 @@ const values = [
 function Separator() {
   return (
     <div aria-hidden="true" className="flex justify-center py-14">
-      <AsteriskMark className="spin-on-hover size-6 text-muted" />
+      {/* Rotates with scroll position */}
+      <ScrollSpin>
+        <AsteriskMark className="size-6 text-muted" />
+      </ScrollSpin>
     </div>
   );
 }
