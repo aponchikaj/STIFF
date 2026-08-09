@@ -34,7 +34,7 @@ const socials = [
   { name: "TikTok", href: "https://www.tiktok.com/@stiff", Icon: TikTokIcon },
   {
     name: "Instagram",
-    href: "https://www.instagram.com/stiff",
+    href: "https://www.instagram.com/stiff__________/",
     Icon: InstagramIcon,
   },
 ];
