@@ -39,6 +39,93 @@ export class MailService {
     );
   }
 
+  async sendOrderInvoice(
+    email: string,
+    order: {
+      id: string;
+      createdAt: Date;
+      totalCents: number;
+      items: {
+        productName: string;
+        size: string;
+        quantity: number;
+        unitPriceCents: number;
+      }[];
+      shippingAddress?: {
+        firstName?: string;
+        lastName?: string;
+        line1?: string;
+        city?: string;
+        country?: string;
+        phone?: string;
+      } | null;
+    },
+  ): Promise<void> {
+    const money = (cents: number) => `${(cents / 100).toFixed(2)} GEL`;
+    const shortId = order.id.slice(0, 8).toUpperCase();
+    const cell =
+      'padding:10px 0;border-bottom:1px solid #e4e4e7;font-size:14px;color:#000;';
+
+    const rows = order.items
+      .map(
+        (item) =>
+          `<tr><td style="${cell}">${item.productName}${
+            item.size ? ` (${item.size})` : ''
+          } × ${item.quantity}</td><td style="${cell}text-align:right;">${money(
+            item.unitPriceCents * item.quantity,
+          )}</td></tr>`,
+      )
+      .join('');
+
+    const address = order.shippingAddress
+      ? [
+          [order.shippingAddress.firstName, order.shippingAddress.lastName]
+            .filter(Boolean)
+            .join(' '),
+          order.shippingAddress.line1,
+          order.shippingAddress.city,
+          order.shippingAddress.country,
+          order.shippingAddress.phone,
+        ]
+          .filter(Boolean)
+          .join(', ')
+      : null;
+
+    const html = `
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#000;">
+  <p style="font-size:28px;font-weight:900;letter-spacing:-1px;margin:0;">* STIFF</p>
+  <p style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#52525b;margin:6px 0 28px;">Order confirmation</p>
+  <p style="font-size:14px;line-height:1.6;margin:0 0 20px;">
+    Thanks for your order. It's confirmed and paid — we'll notify you at every step until it's at your door.
+  </p>
+  <table style="width:100%;border-collapse:collapse;margin:0 0 4px;">
+    <tr>
+      <td style="${cell}color:#52525b;">Order</td>
+      <td style="${cell}text-align:right;font-weight:bold;">#${shortId}</td>
+    </tr>
+    <tr>
+      <td style="${cell}color:#52525b;">Date</td>
+      <td style="${cell}text-align:right;">${order.createdAt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+    </tr>
+    ${rows}
+    <tr>
+      <td style="padding:14px 0;font-size:16px;font-weight:900;">Total</td>
+      <td style="padding:14px 0;font-size:16px;font-weight:900;text-align:right;">${money(order.totalCents)}</td>
+    </tr>
+  </table>
+  ${address ? `<p style="font-size:12px;line-height:1.6;color:#52525b;margin:16px 0 0;">Ship to: ${address}</p>` : ''}
+  <a href="${this.frontendUrl}/account" style="display:inline-block;margin-top:28px;padding:14px 28px;background:#000;color:#fff;font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;text-decoration:none;">Track my order</a>
+  <p style="font-size:11px;color:#a1a1aa;margin-top:32px;">STIFF — essential clothing, Tbilisi. Questions? Just reply to this email.</p>
+</div>`;
+
+    await this.send(
+      email,
+      `Order #${shortId} confirmed — STIFF`,
+      html,
+      `${this.frontendUrl}/account`,
+    );
+  }
+
   private async send(
     to: string,
     subject: string,

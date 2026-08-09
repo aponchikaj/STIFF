@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { CartItem } from '../cart/cart-item.entity';
 import { Paginated, paginate } from '../common/types/paginated';
+import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Product } from '../products/product.entity';
 import { User } from '../users/user.entity';
@@ -40,6 +41,7 @@ export class OrdersService {
     @InjectRepository(Order) private readonly orderRepo: Repository<Order>,
     private readonly dataSource: DataSource,
     private readonly notificationsService: NotificationsService,
+    private readonly mailService: MailService,
   ) {}
 
   async checkout(user: User, dto: CheckoutDto): Promise<Order> {
@@ -59,6 +61,8 @@ export class OrdersService {
 
     const order = await this.placeOrder(user, lines, dto, true);
     await this.notifyStatus(order);
+    // Fire-and-forget invoice email; MailService logs failures internally.
+    void this.mailService.sendOrderInvoice(user.email, order);
     return order;
   }
 
@@ -81,6 +85,7 @@ export class OrdersService {
       false,
     );
     await this.notifyStatus(order);
+    void this.mailService.sendOrderInvoice(user.email, order);
     return order;
   }
 
