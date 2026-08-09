@@ -349,7 +349,9 @@ function OrderDetails({
           <p className="mt-3 text-xs leading-6 text-muted">
             Ship to:{" "}
             {[
-              address.fullName,
+              [address.firstName, address.lastName]
+                .filter(Boolean)
+                .join(" ") || address.fullName,
               address.line1,
               address.city,
               address.postalCode,

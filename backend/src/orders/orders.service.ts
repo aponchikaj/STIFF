@@ -127,7 +127,7 @@ export class OrdersService {
           totalCents,
           currency: 'usd',
           paymentIntentId: null,
-          shippingAddress: dto.shippingAddress ?? null,
+          shippingAddress: dto.shippingAddress,
         }),
       );
 

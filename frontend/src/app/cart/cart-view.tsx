@@ -34,7 +34,6 @@ export function CartView() {
   const [note, setNote] = useState<string | null>(null);
   const [needsVerify, setNeedsVerify] = useState(false);
   const [order, setOrder] = useState<Order | null>(null);
-  const [showAddress, setShowAddress] = useState(false);
 
   if (!shopEnabled) return <ShopClosed />;
   if (sessionLoading) return <Loading label="Loading cart" />;
@@ -109,20 +108,18 @@ export function CartView() {
     e.preventDefault();
     const data = new FormData(e.currentTarget);
     const address: ShippingAddress = {
-      fullName: String(data.get("fullName") ?? "") || undefined,
-      line1: String(data.get("line1") ?? "") || undefined,
-      city: String(data.get("city") ?? "") || undefined,
-      postalCode: String(data.get("postalCode") ?? "") || undefined,
-      country: String(data.get("country") ?? "") || undefined,
-      phone: String(data.get("phone") ?? "") || undefined,
+      firstName: String(data.get("firstName") ?? ""),
+      lastName: String(data.get("lastName") ?? ""),
+      line1: String(data.get("line1") ?? ""),
+      city: String(data.get("city") ?? ""),
+      country: String(data.get("country") ?? ""),
+      phone: String(data.get("phone") ?? ""),
     };
     setCheckingOut(true);
     setNote(null);
     setNeedsVerify(false);
     try {
-      const placed = await cartApi.checkout(
-        showAddress ? { shippingAddress: address } : undefined,
-      );
+      const placed = await cartApi.checkout({ shippingAddress: address });
       setOrder(placed);
       await refreshBadges();
     } catch (err) {
@@ -288,70 +285,69 @@ export function CartView() {
                 </div>
               )}
 
-              <button
-                type="button"
-                onClick={() => setShowAddress((s) => !s)}
-                className={`${btnGhostSm} self-start`}
-                aria-expanded={showAddress}
-              >
-                {showAddress
-                  ? "− Hide shipping address"
-                  : "+ Add shipping address"}
-              </button>
-              {showAddress && (
-                <div className="grid gap-4">
-                  <Field id="ship-name" label="Full name">
+              <p className={labelCls}>Shipping details</p>
+              <div className="grid gap-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <Field id="ship-first" label="Name">
                     <input
-                      id="ship-name"
-                      name="fullName"
-                      autoComplete="name"
+                      id="ship-first"
+                      name="firstName"
+                      required
+                      autoComplete="given-name"
                       className={inputCls}
                     />
                   </Field>
-                  <Field id="ship-phone" label="Phone">
+                  <Field id="ship-last" label="Last name">
                     <input
-                      id="ship-phone"
-                      name="phone"
-                      autoComplete="tel"
+                      id="ship-last"
+                      name="lastName"
+                      required
+                      autoComplete="family-name"
                       className={inputCls}
                     />
                   </Field>
-                  <Field id="ship-line1" label="Address">
+                </div>
+                <Field id="ship-line1" label="Address">
+                  <input
+                    id="ship-line1"
+                    name="line1"
+                    required
+                    autoComplete="street-address"
+                    className={inputCls}
+                  />
+                </Field>
+                <Field id="ship-phone" label="Phone">
+                  <input
+                    id="ship-phone"
+                    name="phone"
+                    type="tel"
+                    required
+                    minLength={3}
+                    autoComplete="tel"
+                    className={inputCls}
+                  />
+                </Field>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field id="ship-city" label="City">
                     <input
-                      id="ship-line1"
-                      name="line1"
-                      autoComplete="address-line1"
+                      id="ship-city"
+                      name="city"
+                      required
+                      autoComplete="address-level2"
                       className={inputCls}
                     />
                   </Field>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field id="ship-city" label="City">
-                      <input
-                        id="ship-city"
-                        name="city"
-                        autoComplete="address-level2"
-                        className={inputCls}
-                      />
-                    </Field>
-                    <Field id="ship-postal" label="Postal code">
-                      <input
-                        id="ship-postal"
-                        name="postalCode"
-                        autoComplete="postal-code"
-                        className={inputCls}
-                      />
-                    </Field>
-                  </div>
                   <Field id="ship-country" label="Country">
                     <input
                       id="ship-country"
                       name="country"
+                      required
                       autoComplete="country-name"
                       className={inputCls}
                     />
                   </Field>
                 </div>
-              )}
+              </div>
 
               <button
                 type="submit"

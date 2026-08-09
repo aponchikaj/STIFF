@@ -16,6 +16,8 @@ export type OrderStatus =
   'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
 
 export interface ShippingAddress {
+  firstName?: string;
+  lastName?: string;
   fullName?: string;
   line1?: string;
   line2?: string;

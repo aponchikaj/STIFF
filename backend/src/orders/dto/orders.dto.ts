@@ -10,54 +10,59 @@ import {
   Max,
   MaxLength,
   Min,
+  MinLength,
   ValidateNested,
 } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import type { OrderStatus } from '../order.entity';
 
 export class ShippingAddressDto {
-  @IsOptional()
   @IsString()
-  @MaxLength(120)
-  fullName?: string;
+  @MinLength(1)
+  @MaxLength(60)
+  firstName: string;
 
-  @IsOptional()
   @IsString()
+  @MinLength(1)
+  @MaxLength(60)
+  lastName: string;
+
+  @IsString()
+  @MinLength(1)
   @MaxLength(200)
-  line1?: string;
+  line1: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(200)
   line2?: string;
 
-  @IsOptional()
   @IsString()
+  @MinLength(1)
   @MaxLength(80)
-  city?: string;
+  city: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(20)
   postalCode?: string;
 
-  @IsOptional()
   @IsString()
+  @MinLength(1)
   @MaxLength(80)
-  country?: string;
+  country: string;
 
-  @IsOptional()
   @IsString()
+  @MinLength(3)
   @MaxLength(30)
-  phone?: string;
+  phone: string;
 }
 
 export class CheckoutDto {
-  @IsOptional()
   @IsObject()
   @ValidateNested()
   @Type(() => ShippingAddressDto)
-  shippingAddress?: ShippingAddressDto;
+  shippingAddress: ShippingAddressDto;
 }
 
 export class BuyNowDto extends CheckoutDto {
