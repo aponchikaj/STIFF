@@ -15,7 +15,13 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   app.use(cookieParser());
   app.enableCors({
-    origin: process.env.FRONTEND_URL ?? 'http://localhost:3000',
+    origin: [
+      process.env.FRONTEND_URL ?? 'http://localhost:3000',
+      'https://stiff.ge',
+      'https://www.stiff.ge',
+      'https://stage.stiff.ge',
+      'https://pre-prod.stiff.ge',
+    ],
     credentials: true,
   });
   app.useGlobalPipes(
