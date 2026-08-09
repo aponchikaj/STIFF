@@ -17,6 +17,7 @@ function dateKey(daysAgo: number): string {
 export function TrafficTab() {
   const [rangeDays, setRangeDays] = useState<(typeof RANGES)[number]>(7);
   const [metric, setMetric] = useState<"views" | "visitors">("visitors");
+  const [hovered, setHovered] = useState<number | null>(null);
   const { data, loading, error } = useAsync(
     () =>
       adminApi.getTraffic({
@@ -95,18 +96,37 @@ export function TrafficTab() {
         </div>
 
         <div className="mt-6">
-          <div className="flex h-44 items-end gap-px border-b border-subtle sm:gap-0.5">
-            {days.map((day) => (
+          <div
+            className="relative flex h-44 items-end gap-px border-b border-subtle sm:gap-0.5"
+            onMouseLeave={() => setHovered(null)}
+          >
+            {hovered !== null && days[hovered] && (
+              <div
+                className="pointer-events-none absolute bottom-full z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-[2px] bg-foreground px-2.5 py-1.5 text-background"
+                style={{ left: `${((hovered + 0.5) / days.length) * 100}%` }}
+              >
+                <p className="text-[10px] font-bold uppercase tracking-[0.1em]">
+                  {days[hovered].date}
+                </p>
+                <p className="text-[10px]">
+                  Visitors: {days[hovered].visitors} · Views:{" "}
+                  {days[hovered].views}
+                </p>
+              </div>
+            )}
+            {days.map((day, i) => (
               <div
                 key={day.date}
-                title={`${day.date} — ${day.visitors} visitors, ${day.views} views`}
-                className="group relative flex-1"
+                onMouseEnter={() => setHovered(i)}
+                className="group relative flex-1 cursor-crosshair"
               >
                 <div
                   className={`w-full transition-colors ${
-                    day.value > 0
-                      ? "bg-foreground group-hover:bg-muted"
-                      : "bg-subtle"
+                    hovered === i
+                      ? "bg-muted"
+                      : day.value > 0
+                        ? "bg-foreground"
+                        : "bg-subtle"
                   }`}
                   style={{
                     height: `${day.value > 0 ? Math.max(4, (day.value / maxValue) * 176) : 2}px`,

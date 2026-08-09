@@ -43,6 +43,7 @@ export function OverviewTab() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [metric, setMetric] = useState<TimeseriesMetric>("revenue");
+  const [hovered, setHovered] = useState<number | null>(null);
 
   const { data: overview, loading, error } = useAsync(
     () => adminApi.getOverview(),
@@ -154,20 +155,40 @@ export function OverviewTab() {
           <Loading label="Loading chart" />
         ) : (
           <div className="mt-6">
-            <div className="flex h-44 items-end gap-px border-b border-subtle sm:gap-0.5">
-              {days.map(({ day, value }) => (
+            <div
+              className="relative flex h-44 items-end gap-px border-b border-subtle sm:gap-0.5"
+              onMouseLeave={() => setHovered(null)}
+            >
+              {hovered !== null && days[hovered] && (
+                <div
+                  className="pointer-events-none absolute bottom-full z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-[2px] bg-foreground px-2.5 py-1.5 text-background"
+                  style={{
+                    left: `${((hovered + 0.5) / days.length) * 100}%`,
+                  }}
+                >
+                  <p className="text-[10px] font-bold uppercase tracking-[0.1em]">
+                    {days[hovered].day} {MONTH_NAMES[month]} {year}
+                  </p>
+                  <p className="text-[10px]">
+                    {metric === "revenue"
+                      ? `Revenue: ${formatPrice(days[hovered].value)}`
+                      : `${metric === "orders" ? "Orders" : "Signups"}: ${days[hovered].value}`}
+                  </p>
+                </div>
+              )}
+              {days.map(({ day, value }, i) => (
                 <div
                   key={day}
-                  title={`${day} ${MONTH_NAMES[month]} — ${
-                    metric === "revenue" ? formatPrice(value) : value
-                  }`}
-                  className="group relative flex-1"
+                  onMouseEnter={() => setHovered(i)}
+                  className="group relative flex-1 cursor-crosshair"
                 >
                   <div
                     className={`w-full transition-colors ${
-                      value > 0
-                        ? "bg-foreground group-hover:bg-muted"
-                        : "bg-subtle"
+                      hovered === i
+                        ? "bg-muted"
+                        : value > 0
+                          ? "bg-foreground"
+                          : "bg-subtle"
                     }`}
                     style={{
                       height: `${value > 0 ? Math.max(4, (value / maxValue) * 176) : 2}px`,
