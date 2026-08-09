@@ -54,10 +54,10 @@ export default function Home() {
           </Reveal>
         </section>
 
-        {/* 2 — Most wanted: the pieces people like most */}
+        {/* 2 — Most wanted: inverted black band */}
         <section
           aria-label="Most wanted"
-          className="w-full border-t border-subtle px-4 py-20 sm:px-6 sm:py-24"
+          className="theme-invert w-full bg-background px-4 py-20 text-foreground sm:px-6 sm:py-24"
         >
           <Reveal className="flex flex-wrap items-end justify-between gap-x-4 gap-y-5">
             <div>
@@ -130,10 +130,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 6 — What we stand for */}
+      {/* 6 — What we stand for: inverted black band */}
       <section
         aria-label="Values"
-        className="w-full border-b border-subtle px-4 py-20 sm:px-6 sm:py-24"
+        className="theme-invert w-full bg-background px-4 py-20 text-foreground sm:px-6 sm:py-24"
       >
         <Reveal>
           <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
