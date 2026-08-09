@@ -8,16 +8,13 @@ import { featuredProducts } from "@/lib/products";
 export default function Home() {
   return (
     <>
-      <section className="flex h-[87svh] flex-col items-center justify-center gap-6 px-6">
+      <section className="flex h-[87svh] items-center justify-center px-6">
         <div className="flex items-center gap-4 sm:gap-6">
           <AsteriskMark className="spin-on-hover size-16 sm:size-28" />
           <h1 className="text-7xl uppercase leading-none tracking-tight sm:text-9xl">
             Stiff
           </h1>
         </div>
-        <p className="text-xs font-medium uppercase tracking-[0.35em] text-muted sm:text-sm">
-          Essential clothing. Nothing extra.
-        </p>
       </section>
 
       <MarqueeBand />
