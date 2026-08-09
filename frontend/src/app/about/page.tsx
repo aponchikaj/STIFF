@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { AsteriskMark } from "@/components/asterisk-mark";
-import { Reveal } from "@/components/motion";
+import { Magnetic, Reveal } from "@/components/motion";
 
 export const metadata: Metadata = { title: "About — STIFF" };
 
@@ -54,6 +55,18 @@ export default function AboutPage() {
           </Reveal>
         </div>
       ))}
+
+      <Separator />
+      <Reveal className="flex justify-center">
+        <Magnetic>
+          <Link
+            href="/clothing"
+            className="flex h-12 items-center rounded-[2px] bg-foreground px-8 text-xs font-bold uppercase tracking-[0.2em] text-background transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            See the first drop
+          </Link>
+        </Magnetic>
+      </Reveal>
     </section>
   );
 }

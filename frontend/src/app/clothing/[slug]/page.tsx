@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AsteriskMark } from "@/components/asterisk-mark";
 import { Reveal } from "@/components/motion";
+import { ProductCard } from "@/components/product-card";
 import { ProductControls } from "@/components/product-controls";
 import { getProduct, products } from "@/lib/products";
 
@@ -24,7 +25,15 @@ export default async function ProductPage({
   const product = getProduct(slug);
   if (!product) notFound();
 
+  const related = [
+    ...products.filter(
+      (p) => p.category === product.category && p.slug !== product.slug,
+    ),
+    ...products.filter((p) => p.category !== product.category),
+  ].slice(0, 4);
+
   return (
+    <>
     <section className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-2 lg:gap-16">
       <div className="flex flex-col gap-4">
         {/* Placeholder gallery blocks until product photography exists */}
@@ -51,5 +60,23 @@ export default async function ProductPage({
         <ProductControls sizes={product.sizes} />
       </div>
     </section>
+
+    <section className="mx-auto w-full max-w-6xl px-4 pb-24 sm:px-6">
+      <Reveal>
+        <h2 className="text-2xl uppercase tracking-tight sm:text-4xl">
+          More like this
+        </h2>
+      </Reveal>
+      <ul className="mt-8 grid grid-cols-2 gap-x-4 gap-y-10 lg:grid-cols-4">
+        {related.map((p, i) => (
+          <li key={p.slug}>
+            <Reveal delay={i * 0.06}>
+              <ProductCard product={p} />
+            </Reveal>
+          </li>
+        ))}
+      </ul>
+    </section>
+    </>
   );
 }
