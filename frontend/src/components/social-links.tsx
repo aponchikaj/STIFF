@@ -31,7 +31,11 @@ function InstagramIcon() {
 }
 
 const socials = [
-  { name: "TikTok", href: "https://www.tiktok.com/@stiff", Icon: TikTokIcon },
+  {
+    name: "TikTok",
+    href: "https://www.tiktok.com/@stiff____",
+    Icon: TikTokIcon,
+  },
   {
     name: "Instagram",
     href: "https://www.instagram.com/stiff__________/",
