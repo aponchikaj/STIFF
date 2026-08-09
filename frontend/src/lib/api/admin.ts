@@ -19,6 +19,7 @@ import type {
   TimeseriesMetric,
   TimeseriesPoint,
   TopProduct,
+  TrafficReport,
   UpdateGalleryItemInput,
   UpdateProductInput,
   UserStats,
@@ -42,6 +43,13 @@ export function getTopProducts(
   limit?: number,
 ): Promise<{ items: TopProduct[] }> {
   return apiFetch("/admin/analytics/top-products", { query: { limit } });
+}
+
+export function getTraffic(params: {
+  from: string;
+  to: string;
+}): Promise<TrafficReport> {
+  return apiFetch("/admin/analytics/traffic", { query: { ...params } });
 }
 
 // ---------- users ----------
@@ -163,6 +171,16 @@ export function listContacts(
   params?: PaginationParams & { handled?: boolean },
 ): Promise<Paginated<ContactMessage>> {
   return apiFetch("/contact", { query: { ...params } });
+}
+
+export function replyContact(
+  id: string,
+  message: string,
+): Promise<ContactMessage> {
+  return apiFetch(`/contact/${id}/reply`, {
+    method: "POST",
+    body: { message },
+  });
 }
 
 export function setContactHandled(

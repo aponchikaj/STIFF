@@ -47,4 +47,12 @@ export class AnalyticsController {
   ) {
     return this.analyticsService.topProducts(limit);
   }
+
+  @Get('traffic')
+  traffic(@Query('from') from: string, @Query('to') to: string) {
+    if (!from || !to) {
+      throw new BadRequestException('from and to are required (YYYY-MM-DD)');
+    }
+    return this.analyticsService.traffic(from, to);
+  }
 }

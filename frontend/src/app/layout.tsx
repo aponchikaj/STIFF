@@ -5,6 +5,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { ScrollProgress } from "@/components/motion";
 import { Providers } from "@/components/providers";
+import { TrackPageview } from "@/components/track-pageview";
 import {
   IS_INDEXABLE,
   SITE_DESCRIPTION,
@@ -114,6 +115,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <Providers>
           <Navbar />
           <ScrollProgress />
+          <TrackPageview />
           {/* Fills at least one full screen (minus the h-16 navbar), so the
               footer is only reached by scrolling. */}
           <div className="flex min-h-[calc(100svh-4rem)] flex-1 flex-col">

@@ -40,3 +40,10 @@ export class SetHandledDto {
   @IsBoolean()
   handled: boolean;
 }
+
+export class ReplyContactDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(5000)
+  message: string;
+}

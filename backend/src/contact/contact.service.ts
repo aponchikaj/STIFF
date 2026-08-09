@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Paginated, paginate } from '../common/types/paginated';
+import { MailService } from '../mail/mail.service';
 import { ContactMessage } from './contact-message.entity';
 import { ListContactQueryDto, SubmitContactDto } from './dto/contact.dto';
 
@@ -10,7 +11,22 @@ export class ContactService {
   constructor(
     @InjectRepository(ContactMessage)
     private readonly contactRepo: Repository<ContactMessage>,
+    private readonly mailService: MailService,
   ) {}
+
+  /** Email a reply to the sender and mark the message handled. */
+  async reply(id: string, replyText: string): Promise<ContactMessage> {
+    const message = await this.contactRepo.findOne({ where: { id } });
+    if (!message) throw new NotFoundException('Message not found');
+    await this.mailService.sendContactReply(
+      message.email,
+      message.name,
+      replyText,
+      message.message,
+    );
+    message.isHandled = true;
+    return this.contactRepo.save(message);
+  }
 
   async submit(dto: SubmitContactDto): Promise<ContactMessage> {
     return this.contactRepo.save(

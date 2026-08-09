@@ -225,6 +225,30 @@ export interface TimeseriesPoint {
   value: number;
 }
 
+export interface TrafficDay {
+  date: string;
+  views: number;
+  visitors: number;
+}
+
+export interface TrafficPage {
+  path: string;
+  views: number;
+  visitors: number;
+}
+
+export interface TrafficReport {
+  summary: {
+    todayViews: number;
+    todayVisitors: number;
+    rangeViews: number;
+    rangeVisitors: number;
+  };
+  days: TrafficDay[];
+  topPages: TrafficPage[];
+  topProducts: TrafficPage[];
+}
+
 export interface TopProduct {
   productId: string | null;
   name: string;

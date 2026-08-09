@@ -8,8 +8,33 @@ import { Product } from '../products/product.entity';
 import { Comment } from '../comments/comment.entity';
 import { User } from '../users/user.entity';
 import { AnalyticsSnapshot } from './analytics-snapshot.entity';
+import { PageView } from './page-view.entity';
 
 const REVENUE_STATUSES = ['paid', 'shipped', 'delivered'];
+
+export interface TrafficDay {
+  date: string;
+  views: number;
+  visitors: number;
+}
+
+export interface TrafficPage {
+  path: string;
+  views: number;
+  visitors: number;
+}
+
+export interface TrafficReport {
+  summary: {
+    todayViews: number;
+    todayVisitors: number;
+    rangeViews: number;
+    rangeVisitors: number;
+  };
+  days: TrafficDay[];
+  topPages: TrafficPage[];
+  topProducts: TrafficPage[];
+}
 
 export type TimeseriesMetric = 'revenue' | 'orders' | 'signups';
 
@@ -45,7 +70,94 @@ export class AnalyticsService {
     private readonly commentRepo: Repository<Comment>,
     @InjectRepository(ContactMessage)
     private readonly contactRepo: Repository<ContactMessage>,
+    @InjectRepository(PageView)
+    private readonly pageViewRepo: Repository<PageView>,
   ) {}
+
+  async recordView(
+    path: string,
+    visitorId: string,
+    userId: string | null,
+  ): Promise<void> {
+    await this.pageViewRepo.insert({ path, visitorId, userId });
+  }
+
+  async traffic(from: string, to: string): Promise<TrafficReport> {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+      throw new BadRequestException('from/to must be YYYY-MM-DD');
+    }
+    const range = `v."createdAt" >= :from AND v."createdAt" < CAST(:to AS date) + INTERVAL '1 day'`;
+
+    const [daysRaw, topPagesRaw, topProductsRaw, rangeRow, todayRow] =
+      await Promise.all([
+        this.pageViewRepo
+          .createQueryBuilder('v')
+          .select(
+            `TO_CHAR(date_trunc('day', v."createdAt"), 'YYYY-MM-DD')`,
+            'date',
+          )
+          .addSelect('COUNT(*)', 'views')
+          .addSelect('COUNT(DISTINCT v."visitorId")', 'visitors')
+          .where(range, { from, to })
+          .groupBy(`date_trunc('day', v."createdAt")`)
+          .orderBy('date', 'ASC')
+          .getRawMany<{ date: string; views: string; visitors: string }>(),
+        this.topPathsQuery(range, { from, to }, null),
+        this.topPathsQuery(range, { from, to }, '/clothing/%'),
+        this.pageViewRepo
+          .createQueryBuilder('v')
+          .select('COUNT(*)', 'views')
+          .addSelect('COUNT(DISTINCT v."visitorId")', 'visitors')
+          .where(range, { from, to })
+          .getRawOne<{ views: string; visitors: string }>(),
+        this.pageViewRepo
+          .createQueryBuilder('v')
+          .select('COUNT(*)', 'views')
+          .addSelect('COUNT(DISTINCT v."visitorId")', 'visitors')
+          .where(`v."createdAt" >= date_trunc('day', NOW())`)
+          .getRawOne<{ views: string; visitors: string }>(),
+      ]);
+
+    return {
+      summary: {
+        todayViews: Number(todayRow?.views ?? 0),
+        todayVisitors: Number(todayRow?.visitors ?? 0),
+        rangeViews: Number(rangeRow?.views ?? 0),
+        rangeVisitors: Number(rangeRow?.visitors ?? 0),
+      },
+      days: daysRaw.map((d) => ({
+        date: d.date,
+        views: Number(d.views),
+        visitors: Number(d.visitors),
+      })),
+      topPages: topPagesRaw,
+      topProducts: topProductsRaw,
+    };
+  }
+
+  private async topPathsQuery(
+    range: string,
+    params: { from: string; to: string },
+    pathLike: string | null,
+  ): Promise<TrafficPage[]> {
+    const qb = this.pageViewRepo
+      .createQueryBuilder('v')
+      .select('v.path', 'path')
+      .addSelect('COUNT(*)', 'views')
+      .addSelect('COUNT(DISTINCT v."visitorId")', 'visitors')
+      .where(range, params);
+    if (pathLike) qb.andWhere('v.path LIKE :pathLike', { pathLike });
+    const rows = await qb
+      .groupBy('v.path')
+      .orderBy('views', 'DESC')
+      .limit(12)
+      .getRawMany<{ path: string; views: string; visitors: string }>();
+    return rows.map((r) => ({
+      path: r.path,
+      views: Number(r.views),
+      visitors: Number(r.visitors),
+    }));
+  }
 
   async overview(): Promise<AnalyticsOverview> {
     const monthStart = new Date();

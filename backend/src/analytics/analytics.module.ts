@@ -9,11 +9,14 @@ import { User } from '../users/user.entity';
 import { AnalyticsController } from './analytics.controller';
 import { AnalyticsService } from './analytics.service';
 import { AnalyticsSnapshot } from './analytics-snapshot.entity';
+import { PageView } from './page-view.entity';
+import { TrackController } from './track.controller';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       AnalyticsSnapshot,
+      PageView,
       Order,
       OrderItem,
       User,
@@ -22,7 +25,7 @@ import { AnalyticsSnapshot } from './analytics-snapshot.entity';
       ContactMessage,
     ]),
   ],
-  controllers: [AnalyticsController],
+  controllers: [AnalyticsController, TrackController],
   providers: [AnalyticsService],
   exports: [AnalyticsService],
 })

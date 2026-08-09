@@ -15,6 +15,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { ContactService } from './contact.service';
 import {
   ListContactQueryDto,
+  ReplyContactDto,
   SetHandledDto,
   SubmitContactDto,
 } from './dto/contact.dto';
@@ -35,6 +36,12 @@ export class ContactController {
   @Roles('admin')
   list(@Query() query: ListContactQueryDto) {
     return this.contactService.list(query);
+  }
+
+  @Post(':id/reply')
+  @Roles('admin')
+  reply(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ReplyContactDto) {
+    return this.contactService.reply(id, dto.message);
   }
 
   @Patch(':id/handled')

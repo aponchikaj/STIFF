@@ -7,7 +7,10 @@ import { errorMessage, useAsync } from "@/lib/hooks";
 import { btnGhostSm, chipCls, ErrorNote, Loading } from "../ui";
 
 export function ContactsTab() {
-  const [filter, setFilter] = useState<"all" | "open" | "handled">("open");
+  const [filter, setFilter] = useState<"all" | "open" | "handled">("all");
+  const [replyingId, setReplyingId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [sending, setSending] = useState(false);
   const [page, setPage] = useState(1);
   const { data, loading, error, reload } = useAsync(
     () =>
@@ -24,7 +27,7 @@ export function ContactsTab() {
   return (
     <div>
       <div className="flex gap-1.5">
-        {(["open", "handled", "all"] as const).map((f) => (
+        {(["all", "open", "handled"] as const).map((f) => (
           <button
             key={f}
             type="button"
@@ -69,6 +72,16 @@ export function ContactsTab() {
             <div className="mt-2 flex gap-4">
               <button
                 type="button"
+                onClick={() => {
+                  setReplyingId((id) => (id === message.id ? null : message.id));
+                  setReplyText("");
+                }}
+                className={btnGhostSm}
+              >
+                {replyingId === message.id ? "Cancel reply" : "Reply by email"}
+              </button>
+              <button
+                type="button"
                 onClick={async () => {
                   setNote(null);
                   try {
@@ -101,6 +114,44 @@ export function ContactsTab() {
                 Delete
               </button>
             </div>
+            {replyingId === message.id && (
+              <form
+                className="mt-3 flex flex-col gap-2"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!replyText.trim()) return;
+                  setSending(true);
+                  setNote(null);
+                  try {
+                    await adminApi.replyContact(message.id, replyText.trim());
+                    setReplyingId(null);
+                    setReplyText("");
+                    setNote(`Reply emailed to ${message.email}.`);
+                    reload();
+                  } catch (err) {
+                    setNote(errorMessage(err));
+                  } finally {
+                    setSending(false);
+                  }
+                }}
+              >
+                <textarea
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  rows={4}
+                  maxLength={5000}
+                  placeholder={`Reply to ${message.name}…`}
+                  className="w-full rounded-[2px] border border-subtle bg-transparent px-4 py-3 text-sm text-foreground placeholder:text-muted/60 transition-colors focus:border-foreground focus-visible:outline-none"
+                />
+                <button
+                  type="submit"
+                  disabled={sending || !replyText.trim()}
+                  className="flex h-10 items-center self-start rounded-[2px] bg-foreground px-5 text-[11px] font-bold uppercase tracking-[0.15em] text-background transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted disabled:opacity-40"
+                >
+                  {sending ? "Sending…" : "Send reply"}
+                </button>
+              </form>
+            )}
           </li>
         ))}
       </ul>

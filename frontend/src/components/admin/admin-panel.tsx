@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "../providers";
 import { chipCls, Loading } from "../ui";
 import { OverviewTab } from "./overview-tab";
+import { TrafficTab } from "./traffic-tab";
 import { ProductsTab } from "./products-tab";
 import { OrdersTab } from "./orders-tab";
 import { UsersTab } from "./users-tab";
@@ -16,6 +17,7 @@ import { BroadcastTab } from "./broadcast-tab";
 
 const TABS = [
   "Overview",
+  "Traffic",
   "Products",
   "Orders",
   "Users",
@@ -66,6 +68,7 @@ export function AdminPanel() {
       </div>
       <div className="mt-8">
         {tab === "Overview" && <OverviewTab />}
+        {tab === "Traffic" && <TrafficTab />}
         {tab === "Products" && <ProductsTab />}
         {tab === "Orders" && <OrdersTab />}
         {tab === "Users" && <UsersTab />}

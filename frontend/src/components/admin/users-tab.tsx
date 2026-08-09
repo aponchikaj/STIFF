@@ -66,12 +66,30 @@ export function UsersTab() {
                 {u.username}
                 <span className="ml-2 font-medium text-muted">{u.email}</span>
               </p>
-              <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-muted">
-                {u.role}
-                {u.isBlocked ? " · blocked" : ""}
-                {!u.isVerified ? " · unverified" : ""} · {u.ordersCount} orders
-                · joined {formatDate(u.createdAt)}
-              </p>
+              <span className="flex flex-wrap items-center gap-1.5">
+                <span
+                  className={`rounded-[2px] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.15em] ${
+                    u.role === "admin"
+                      ? "bg-foreground text-background"
+                      : "border border-subtle text-muted"
+                  }`}
+                >
+                  {u.role}
+                </span>
+                {u.isBlocked && (
+                  <span className="rounded-[2px] border border-foreground px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.15em]">
+                    Blocked
+                  </span>
+                )}
+                {!u.isVerified && (
+                  <span className="rounded-[2px] border border-subtle px-2 py-0.5 text-[9px] font-medium uppercase tracking-[0.15em] text-muted">
+                    Unverified
+                  </span>
+                )}
+                <span className="text-[10px] font-medium uppercase tracking-[0.15em] text-muted">
+                  {u.ordersCount} orders · joined {formatDate(u.createdAt)}
+                </span>
+              </span>
             </div>
             {u.id !== me?.id && (
               <div className="mt-2 flex flex-wrap gap-4">

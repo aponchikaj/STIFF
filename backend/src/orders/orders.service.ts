@@ -61,8 +61,12 @@ export class OrdersService {
 
     const order = await this.placeOrder(user, lines, dto, true);
     await this.notifyStatus(order);
-    // Fire-and-forget invoice email; MailService logs failures internally.
+    // Fire-and-forget emails; MailService logs failures internally.
     void this.mailService.sendOrderInvoice(user.email, order);
+    void this.mailService.sendNewOrderAlert(order, {
+      username: user.username,
+      email: user.email,
+    });
     return order;
   }
 
@@ -86,6 +90,10 @@ export class OrdersService {
     );
     await this.notifyStatus(order);
     void this.mailService.sendOrderInvoice(user.email, order);
+    void this.mailService.sendNewOrderAlert(order, {
+      username: user.username,
+      email: user.email,
+    });
     return order;
   }
 
