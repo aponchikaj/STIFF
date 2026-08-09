@@ -156,29 +156,40 @@ export class AuthController {
 
   // ---------- cookie helpers ----------
 
-  private get secure(): boolean {
-    return this.configService.get<string>('NODE_ENV') === 'production';
+  /**
+   * Cookie policy is env-driven so the same build works everywhere:
+   * - Behind the frontend's /api proxy (recommended) or on a stiff.ge
+   *   subdomain: default `lax` is correct.
+   * - Backend on a completely different domain: set COOKIE_SAMESITE=none
+   *   (requires HTTPS; browsers may still block third-party cookies).
+   */
+  private get cookieBase() {
+    const sameSite = (this.configService.get<string>('COOKIE_SAMESITE') ??
+      'lax') as 'lax' | 'strict' | 'none';
+    const secure =
+      sameSite === 'none' ||
+      this.configService.get<string>('NODE_ENV') === 'production';
+    return { httpOnly: true as const, sameSite, secure };
   }
 
   private setAuthCookies(res: Response, pair: TokenPair): void {
     res.cookie(ACCESS_COOKIE, pair.accessToken, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: this.secure,
+      ...this.cookieBase,
       maxAge: ACCESS_TTL_MS,
       path: '/',
     });
     res.cookie(REFRESH_COOKIE, pair.refreshToken, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: this.secure,
+      ...this.cookieBase,
       maxAge: REFRESH_TTL_MS,
       path: '/api/auth',
     });
   }
 
   private clearAuthCookies(res: Response): void {
-    res.clearCookie(ACCESS_COOKIE, { path: '/' });
-    res.clearCookie(REFRESH_COOKIE, { path: '/api/auth' });
+    res.clearCookie(ACCESS_COOKIE, { ...this.cookieBase, path: '/' });
+    res.clearCookie(REFRESH_COOKIE, {
+      ...this.cookieBase,
+      path: '/api/auth',
+    });
   }
 }
