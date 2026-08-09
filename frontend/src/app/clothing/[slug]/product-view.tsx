@@ -58,7 +58,7 @@ export function ProductView({ slug }: { slug: string }) {
 
   return (
     <>
-      <section className="grid w-full gap-10 px-4 py-12 sm:px-6 lg:grid-cols-2 lg:gap-16">
+      <section className="mx-auto grid w-full max-w-5xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-2 lg:gap-16">
         {/* Mobile: swipeable snap carousel; desktop: stacked scroll gallery */}
         <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto lg:flex-col lg:overflow-visible">
           {gallery.map((src, i) => (
@@ -104,7 +104,7 @@ export function ProductView({ slug }: { slug: string }) {
         </div>
       </section>
 
-      <section className="w-full px-4 pb-16 sm:px-6">
+      <section className="mx-auto w-full max-w-5xl px-4 pb-16 sm:px-6">
         <CommentsSection targetType="product" targetId={product.id} />
       </section>
 

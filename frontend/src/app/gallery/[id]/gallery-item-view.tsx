@@ -41,7 +41,7 @@ export function GalleryItemView({ id }: { id: string }) {
 
   return (
     <>
-      <section className="grid w-full gap-10 px-4 py-12 sm:px-6 lg:grid-cols-2 lg:gap-16">
+      <section className="mx-auto grid w-full max-w-5xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-2 lg:gap-16">
         <ProductImage src={item.imageUrl} alt={item.title} aspect="" />
         <div className="lg:sticky lg:top-24 lg:self-start">
           <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
@@ -70,7 +70,7 @@ export function GalleryItemView({ id }: { id: string }) {
         </div>
       </section>
 
-      <section className="w-full px-4 pb-24 sm:px-6">
+      <section className="mx-auto w-full max-w-5xl px-4 pb-24 sm:px-6">
         <CommentsSection targetType="gallery" targetId={item.id} />
       </section>
     </>
