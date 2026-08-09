@@ -23,7 +23,7 @@ export default function Home() {
       <MarqueeBand />
 
       <section className="mx-auto w-full max-w-6xl px-4 py-24 sm:px-6">
-        <Reveal className="flex items-end justify-between gap-4">
+        <Reveal className="flex flex-wrap items-end justify-between gap-x-4 gap-y-5">
           <h2 className="text-3xl uppercase tracking-tight sm:text-5xl">
             Featured drops
           </h2>

@@ -19,22 +19,22 @@ export function Navbar() {
         <Link
           href="/"
           aria-label="STIFF home"
-          className="flex items-center gap-2 rounded-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
+          className="flex items-center gap-1.5 rounded-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted sm:gap-2"
         >
           <span className="spin-on-hover">
-            <AsteriskMark className="size-5 sm:size-6" />
+            <AsteriskMark className="size-4 sm:size-6" />
           </span>
-          <span className="font-display text-lg uppercase leading-none tracking-tight sm:text-xl">
+          <span className="font-display text-base uppercase leading-none tracking-tight sm:text-xl">
             Stiff
           </span>
         </Link>
-        <div className="flex items-center gap-1 sm:gap-2">
-          <ul className="flex items-center gap-1 sm:gap-2">
+        <div className="flex items-center gap-0.5 sm:gap-2">
+          <ul className="flex items-center gap-0.5 sm:gap-2">
             {links.map(({ label, href }) => (
               <li key={href}>
                 <Link
                   href={href}
-                  className="flex h-10 items-center rounded-[2px] px-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted sm:px-3.5 sm:text-xs"
+                  className="flex h-10 items-center rounded-[2px] px-1.5 text-[10px] font-medium uppercase tracking-[0.1em] text-muted transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted sm:px-3.5 sm:text-xs sm:tracking-[0.2em]"
                 >
                   {label}
                 </Link>

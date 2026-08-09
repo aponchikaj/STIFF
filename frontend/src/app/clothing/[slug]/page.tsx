@@ -35,10 +35,15 @@ export default async function ProductPage({
   return (
     <>
     <section className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-2 lg:gap-16">
-      <div className="flex flex-col gap-4">
-        {/* Placeholder gallery blocks until product photography exists */}
+      {/* Mobile: swipeable snap carousel so product info stays near the fold;
+          desktop: stacked scroll gallery */}
+      <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto lg:flex-col lg:overflow-visible">
         {[0, 1, 2].map((i) => (
-          <Reveal key={i} delay={i * 0.08}>
+          <Reveal
+            key={i}
+            delay={i * 0.08}
+            className="w-[82%] shrink-0 snap-center lg:w-full"
+          >
             <div className="flex aspect-[3/4] items-center justify-center bg-surface">
               <AsteriskMark className="size-12 text-subtle" />
             </div>
