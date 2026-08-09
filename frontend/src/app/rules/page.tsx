@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Reveal } from "@/components/motion";
 
-export const metadata: Metadata = { title: "Rules — STIFF" };
+export const metadata: Metadata = { title: "Rules" };
 
 const rules = [
   {

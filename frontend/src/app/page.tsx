@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { AboutTeaser } from "@/components/about-teaser";
 import { AsteriskMark } from "@/components/asterisk-mark";
@@ -11,6 +12,8 @@ import { IntroOverlay } from "@/components/intro-overlay";
 import { MarqueeBand } from "@/components/marquee-band";
 import { Magnetic, Reveal } from "@/components/motion";
 import { ProductCarousel } from "@/components/product-carousel";
+
+export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 const outlineBtn =
   "flex h-10 items-center rounded-[2px] border border-subtle px-5 text-[11px] font-medium uppercase tracking-[0.2em] text-muted transition-colors hover:border-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted";

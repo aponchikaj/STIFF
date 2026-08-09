@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { AuthShell } from "@/components/auth-shell";
 import { RegisterForm } from "./register-form";
 
-export const metadata: Metadata = { title: "Register — STIFF" };
+export const metadata: Metadata = {
+  title: "Register",
+  robots: { index: false },
+};
 
 export default async function RegisterPage({
   searchParams,

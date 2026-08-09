@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { GalleryItemView } from "./gallery-item-view";
 
-export const metadata: Metadata = { title: "Gallery — STIFF" };
+export const metadata: Metadata = { title: "Gallery" };
 
 export default async function GalleryItemPage({
   params,

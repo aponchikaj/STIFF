@@ -3,7 +3,12 @@ import { ContactForm } from "@/components/contact-form";
 import { Reveal } from "@/components/motion";
 import { ContactInfo } from "./contact-info";
 
-export const metadata: Metadata = { title: "Contact — STIFF" };
+export const metadata: Metadata = {
+  title: "Contact",
+  description:
+    "Talk to STIFF — collabs, stockists, sizing, anything. Based in Tbilisi, Georgia.",
+  alternates: { canonical: "/contact" },
+};
 
 export default function ContactPage() {
   return (

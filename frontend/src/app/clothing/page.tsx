@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import { ClothingBrowser } from "./clothing-browser";
 
-export const metadata: Metadata = { title: "Clothing — STIFF" };
+export const metadata: Metadata = {
+  title: "Clothing",
+  description:
+    "Shop the STIFF drop — heavyweight tees, hoodies, pants and accessories designed in Tbilisi. Hard cuts, dense fabric, one mark.",
+  alternates: { canonical: "/clothing" },
+};
 
 const categories = ["All", "Tees", "Hoodies", "Pants", "Accessories"];
 

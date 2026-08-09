@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { SettingsView } from "./settings-view";
 
-export const metadata: Metadata = { title: "Settings — STIFF" };
+export const metadata: Metadata = {
+  title: "Settings",
+  robots: { index: false },
+};
 
 export default function SettingsPage() {
   return (

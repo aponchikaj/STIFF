@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import { Reveal } from "@/components/motion";
 import { GalleryGrid } from "./gallery-grid";
 
-export const metadata: Metadata = { title: "Gallery — STIFF" };
+export const metadata: Metadata = {
+  title: "Gallery",
+  description:
+    "The STIFF archive — worn, shot, kept. Lookbook photography and community shots from Tbilisi.",
+  alternates: { canonical: "/gallery" },
+};
 
 export default function GalleryPage() {
   return (

@@ -4,7 +4,12 @@ import { AsteriskMark } from "@/components/asterisk-mark";
 import { Magnetic, Reveal } from "@/components/motion";
 import { AboutIntro } from "./about-intro";
 
-export const metadata: Metadata = { title: "About — STIFF" };
+export const metadata: Metadata = {
+  title: "About",
+  description:
+    "STIFF is a clothing brand built on one idea: strip everything back until only the essential is left, then make that essential unignorable. Designed and worn in Tbilisi first.",
+  alternates: { canonical: "/about" },
+};
 
 const values = [
   {
