@@ -27,8 +27,14 @@ export class GalleryService {
     private readonly reactionRepo: Repository<Reaction>,
   ) {}
 
-  async list(query: ListGalleryQueryDto): Promise<Paginated<GalleryItem>> {
+  async list(
+    query: ListGalleryQueryDto,
+    user?: User,
+  ): Promise<Paginated<GalleryItem>> {
     const qb = this.galleryRepo.createQueryBuilder('item');
+    if (!(user?.role === 'admin' && query.includeArchived)) {
+      qb.andWhere('item.isArchived = false');
+    }
     switch (query.sort) {
       case 'newest':
         qb.orderBy('item.createdAt', 'DESC');
@@ -52,7 +58,9 @@ export class GalleryService {
 
   async getById(id: string, user?: User): Promise<GalleryItemWithReaction> {
     const item = await this.galleryRepo.findOne({ where: { id } });
-    if (!item) throw new NotFoundException('Gallery item not found');
+    if (!item || (item.isArchived && user?.role !== 'admin')) {
+      throw new NotFoundException('Gallery item not found');
+    }
 
     let myReaction: ReactionType | null = null;
     if (user) {
@@ -82,6 +90,7 @@ export class GalleryService {
     if (dto.description !== undefined) item.description = dto.description;
     if (dto.imageUrl !== undefined) item.imageUrl = dto.imageUrl;
     if (dto.sortOrder !== undefined) item.sortOrder = dto.sortOrder;
+    if (dto.isArchived !== undefined) item.isArchived = dto.isArchived;
 
     return this.galleryRepo.save(item);
   }

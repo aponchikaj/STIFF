@@ -14,7 +14,11 @@ export type NotificationType =
   | "comment_reply"
   | "broadcast"
   | "system";
-export type ContentKey = "about" | "contact-info";
+export type ContentKey = "about" | "contact-info" | "features";
+
+export interface SiteFeatures {
+  shopEnabled: boolean;
+}
 export type ProductSort = "newest" | "price_asc" | "price_desc" | "popular";
 export type GallerySort = "newest" | "popular";
 export type TimeseriesMetric = "revenue" | "orders" | "signups";
@@ -81,6 +85,7 @@ export interface GalleryItem {
   description: string | null;
   imageUrl: string;
   sortOrder: number;
+  isArchived: boolean;
   likeCount: number;
   dislikeCount: number;
   commentCount: number;
@@ -225,6 +230,18 @@ export interface TopProduct {
   revenueCents: number;
 }
 
+export interface UserSettings {
+  theme: "light" | "dark";
+  emailNotifications: boolean;
+  [key: string]: unknown;
+}
+
+export interface SearchResults {
+  query: string;
+  products: Product[];
+  gallery: GalleryItem[];
+}
+
 // ---------- request param types ----------
 
 export interface ProductListParams extends PaginationParams {
@@ -237,6 +254,7 @@ export interface ProductListParams extends PaginationParams {
 
 export interface GalleryListParams extends PaginationParams {
   sort?: GallerySort;
+  includeArchived?: boolean;
 }
 
 export interface RegisterInput {
@@ -271,7 +289,9 @@ export interface CreateGalleryItemInput {
   sortOrder?: number;
 }
 
-export type UpdateGalleryItemInput = Partial<CreateGalleryItemInput>;
+export type UpdateGalleryItemInput = Partial<CreateGalleryItemInput> & {
+  isArchived?: boolean;
+};
 
 export interface ContactInput {
   name: string;

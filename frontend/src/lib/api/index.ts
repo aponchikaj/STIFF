@@ -10,4 +10,5 @@ export * as commentsApi from "./comments";
 export * as reactionsApi from "./reactions";
 export * as notificationsApi from "./notifications";
 export * as contentApi from "./content";
+export * as searchApi from "./search";
 export * as adminApi from "./admin";

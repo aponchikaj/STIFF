@@ -22,6 +22,9 @@ export class GalleryItem {
   @Column({ type: 'int', default: 0 })
   sortOrder: number;
 
+  @Column({ default: false })
+  isArchived: boolean;
+
   @Column({ type: 'int', default: 0 })
   likeCount: number;
 

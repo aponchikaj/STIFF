@@ -1,6 +1,7 @@
 import Link from "next/link";
-import type { Product } from "@/lib/products";
-import { AsteriskMark } from "./asterisk-mark";
+import type { Product } from "@/lib/api";
+import { formatPrice } from "@/lib/format";
+import { ProductImage } from "./product-image";
 
 export function ProductCard({ product }: { product: Product }) {
   return (
@@ -8,8 +9,17 @@ export function ProductCard({ product }: { product: Product }) {
       href={`/clothing/${product.slug}`}
       className="group block rounded-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
     >
-      <div className="flex aspect-[3/4] items-center justify-center bg-surface transition-opacity group-hover:opacity-90">
-        <AsteriskMark className="size-10 text-subtle transition-transform duration-500 group-hover:rotate-[360deg] sm:size-12" />
+      <div className="relative overflow-hidden transition-opacity group-hover:opacity-90">
+        <ProductImage
+          src={product.images[0]}
+          alt={product.name}
+          iconClassName="size-10 text-subtle transition-transform duration-500 group-hover:rotate-[360deg] sm:size-12"
+        />
+        {product.stock === 0 && (
+          <span className="absolute left-2 top-2 rounded-[2px] bg-foreground px-2 py-1 text-[9px] font-bold uppercase tracking-[0.15em] text-background">
+            Sold out
+          </span>
+        )}
       </div>
       {/* Details hidden until hover on pointer devices; always visible on touch */}
       <div className="mt-3 transition-all duration-300 sm:translate-y-1 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100 sm:group-focus-visible:translate-y-0 sm:group-focus-visible:opacity-100">
@@ -17,10 +27,12 @@ export function ProductCard({ product }: { product: Product }) {
           <h3 className="text-xs font-bold uppercase tracking-wide sm:text-sm">
             {product.name}
           </h3>
-          <p className="text-xs text-muted sm:text-sm">{product.price} ₾</p>
+          <p className="text-xs text-muted sm:text-sm">
+            {formatPrice(product.priceCents)}
+          </p>
         </div>
         <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.15em] text-muted">
-          {product.category}
+          {product.category ?? "Stiff"}
         </p>
       </div>
     </Link>

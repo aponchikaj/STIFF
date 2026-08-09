@@ -5,33 +5,25 @@ import {
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { randomBytes } from 'crypto';
-import { diskStorage } from 'multer';
-import { extname, join } from 'path';
+import { extname } from 'path';
 import { Roles } from '../common/decorators/roles.decorator';
+import { UploadsService } from './uploads.service';
 
-const UPLOAD_DIR = join(process.cwd(), 'uploads');
 const ALLOWED_EXT = ['.jpg', '.jpeg', '.png', '.webp'];
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp'];
 
 @Controller('uploads')
 export class UploadsController {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly uploadsService: UploadsService) {}
 
   @Post()
   @Roles('admin')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: UPLOAD_DIR,
-        filename: (_req, file, cb) => {
-          const ext = extname(file.originalname).toLowerCase();
-          cb(null, `${randomBytes(16).toString('hex')}${ext}`);
-        },
-      }),
-      limits: { fileSize: 5 * 1024 * 1024 },
+      // Memory storage: the buffer streams straight to Cloudinary untouched,
+      // so quality is exactly what the admin uploaded.
+      limits: { fileSize: 15 * 1024 * 1024 },
       fileFilter: (_req, file, cb) => {
         const ext = extname(file.originalname).toLowerCase();
         if (
@@ -50,10 +42,9 @@ export class UploadsController {
       },
     }),
   )
-  upload(@UploadedFile() file?: Express.Multer.File) {
+  async upload(@UploadedFile() file?: Express.Multer.File) {
     if (!file) throw new BadRequestException('No file uploaded');
-    const appUrl =
-      this.configService.get<string>('APP_URL') ?? 'http://localhost:4000';
-    return { url: `${appUrl}/uploads/${file.filename}` };
+    const url = await this.uploadsService.store(file);
+    return { url };
   }
 }

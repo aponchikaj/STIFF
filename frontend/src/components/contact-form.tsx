@@ -1,35 +1,40 @@
 "use client";
 
 import { useState } from "react";
+import { contentApi } from "@/lib/api";
+import { errorMessage } from "@/lib/hooks";
 import { Magnetic } from "./motion";
-
-const inputClasses =
-  "h-12 w-full rounded-[2px] border border-subtle bg-transparent px-4 text-sm text-foreground placeholder:text-muted/60 transition-colors focus:border-foreground focus-visible:outline-none";
+import { btnSolid, Field, inputCls, textareaCls } from "./ui";
 
 export function ContactForm() {
-  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const data = new FormData(e.currentTarget);
-    const name = String(data.get("name") ?? "");
-    const email = String(data.get("email") ?? "");
-    const message = String(data.get("message") ?? "");
-    const subject = encodeURIComponent(`Message from ${name}`);
-    const body = encodeURIComponent(`${message}\n\n— ${name} (${email})`);
-    window.location.href = `mailto:hello@stiff.com?subject=${subject}&body=${body}`;
-    setSent(true);
+    const form = e.currentTarget;
+    const data = new FormData(form);
+    setBusy(true);
+    setStatus(null);
+    try {
+      await contentApi.submitContact({
+        name: String(data.get("name") ?? ""),
+        email: String(data.get("email") ?? ""),
+        subject: String(data.get("subject") ?? "") || undefined,
+        message: String(data.get("message") ?? ""),
+      });
+      form.reset();
+      setStatus("Sent. We read everything — you'll hear back soon.");
+    } catch (err) {
+      setStatus(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-      <div className="flex flex-col gap-2">
-        <label
-          htmlFor="contact-name"
-          className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted"
-        >
-          Name
-        </label>
+      <Field id="contact-name" label="Name">
         <input
           id="contact-name"
           name="name"
@@ -37,16 +42,10 @@ export function ContactForm() {
           required
           autoComplete="name"
           placeholder="Your name"
-          className={inputClasses}
+          className={inputCls}
         />
-      </div>
-      <div className="flex flex-col gap-2">
-        <label
-          htmlFor="contact-email"
-          className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted"
-        >
-          Email
-        </label>
+      </Field>
+      <Field id="contact-email" label="Email">
         <input
           id="contact-email"
           name="email"
@@ -54,37 +53,37 @@ export function ContactForm() {
           required
           autoComplete="email"
           placeholder="you@example.com"
-          className={inputClasses}
+          className={inputCls}
         />
-      </div>
-      <div className="flex flex-col gap-2">
-        <label
-          htmlFor="contact-message"
-          className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted"
-        >
-          Message
-        </label>
+      </Field>
+      <Field id="contact-subject" label="Subject (optional)">
+        <input
+          id="contact-subject"
+          name="subject"
+          type="text"
+          maxLength={200}
+          placeholder="What is it about"
+          className={inputCls}
+        />
+      </Field>
+      <Field id="contact-message" label="Message">
         <textarea
           id="contact-message"
           name="message"
           required
           rows={5}
+          maxLength={5000}
           placeholder="What's on your mind"
-          className="w-full rounded-[2px] border border-subtle bg-transparent px-4 py-3 text-sm text-foreground placeholder:text-muted/60 transition-colors focus:border-foreground focus-visible:outline-none"
+          className={textareaCls}
         />
-      </div>
+      </Field>
       <Magnetic className="self-start">
-        <button
-          type="submit"
-          className="flex h-12 items-center rounded-[2px] bg-foreground px-8 text-xs font-bold uppercase tracking-[0.2em] text-background transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          Send
+        <button type="submit" disabled={busy} className={btnSolid}>
+          {busy ? "Sending…" : "Send"}
         </button>
       </Magnetic>
       <p aria-live="polite" className="min-h-5 text-xs text-muted">
-        {sent
-          ? "Your email app should be open with the message ready to send."
-          : "Sending opens your email app with the message prefilled."}
+        {status}
       </p>
     </form>
   );

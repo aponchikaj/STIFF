@@ -26,8 +26,8 @@ export class GalleryController {
 
   @Public()
   @Get()
-  list(@Query() query: ListGalleryQueryDto) {
-    return this.galleryService.list(query);
+  list(@Query() query: ListGalleryQueryDto, @CurrentUser() user?: User) {
+    return this.galleryService.list(query, user);
   }
 
   @Public()

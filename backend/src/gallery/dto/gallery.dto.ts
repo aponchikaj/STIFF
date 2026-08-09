@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsIn,
   IsInt,
   IsOptional,
@@ -51,10 +52,19 @@ export class UpdateGalleryItemDto {
   @Type(() => Number)
   @IsInt()
   sortOrder?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isArchived?: boolean;
 }
 
 export class ListGalleryQueryDto extends PaginationDto {
   @IsOptional()
   @IsIn(['newest', 'popular'])
   sort?: 'newest' | 'popular';
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  includeArchived?: boolean;
 }

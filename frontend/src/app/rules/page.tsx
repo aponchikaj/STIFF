@@ -43,7 +43,7 @@ const practical = [
 
 export default function RulesPage() {
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
+    <section className="w-full px-4 py-12 sm:px-6 sm:py-16">
       <h1 className="text-4xl uppercase tracking-tight sm:text-6xl">
         House rules
       </h1>

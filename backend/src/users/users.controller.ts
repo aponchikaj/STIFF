@@ -19,6 +19,7 @@ import {
   ListUsersQueryDto,
   MyReactionsQueryDto,
   UpdateProfileDto,
+  UpdateSettingsDto,
 } from './dto/users.dto';
 import { UsersService } from './users.service';
 
@@ -49,6 +50,16 @@ export class UsersController {
     @Query() query: MyReactionsQueryDto,
   ) {
     return this.usersService.getMyReactions(user.id, query);
+  }
+
+  @Get('me/settings')
+  getSettings(@CurrentUser() user: User) {
+    return this.usersService.getSettings(user);
+  }
+
+  @Patch('me/settings')
+  updateSettings(@CurrentUser() user: User, @Body() dto: UpdateSettingsDto) {
+    return this.usersService.updateSettings(user, { ...dto });
   }
 
   @Patch('me')

@@ -221,6 +221,26 @@ export class UsersService {
     await this.userRepo.delete({ id: user.id });
   }
 
+  // ---------- settings ----------
+
+  static readonly DEFAULT_SETTINGS = {
+    theme: 'light',
+    emailNotifications: true,
+  };
+
+  getSettings(user: User): Record<string, unknown> {
+    return { ...UsersService.DEFAULT_SETTINGS, ...(user.settings ?? {}) };
+  }
+
+  async updateSettings(
+    user: User,
+    patch: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    user.settings = { ...(user.settings ?? {}), ...patch };
+    await this.userRepo.save(user);
+    return this.getSettings(user);
+  }
+
   // ---------- admin ----------
 
   async adminList(

@@ -21,6 +21,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { OrdersModule } from './orders/orders.module';
 import { ProductsModule } from './products/products.module';
 import { ReactionsModule } from './reactions/reactions.module';
+import { SearchModule } from './search/search.module';
 import { TasksModule } from './tasks/tasks.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { UsersModule } from './users/users.module';
@@ -65,6 +66,7 @@ import { UsersModule } from './users/users.module';
     ContentModule,
     AnalyticsModule,
     UploadsModule,
+    SearchModule,
     TasksModule,
   ],
   controllers: [AppController],

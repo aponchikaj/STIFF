@@ -1,0 +1,228 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { authApi, profileApi } from "@/lib/api";
+import type { OrderStatus } from "@/lib/api";
+import { formatDate, formatPrice, shortId } from "@/lib/format";
+import { errorMessage, useAsync } from "@/lib/hooks";
+import { useSession } from "@/components/providers";
+import { btnGhostSm, btnOutline, Loading } from "@/components/ui";
+
+const STATUS_LABEL: Record<OrderStatus, string> = {
+  pending: "Pending",
+  paid: "Paid",
+  shipped: "Shipped",
+  delivered: "Delivered",
+  cancelled: "Cancelled",
+};
+
+export function AccountView() {
+  const { user, loading, unreadCount, logout } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !user) router.replace("/login?next=/account");
+  }, [loading, user, router]);
+
+  if (loading || !user) return <Loading label="Loading account" />;
+
+  return (
+    <div className="flex flex-col gap-14">
+      <Header
+        unreadCount={unreadCount}
+        onLogout={async () => {
+          await logout();
+          router.push("/");
+        }}
+      />
+      {!user.isVerified && <VerifyBanner />}
+      <Stats />
+      <Orders />
+    </div>
+  );
+}
+
+function Header({
+  unreadCount,
+  onLogout,
+}: {
+  unreadCount: number;
+  onLogout: () => void;
+}) {
+  const { user } = useSession();
+  if (!user) return null;
+  return (
+    <div>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-4xl uppercase tracking-tight sm:text-6xl">
+            {user.username}
+          </h1>
+          <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
+            {user.email} · member since {formatDate(user.createdAt)}
+            {user.isVerified ? " · verified" : ""}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {user.role === "admin" && (
+            <Link href="/admin" className={btnOutline}>
+              Admin panel
+            </Link>
+          )}
+          <Link href="/notifications" className={btnOutline}>
+            Notifications{unreadCount > 0 ? ` (${unreadCount})` : ""}
+          </Link>
+          <Link href="/settings" className={btnOutline}>
+            Settings
+          </Link>
+          <button type="button" onClick={onLogout} className={btnOutline}>
+            Log out
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VerifyBanner() {
+  const [note, setNote] = useState<string | null>(null);
+  return (
+    <div className="border border-subtle p-4">
+      <p className="text-xs leading-6 text-muted">
+        Your email isn&apos;t verified yet — you&apos;ll need that to place
+        orders. Check your inbox for the link.
+      </p>
+      <button
+        type="button"
+        onClick={async () => {
+          try {
+            await authApi.resendVerification();
+            setNote("Verification email sent.");
+          } catch (err) {
+            setNote(errorMessage(err));
+          }
+        }}
+        className={`${btnGhostSm} mt-2`}
+      >
+        Resend verification email
+      </button>
+      <p aria-live="polite" className="mt-1 text-xs text-muted">
+        {note}
+      </p>
+    </div>
+  );
+}
+
+function Stats() {
+  const { data, loading } = useAsync(() => profileApi.getStats(), []);
+  if (loading) return <Loading label="Loading stats" />;
+  if (!data) return null;
+
+  const tiles = [
+    { label: "Total spent", value: formatPrice(data.totalSpentCents) },
+    { label: "Orders", value: String(data.ordersCount) },
+    { label: "Comments", value: String(data.commentsCount) },
+    { label: "Likes given", value: String(data.likesGivenCount) },
+  ];
+
+  return (
+    <section aria-label="Stats">
+      <ul className="grid grid-cols-2 gap-px border border-subtle bg-subtle sm:grid-cols-4">
+        {tiles.map(({ label, value }) => (
+          <li key={label} className="bg-background p-4 sm:p-5">
+            <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
+              {label}
+            </p>
+            <p className="mt-2 font-display text-2xl uppercase tracking-tight sm:text-3xl">
+              {value}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function Orders() {
+  const [page, setPage] = useState(1);
+  const { data, loading } = useAsync(
+    () => profileApi.getMyOrders({ page, pageSize: 5 }),
+    [page],
+  );
+  const pageCount = Math.max(1, Math.ceil((data?.total ?? 0) / 5));
+
+  return (
+    <section aria-label="Orders">
+      <h2 className="text-2xl uppercase tracking-tight sm:text-4xl">Orders</h2>
+      {loading && <Loading label="Loading orders" />}
+      {data && data.items.length === 0 && (
+        <p className="mt-6 text-sm text-muted">
+          No orders yet.{" "}
+          <Link
+            href="/clothing"
+            className="rounded-[2px] font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
+          >
+            Start with the first drop.
+          </Link>
+        </p>
+      )}
+      <ul className="mt-6 border-t border-subtle">
+        {data?.items.map((order) => (
+          <li key={order.id} className="border-b border-subtle py-5">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="text-xs font-bold uppercase tracking-wide">
+                #{shortId(order.id)}
+              </p>
+              <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-muted">
+                {formatDate(order.createdAt)} · {STATUS_LABEL[order.status]}
+              </p>
+            </div>
+            <ul className="mt-2 flex flex-col gap-1">
+              {order.items.map((item) => (
+                <li
+                  key={item.id}
+                  className="flex justify-between gap-3 text-xs text-muted"
+                >
+                  <span className="truncate">
+                    {item.quantity} × {item.productName}
+                    {item.size ? ` (${item.size})` : ""}
+                  </span>
+                  <span>{formatPrice(item.unitPriceCents * item.quantity)}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-sm font-bold">
+              {formatPrice(order.totalCents)}
+            </p>
+          </li>
+        ))}
+      </ul>
+      {pageCount > 1 && (
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => p - 1)}
+            className={btnGhostSm}
+          >
+            ← Prev
+          </button>
+          <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
+            {page} / {pageCount}
+          </span>
+          <button
+            type="button"
+            disabled={page >= pageCount}
+            onClick={() => setPage((p) => p + 1)}
+            className={btnGhostSm}
+          >
+            Next →
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+

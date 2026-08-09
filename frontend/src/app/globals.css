@@ -2,20 +2,24 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Light mode: binary and bold — pure black on white, hard visible borders,
+   one neutral gray for image backdrops (Balenciaga/reckless language). */
 :root {
   --background: #ffffff;
   --foreground: #000000;
-  --muted: #52525b;
-  --subtle: #e4e4e7;
-  --surface: #f4f4f5;
+  --muted: #3f3f46;
+  --subtle: #d4d4d8;
+  --surface: #f4f4f4;
 }
 
+/* Dark mode: lifted — near-black base so photography doesn't sink,
+   near-white text, brighter hairlines. */
 .dark {
-  --background: #000000;
-  --foreground: #ffffff;
-  --muted: #a1a1aa;
-  --subtle: #27272a;
-  --surface: #18181b;
+  --background: #101010;
+  --foreground: #f5f5f5;
+  --muted: #d4d4d8;
+  --subtle: #3a3a3a;
+  --surface: #1a1a1a;
 }
 
 @theme inline {

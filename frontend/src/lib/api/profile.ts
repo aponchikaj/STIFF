@@ -7,6 +7,7 @@ import type {
   PaginationParams,
   ReactionType,
   SafeUser,
+  UserSettings,
   UserStats,
 } from "./types";
 
@@ -36,6 +37,16 @@ export function updateProfile(data: {
   username?: string;
 }): Promise<SafeUser> {
   return apiFetch("/users/me", { method: "PATCH", body: data });
+}
+
+export function getSettings(): Promise<UserSettings> {
+  return apiFetch("/users/me/settings");
+}
+
+export function updateSettings(
+  data: Partial<Pick<UserSettings, "theme" | "emailNotifications">>,
+): Promise<UserSettings> {
+  return apiFetch("/users/me/settings", { method: "PATCH", body: data });
 }
 
 export function changePassword(data: {

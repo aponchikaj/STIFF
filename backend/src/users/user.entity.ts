@@ -31,6 +31,9 @@ export class User {
   @Column({ default: false })
   isBlocked: boolean;
 
+  @Column({ type: 'jsonb', default: () => "'{}'" })
+  settings: Record<string, unknown>;
+
   @CreateDateColumn()
   createdAt: Date;
 

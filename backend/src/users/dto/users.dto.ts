@@ -58,6 +58,16 @@ export class ChangeRoleDto {
   role: UserRole;
 }
 
+export class UpdateSettingsDto {
+  @IsOptional()
+  @IsIn(['light', 'dark'])
+  theme?: 'light' | 'dark';
+
+  @IsOptional()
+  @IsBoolean()
+  emailNotifications?: boolean;
+}
+
 export class MyReactionsQueryDto extends PaginationDto {
   @IsOptional()
   @IsIn(['like', 'dislike'])

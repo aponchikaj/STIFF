@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AsteriskMark } from "@/components/asterisk-mark";
 import { Magnetic, Reveal } from "@/components/motion";
+import { AboutIntro } from "./about-intro";
 
 export const metadata: Metadata = { title: "About — STIFF" };
 
@@ -31,16 +32,7 @@ function Separator() {
 export default function AboutPage() {
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
-      <Reveal>
-        <h1 className="text-center text-4xl uppercase tracking-tight sm:text-6xl">
-          Nothing extra
-        </h1>
-        <p className="mx-auto mt-6 max-w-xl text-center text-sm leading-7 text-muted">
-          STIFF is a clothing brand built on one idea: strip everything back
-          until only the essential is left, then make that essential
-          unignorable.
-        </p>
-      </Reveal>
+      <AboutIntro />
 
       {values.map((value) => (
         <div key={value.title}>
