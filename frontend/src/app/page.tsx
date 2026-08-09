@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AboutTeaser } from "@/components/about-teaser";
 import { IfGuest, IfShop } from "@/components/if-shop";
-import { AsteriskMark } from "@/components/asterisk-mark";
+import { HomeHero } from "@/components/home-hero";
 import { CategoryRows } from "@/components/category-rows";
 import { FeaturedProducts } from "@/components/featured-products";
 import { GalleryPreview } from "@/components/gallery-preview";
@@ -16,14 +16,7 @@ export default function Home() {
   return (
     <>
       <IntroOverlay />
-      <section className="flex h-[87svh] items-center justify-center px-6">
-        <div className="flex items-center gap-4 sm:gap-6">
-          <AsteriskMark className="spin-on-hover size-16 sm:size-28" />
-          <h1 className="text-7xl uppercase leading-none tracking-tight sm:text-9xl">
-            Stiff
-          </h1>
-        </div>
-      </section>
+      <HomeHero />
 
       <MarqueeBand />
 

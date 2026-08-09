@@ -81,7 +81,7 @@ export function ClothingBrowser({ category }: { category: string }) {
 
   return (
     <>
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+      <Reveal className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-4xl uppercase tracking-tight sm:text-6xl">
             Clothing
@@ -103,7 +103,7 @@ export function ClothingBrowser({ category }: { category: string }) {
             </li>
           ))}
         </ul>
-      </div>
+      </Reveal>
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <input
