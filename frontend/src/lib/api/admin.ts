@@ -121,7 +121,12 @@ export function deleteGalleryItem(id: string): Promise<{ success: boolean }> {
 // ---------- orders ----------
 
 export function listOrders(
-  params?: PaginationParams & { status?: OrderStatus; search?: string },
+  params?: PaginationParams & {
+    status?: OrderStatus;
+    search?: string;
+    from?: string;
+    to?: string;
+  },
 ): Promise<Paginated<Order>> {
   return apiFetch("/orders", { query: { ...params } });
 }
@@ -134,6 +139,14 @@ export function updateOrderStatus(
     method: "PATCH",
     body: { status },
   });
+}
+
+export function updateOrderDate(id: string, date: string): Promise<Order> {
+  return apiFetch(`/orders/${id}/date`, { method: "PATCH", body: { date } });
+}
+
+export function deleteOrder(id: string): Promise<{ success: boolean }> {
+  return apiFetch(`/orders/${id}`, { method: "DELETE" });
 }
 
 // ---------- comments moderation ----------

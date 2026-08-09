@@ -6,10 +6,10 @@ import { Reveal } from "./motion";
 import { ProductCard } from "./product-card";
 import { Loading } from "./ui";
 
-export function FeaturedProducts() {
+export function FeaturedProducts({ count = 8 }: { count?: number }) {
   const { data, loading } = useAsync(
-    () => productsApi.listProducts({ sort: "popular", pageSize: 4 }),
-    [],
+    () => productsApi.listProducts({ sort: "popular", pageSize: count }),
+    [count],
   );
 
   if (loading) return <Loading label="Loading drops" />;
@@ -22,10 +22,10 @@ export function FeaturedProducts() {
   }
 
   return (
-    <ul className="mt-10 grid grid-cols-2 gap-x-4 gap-y-10 lg:grid-cols-4">
+    <ul className="mt-10 grid grid-cols-2 gap-x-0.5 gap-y-8 sm:grid-cols-3 lg:grid-cols-4">
       {data.items.map((product, i) => (
         <li key={product.id}>
-          <Reveal delay={i * 0.08}>
+          <Reveal delay={(i % 4) * 0.06}>
             <ProductCard product={product} />
           </Reveal>
         </li>

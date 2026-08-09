@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -82,9 +83,25 @@ export class ListOrdersQueryDto extends PaginationDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  /** Inclusive start date, YYYY-MM-DD. */
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  from?: string;
+
+  /** Inclusive end date, YYYY-MM-DD. */
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  to?: string;
 }
 
 export class UpdateOrderStatusDto {
   @IsIn(['pending', 'paid', 'shipped', 'delivered', 'cancelled'])
   status: OrderStatus;
+}
+
+export class UpdateOrderDateDto {
+  /** New order date, YYYY-MM-DD (time of day is preserved at noon). */
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  date: string;
 }

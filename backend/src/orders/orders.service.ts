@@ -20,14 +20,6 @@ import {
 import { OrderItem } from './order-item.entity';
 import { Order, OrderStatus } from './order.entity';
 
-const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  pending: ['paid', 'cancelled'],
-  paid: ['shipped', 'cancelled'],
-  shipped: ['delivered'],
-  delivered: [],
-  cancelled: [],
-};
-
 const STATUS_MESSAGES: Record<OrderStatus, string> = {
   pending: 'Your order is pending.',
   paid: 'Your order has been placed and paid.',
@@ -192,6 +184,15 @@ export class OrdersService {
     if (query.status) {
       qb.andWhere('order.status = :status', { status: query.status });
     }
+    if (query.from) {
+      qb.andWhere('order.createdAt >= :from', { from: query.from });
+    }
+    if (query.to) {
+      // Inclusive end of day.
+      qb.andWhere("order.createdAt < CAST(:to AS date) + INTERVAL '1 day'", {
+        to: query.to,
+      });
+    }
     if (query.search) {
       qb.andWhere(
         '(CAST(order.id AS text) ILIKE :search OR user.username ILIKE :search OR user.email ILIKE :search)',
@@ -204,22 +205,70 @@ export class OrdersService {
     return paginate(items, total, query.page, query.pageSize);
   }
 
+  /** Admins can move orders between any statuses; stock follows the
+   *  cancelled boundary in both directions. */
   async updateStatus(id: string, dto: UpdateOrderStatusDto): Promise<Order> {
     const order = await this.orderRepo.findOne({
       where: { id },
       relations: { items: true },
     });
     if (!order) throw new NotFoundException('Order not found');
+    if (order.status === dto.status) return order;
 
-    if (!VALID_TRANSITIONS[order.status].includes(dto.status)) {
-      throw new BadRequestException(
-        `Cannot change status from ${order.status} to ${dto.status}`,
-      );
-    }
+    const enteringCancelled =
+      dto.status === 'cancelled' && order.status !== 'cancelled';
+    const leavingCancelled =
+      order.status === 'cancelled' && dto.status !== 'cancelled';
 
-    if (dto.status === 'cancelled') {
-      // Restore stock for items whose product still exists.
-      await this.dataSource.transaction(async (manager) => {
+    await this.dataSource.transaction(async (manager) => {
+      for (const item of order.items) {
+        if (!item.productId) continue;
+        if (enteringCancelled) {
+          await manager.increment(
+            Product,
+            { id: item.productId },
+            'stock',
+            item.quantity,
+          );
+        } else if (leavingCancelled) {
+          await manager.decrement(
+            Product,
+            { id: item.productId },
+            'stock',
+            item.quantity,
+          );
+        }
+      }
+      order.status = dto.status;
+      await manager.save(order);
+    });
+
+    await this.notifyStatus(order);
+    return order;
+  }
+
+  /** Move an order to a different date/month (admin bookkeeping). */
+  async setDate(id: string, date: string): Promise<Order> {
+    const order = await this.orderRepo.findOne({
+      where: { id },
+      relations: { items: true },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    order.createdAt = new Date(`${date}T12:00:00`);
+    return this.orderRepo.save(order);
+  }
+
+  /** Hard delete (admin). Restores stock unless the order was already
+   *  cancelled (stock was returned when it entered cancelled). */
+  async remove(id: string): Promise<void> {
+    const order = await this.orderRepo.findOne({
+      where: { id },
+      relations: { items: true },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    await this.dataSource.transaction(async (manager) => {
+      if (order.status !== 'cancelled') {
         for (const item of order.items) {
           if (item.productId) {
             await manager.increment(
@@ -230,16 +279,9 @@ export class OrdersService {
             );
           }
         }
-        order.status = dto.status;
-        await manager.save(order);
-      });
-    } else {
-      order.status = dto.status;
-      await this.orderRepo.save(order);
-    }
-
-    await this.notifyStatus(order);
-    return order;
+      }
+      await manager.delete(Order, { id });
+    });
   }
 
   private async notifyStatus(order: Order): Promise<void> {

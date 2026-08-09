@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -17,6 +18,7 @@ import {
   BuyNowDto,
   CheckoutDto,
   ListOrdersQueryDto,
+  UpdateOrderDateDto,
   UpdateOrderStatusDto,
 } from './dto/orders.dto';
 import { OrdersService } from './orders.service';
@@ -55,5 +57,21 @@ export class OrdersController {
     @Body() dto: UpdateOrderStatusDto,
   ) {
     return this.ordersService.updateStatus(id, dto);
+  }
+
+  @Patch(':id/date')
+  @Roles('admin')
+  updateDate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateOrderDateDto,
+  ) {
+    return this.ordersService.setDate(id, dto.date);
+  }
+
+  @Delete(':id')
+  @Roles('admin')
+  async remove(@Param('id', ParseUUIDPipe) id: string) {
+    await this.ordersService.remove(id);
+    return { success: true };
   }
 }

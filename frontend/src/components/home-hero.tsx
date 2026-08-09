@@ -66,13 +66,6 @@ export function HomeHero() {
         </div>
       </motion.div>
 
-      <motion.p
-        style={reduce ? undefined : { opacity }}
-        aria-hidden="true"
-        className="absolute bottom-8 text-[10px] font-medium uppercase tracking-[0.35em] text-muted"
-      >
-        Scroll ↓
-      </motion.p>
     </section>
   );
 }

@@ -19,6 +19,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored third-party WebGL snippet, intentionally unchecked:
+    "src/components/pixel-blast.tsx",
   ]),
 ]);
 
