@@ -20,7 +20,7 @@ export default function NotFound() {
       <Magnetic className="mt-2">
         <Link
           href="/"
-          className="flex h-11 items-center rounded-full bg-foreground px-6 text-xs font-bold uppercase tracking-[0.2em] text-background transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="flex h-11 items-center rounded-[2px] bg-foreground px-6 text-xs font-bold uppercase tracking-[0.2em] text-background transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           Back home
         </Link>

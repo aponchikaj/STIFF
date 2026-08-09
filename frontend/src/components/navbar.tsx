@@ -19,7 +19,7 @@ export function Navbar() {
         <Link
           href="/"
           aria-label="STIFF home"
-          className="flex items-center gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
+          className="flex items-center gap-2 rounded-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
         >
           <span className="spin-on-hover">
             <AsteriskMark className="size-5 sm:size-6" />
@@ -34,7 +34,7 @@ export function Navbar() {
               <li key={href}>
                 <Link
                   href={href}
-                  className="flex h-10 items-center rounded-sm px-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted sm:px-3.5 sm:text-xs"
+                  className="flex h-10 items-center rounded-[2px] px-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted sm:px-3.5 sm:text-xs"
                 >
                   {label}
                 </Link>

@@ -6,7 +6,7 @@ export function ProductCard({ product }: { product: Product }) {
   return (
     <Link
       href={`/clothing/${product.slug}`}
-      className="group block rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
+      className="group block rounded-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
     >
       <div className="flex aspect-[3/4] items-center justify-center bg-surface transition-opacity group-hover:opacity-90">
         <AsteriskMark className="size-10 text-subtle transition-transform duration-500 group-hover:rotate-[360deg] sm:size-12" />

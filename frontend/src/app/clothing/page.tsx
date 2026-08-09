@@ -19,7 +19,7 @@ export default function ClothingPage() {
             <li key={category}>
               {/* Static chips until filtering ships with real product data */}
               <span
-                className={`flex h-9 items-center rounded-full px-4 text-[11px] font-medium uppercase tracking-[0.15em] ${
+                className={`flex h-9 items-center rounded-[2px] px-4 text-[11px] font-medium uppercase tracking-[0.15em] ${
                   i === 0
                     ? "bg-foreground text-background"
                     : "border border-subtle text-muted"

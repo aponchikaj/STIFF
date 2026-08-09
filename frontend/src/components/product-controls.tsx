@@ -26,7 +26,7 @@ export function ProductControls({ sizes }: { sizes: string[] }) {
             role="radio"
             aria-checked={size === s}
             onClick={() => setSize(s)}
-            className={`flex h-11 min-w-11 items-center justify-center rounded-sm border px-4 text-xs font-medium uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted ${
+            className={`flex h-11 min-w-11 items-center justify-center rounded-[2px] border px-4 text-xs font-medium uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted ${
               size === s
                 ? "border-foreground bg-foreground text-background"
                 : "border-subtle text-muted hover:border-foreground hover:text-foreground"
@@ -47,7 +47,7 @@ export function ProductControls({ sizes }: { sizes: string[] }) {
                 : "Pick a size first.",
             )
           }
-          className="flex h-12 items-center rounded-full bg-foreground px-8 text-xs font-bold uppercase tracking-[0.2em] text-background transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="flex h-12 items-center rounded-[2px] bg-foreground px-8 text-xs font-bold uppercase tracking-[0.2em] text-background transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           Add to cart
         </button>
