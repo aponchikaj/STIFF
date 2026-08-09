@@ -28,8 +28,8 @@ export function Footer() {
             ))}
           </ul>
         </nav>
-        <div className="flex items-center gap-4">
-          <SocialLinks />
+        <div className="flex items-center gap-2">
+          <SocialLinks labels={false} />
           <BackToTop />
         </div>
       </div>

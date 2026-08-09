@@ -39,7 +39,7 @@ const socials = [
   },
 ];
 
-export function SocialLinks() {
+export function SocialLinks({ labels = true }: { labels?: boolean }) {
   return (
     <ul className="flex items-center gap-2">
       {socials.map(({ name, href, Icon }) => (
@@ -48,10 +48,15 @@ export function SocialLinks() {
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex h-10 items-center gap-2 rounded-[2px] border border-subtle px-4 text-[11px] font-medium uppercase tracking-[0.2em] text-muted transition-colors hover:border-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
+            aria-label={labels ? undefined : `STIFF on ${name}`}
+            className={
+              labels
+                ? "flex h-10 items-center gap-2 rounded-[2px] border border-subtle px-4 text-[11px] font-medium uppercase tracking-[0.2em] text-muted transition-colors hover:border-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
+                : "flex size-10 items-center justify-center rounded-[2px] text-muted transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
+            }
           >
             <Icon />
-            {name}
+            {labels ? name : null}
           </a>
         </li>
       ))}

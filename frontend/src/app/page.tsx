@@ -4,7 +4,6 @@ import { CategoryRows } from "@/components/category-rows";
 import { MarqueeBand } from "@/components/marquee-band";
 import { Magnetic, Reveal } from "@/components/motion";
 import { ProductCard } from "@/components/product-card";
-import { SocialLinks } from "@/components/social-links";
 import { featuredProducts } from "@/lib/products";
 
 export default function Home() {
@@ -73,27 +72,6 @@ export default function Home() {
             </Link>
           </Magnetic>
         </Reveal>
-      </section>
-
-      <section className="border-t border-subtle">
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-start gap-8 px-4 py-20 sm:px-6 sm:py-24">
-          <Reveal>
-            <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
-              Next up
-            </p>
-            <h2 className="mt-3 text-5xl uppercase leading-[0.9] tracking-tight sm:text-8xl">
-              Drop 001
-              <span aria-hidden="true" className="text-muted"> — </span>
-              Soon
-            </h2>
-            <p className="mt-5 max-w-md text-sm leading-6 text-muted">
-              First pieces are in production. Watch it happen.
-            </p>
-          </Reveal>
-          <Reveal delay={0.1}>
-            <SocialLinks />
-          </Reveal>
-        </div>
       </section>
     </>
   );
