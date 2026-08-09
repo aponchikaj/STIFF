@@ -1,15 +1,11 @@
 import type { Metadata } from "next";
-import { Archivo_Black, Geist, Geist_Mono } from "next/font/google";
+import { Archivo, Archivo_Black } from "next/font/google";
 import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const archivo = Archivo({
+  variable: "--font-archivo",
   subsets: ["latin"],
 });
 
@@ -21,18 +17,26 @@ const archivoBlack = Archivo_Black({
 
 export const metadata: Metadata = {
   title: "STIFF",
-  description: "STIFF brand",
+  description: "Essential clothing. Nothing extra.",
 };
+
+const themeInit = `(function(){try{var t=localStorage.getItem("theme");var d=t?t==="dark":matchMedia("(prefers-color-scheme: dark)").matches;if(d)document.documentElement.classList.add("dark");}catch(e){}})();`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${archivoBlack.variable} h-full antialiased`}
+      suppressHydrationWarning
+      className={`${archivo.variable} ${archivoBlack.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col bg-zinc-950 text-zinc-50">
+      <head>
+        {/* Applies the stored/system theme before first paint to avoid a flash */}
+        <script dangerouslySetInnerHTML={{ __html: themeInit }} />
+      </head>
+      <body className="flex min-h-full flex-col bg-background text-foreground">
         <Navbar />
         <div className="flex flex-1 flex-col">{children}</div>
+        <Footer />
       </body>
     </html>
   );

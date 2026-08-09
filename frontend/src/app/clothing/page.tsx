@@ -1,20 +1,11 @@
 import type { Metadata } from "next";
-import { AsteriskMark } from "@/components/asterisk-mark";
+import { Reveal } from "@/components/motion";
+import { ProductCard } from "@/components/product-card";
+import { products } from "@/lib/products";
 
 export const metadata: Metadata = { title: "Clothing — STIFF" };
 
 const categories = ["All", "Tees", "Hoodies", "Pants", "Accessories"];
-
-const products = [
-  { name: "Stiff Tee 01", price: 120, category: "Tees" },
-  { name: "Stiff Tee 02", price: 120, category: "Tees" },
-  { name: "Heavy Hoodie 01", price: 260, category: "Hoodies" },
-  { name: "Heavy Hoodie 02", price: 260, category: "Hoodies" },
-  { name: "Wide Pants 01", price: 220, category: "Pants" },
-  { name: "Wide Pants 02", price: 220, category: "Pants" },
-  { name: "Asterisk Cap", price: 90, category: "Accessories" },
-  { name: "Asterisk Beanie", price: 80, category: "Accessories" },
-];
 
 export default function ClothingPage() {
   return (
@@ -28,10 +19,10 @@ export default function ClothingPage() {
             <li key={category}>
               {/* Static chips until filtering ships with real product data */}
               <span
-                className={`flex h-9 items-center rounded-full px-4 text-[11px] uppercase tracking-[0.15em] ${
+                className={`flex h-9 items-center rounded-full px-4 text-[11px] font-medium uppercase tracking-[0.15em] ${
                   i === 0
-                    ? "bg-zinc-50 text-zinc-950"
-                    : "border border-zinc-800 text-zinc-400"
+                    ? "bg-foreground text-background"
+                    : "border border-subtle text-muted"
                 }`}
               >
                 {category}
@@ -42,22 +33,11 @@ export default function ClothingPage() {
       </div>
 
       <ul className="mt-10 grid grid-cols-2 gap-x-4 gap-y-10 sm:mt-12 lg:grid-cols-4">
-        {products.map(({ name, price, category }) => (
-          <li key={name}>
-            <article>
-              <div className="flex aspect-[3/4] items-center justify-center bg-zinc-900">
-                <AsteriskMark className="size-10 text-zinc-700 sm:size-12" />
-              </div>
-              <div className="mt-3 flex items-baseline justify-between gap-2">
-                <h2 className="text-xs uppercase tracking-wide sm:text-sm">
-                  {name}
-                </h2>
-                <p className="text-xs text-zinc-400 sm:text-sm">{price} ₾</p>
-              </div>
-              <p className="mt-0.5 text-[10px] uppercase tracking-[0.15em] text-zinc-600">
-                {category}
-              </p>
-            </article>
+        {products.map((product, i) => (
+          <li key={product.slug}>
+            <Reveal delay={(i % 4) * 0.06}>
+              <ProductCard product={product} />
+            </Reveal>
           </li>
         ))}
       </ul>
