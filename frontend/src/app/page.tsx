@@ -54,10 +54,10 @@ export default function Home() {
           </Reveal>
         </section>
 
-        {/* 2 — Most wanted: inverted black band */}
+        {/* 2 — Most wanted */}
         <section
           aria-label="Most wanted"
-          className="theme-invert w-full bg-background px-4 py-20 text-foreground sm:px-6 sm:py-24"
+          className="w-full border-t border-subtle px-4 py-20 sm:px-6 sm:py-24"
         >
           <Reveal className="flex flex-wrap items-end justify-between gap-x-4 gap-y-5">
             <div>
