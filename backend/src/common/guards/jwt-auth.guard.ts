@@ -33,7 +33,12 @@ export class JwtAuthGuard implements CanActivate {
     ]);
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    const token = request.cookies?.['stiff_access'];
+    // Cookie first (same-site deployments); Authorization: Bearer as the
+    // fallback for cross-domain setups where third-party cookies are blocked.
+    const header = request.headers.authorization;
+    const token =
+      request.cookies?.['stiff_access'] ??
+      (header?.startsWith('Bearer ') ? header.slice(7) : undefined);
 
     if (isPublic) {
       // Best-effort attach so public endpoints can personalize (e.g. myReaction).

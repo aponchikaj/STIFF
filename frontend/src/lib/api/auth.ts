@@ -1,20 +1,55 @@
-import { apiFetch } from "./client";
+import {
+  apiFetch,
+  clearTokens,
+  getStoredRefreshToken,
+  saveTokens,
+} from "./client";
 import type { LoginInput, RegisterInput, SafeUser } from "./types";
 
-export function register(data: RegisterInput): Promise<{ user: SafeUser }> {
-  return apiFetch("/auth/register", { method: "POST", body: data });
+interface AuthResponse {
+  user: SafeUser;
+  accessToken?: string;
+  refreshToken?: string;
 }
 
-export function login(data: LoginInput): Promise<{ user: SafeUser }> {
-  return apiFetch("/auth/login", { method: "POST", body: data });
+export async function register(data: RegisterInput): Promise<AuthResponse> {
+  const res = await apiFetch<AuthResponse>("/auth/register", {
+    method: "POST",
+    body: data,
+  });
+  saveTokens(res);
+  return res;
 }
 
-export function logout(): Promise<{ success: boolean }> {
-  return apiFetch("/auth/logout", { method: "POST" });
+export async function login(data: LoginInput): Promise<AuthResponse> {
+  const res = await apiFetch<AuthResponse>("/auth/login", {
+    method: "POST",
+    body: data,
+  });
+  saveTokens(res);
+  return res;
 }
 
-export function refresh(): Promise<{ user: SafeUser }> {
-  return apiFetch("/auth/refresh", { method: "POST" });
+export async function logout(): Promise<{ success: boolean }> {
+  const stored = getStoredRefreshToken();
+  try {
+    return await apiFetch("/auth/logout", {
+      method: "POST",
+      body: stored ? { refreshToken: stored } : {},
+    });
+  } finally {
+    clearTokens();
+  }
+}
+
+export async function refresh(): Promise<AuthResponse> {
+  const stored = getStoredRefreshToken();
+  const res = await apiFetch<AuthResponse>("/auth/refresh", {
+    method: "POST",
+    body: stored ? { refreshToken: stored } : {},
+  });
+  saveTokens(res);
+  return res;
 }
 
 export function getMe(): Promise<SafeUser> {

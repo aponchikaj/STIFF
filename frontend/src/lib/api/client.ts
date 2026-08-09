@@ -1,5 +1,54 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 
+/* Bearer-token fallback: httpOnly cookies are primary, but when the API is
+ * on another domain browsers may refuse third-party cookies — so tokens
+ * returned by auth endpoints are also kept in localStorage and sent as an
+ * Authorization header. */
+const ACCESS_KEY = "stiff_access_token";
+const REFRESH_KEY = "stiff_refresh_token";
+
+export function saveTokens(tokens: {
+  accessToken?: string;
+  refreshToken?: string;
+}): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (tokens.accessToken) localStorage.setItem(ACCESS_KEY, tokens.accessToken);
+    if (tokens.refreshToken)
+      localStorage.setItem(REFRESH_KEY, tokens.refreshToken);
+  } catch {
+    // storage unavailable — cookies remain the only transport
+  }
+}
+
+export function clearTokens(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(ACCESS_KEY);
+    localStorage.removeItem(REFRESH_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+function getAccessToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(ACCESS_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function getStoredRefreshToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(REFRESH_KEY);
+  } catch {
+    return null;
+  }
+}
+
 export class ApiError extends Error {
   readonly status: number;
   readonly messages: string[];
@@ -39,13 +88,17 @@ function rawFetch(path: string, options: ApiFetchOptions): Promise<Response> {
   const isFormData =
     typeof FormData !== "undefined" && body instanceof FormData;
 
+  const headers: Record<string, string> = {};
+  if (body !== undefined && !isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
+  const access = getAccessToken();
+  if (access) headers["Authorization"] = `Bearer ${access}`;
+
   return fetch(buildUrl(path, query), {
     method,
     credentials: "include",
-    headers:
-      body !== undefined && !isFormData
-        ? { "Content-Type": "application/json" }
-        : undefined,
+    headers: Object.keys(headers).length > 0 ? headers : undefined,
     body:
       body === undefined
         ? undefined
@@ -60,11 +113,26 @@ let refreshPromise: Promise<boolean> | null = null;
 
 function tryRefresh(): Promise<boolean> {
   if (!refreshPromise) {
+    const stored = getStoredRefreshToken();
     refreshPromise = fetch(`${API_URL}/auth/refresh`, {
       method: "POST",
       credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(stored ? { refreshToken: stored } : {}),
     })
-      .then((res) => res.ok)
+      .then(async (res) => {
+        if (!res.ok) return false;
+        try {
+          const data = (await res.json()) as {
+            accessToken?: string;
+            refreshToken?: string;
+          };
+          saveTokens(data);
+        } catch {
+          // body unreadable — cookies were still rotated
+        }
+        return true;
+      })
       .catch(() => false)
       .finally(() => {
         refreshPromise = null;

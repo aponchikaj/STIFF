@@ -55,7 +55,11 @@ export class AuthController {
     const user = await this.authService.register(dto);
     const pair = await this.tokenService.issueTokenPair(user);
     this.setAuthCookies(res, pair);
-    return { user: toSafeUser(user) };
+    return {
+      user: toSafeUser(user),
+      accessToken: pair.accessToken,
+      refreshToken: pair.refreshToken,
+    };
   }
 
   @Public()
@@ -68,7 +72,11 @@ export class AuthController {
     const user = await this.authService.login(dto);
     const pair = await this.tokenService.issueTokenPair(user);
     this.setAuthCookies(res, pair);
-    return { user: toSafeUser(user) };
+    return {
+      user: toSafeUser(user),
+      accessToken: pair.accessToken,
+      refreshToken: pair.refreshToken,
+    };
   }
 
   @Public()
@@ -77,8 +85,9 @@ export class AuthController {
   async refresh(
     @Req() req: AuthenticatedRequest,
     @Res({ passthrough: true }) res: Response,
+    @Body() body?: { refreshToken?: string },
   ) {
-    const raw = req.cookies?.[REFRESH_COOKIE];
+    const raw = req.cookies?.[REFRESH_COOKIE] ?? body?.refreshToken;
     if (!raw) throw new UnauthorizedException('No refresh token');
 
     const { userId } = await this.tokenService.consumeRefreshToken(raw);
@@ -92,7 +101,11 @@ export class AuthController {
     const newJti = this.tokenService.jtiOf(pair.refreshToken);
     await this.tokenService.markRotated(raw, newJti ?? '');
     this.setAuthCookies(res, pair);
-    return { user: toSafeUser(user) };
+    return {
+      user: toSafeUser(user),
+      accessToken: pair.accessToken,
+      refreshToken: pair.refreshToken,
+    };
   }
 
   @Post('logout')
@@ -100,8 +113,9 @@ export class AuthController {
   async logout(
     @Req() req: AuthenticatedRequest,
     @Res({ passthrough: true }) res: Response,
+    @Body() body?: { refreshToken?: string },
   ) {
-    const raw = req.cookies?.[REFRESH_COOKIE];
+    const raw = req.cookies?.[REFRESH_COOKIE] ?? body?.refreshToken;
     if (raw) await this.tokenService.revokeByRawToken(raw);
     this.clearAuthCookies(res);
     return { success: true };
