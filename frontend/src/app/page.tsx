@@ -136,7 +136,7 @@ export default function Home() {
         className="theme-invert w-full bg-background px-4 py-20 text-foreground sm:px-6 sm:py-24"
       >
         <Reveal>
-          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
+          <p className="text-center text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
             06 — The rules we live by
           </p>
         </Reveal>
@@ -155,7 +155,11 @@ export default function Home() {
               body: "Designed and worn in Tbilisi first. The asterisk is the spark.",
             },
           ].map((value, i) => (
-            <Reveal key={value.title} delay={i * 0.08}>
+            <Reveal
+              key={value.title}
+              delay={i * 0.08}
+              className="flex flex-col items-center text-center"
+            >
               <AsteriskMark className="size-5 text-muted" />
               <h3 className="mt-4 font-display text-2xl uppercase tracking-tight sm:text-3xl">
                 {value.title}
@@ -166,7 +170,7 @@ export default function Home() {
             </Reveal>
           ))}
         </div>
-        <Reveal className="mt-10">
+        <Reveal className="mt-10 flex justify-center">
           <Link
             href="/rules"
             className="rounded-[2px] text-[11px] font-medium uppercase tracking-[0.2em] text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
