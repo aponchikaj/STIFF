@@ -49,6 +49,12 @@ h2 {
   }
 }
 
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
 /* Ambient motion is decorative — skipped under reduced motion. */
 @media (prefers-reduced-motion: no-preference) {
   .animate-spin-slow {
@@ -59,5 +65,8 @@ h2 {
   }
   .spin-on-hover:hover {
     transform: rotate(360deg);
+  }
+  .marquee-track {
+    animation: marquee 22s linear infinite;
   }
 }

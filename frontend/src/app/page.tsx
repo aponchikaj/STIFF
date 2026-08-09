@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AsteriskMark } from "@/components/asterisk-mark";
+import { MarqueeBand } from "@/components/marquee-band";
 import { Magnetic, Reveal } from "@/components/motion";
 import { ProductCard } from "@/components/product-card";
 import { featuredProducts } from "@/lib/products";
@@ -19,7 +20,9 @@ export default function Home() {
         </p>
       </section>
 
-      <section className="mx-auto w-full max-w-6xl px-4 pb-24 sm:px-6">
+      <MarqueeBand />
+
+      <section className="mx-auto w-full max-w-6xl px-4 py-24 sm:px-6">
         <Reveal className="flex items-end justify-between gap-4">
           <h2 className="text-3xl uppercase tracking-tight sm:text-5xl">
             Featured drops
