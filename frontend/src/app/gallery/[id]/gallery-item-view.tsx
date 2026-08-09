@@ -41,8 +41,10 @@ export function GalleryItemView({ id }: { id: string }) {
 
   return (
     <>
-      <section className="mx-auto grid w-full max-w-5xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-2 lg:gap-16">
-        <ProductImage src={item.imageUrl} alt={item.title} aspect="" />
+      <section className="mx-auto grid w-full max-w-4xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-14">
+        <div className="mx-auto w-full max-w-[400px] lg:mx-0">
+          <ProductImage src={item.imageUrl} alt={item.title} aspect="" />
+        </div>
         <div className="lg:sticky lg:top-24 lg:self-start">
           <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
             {formatDate(item.createdAt)}

@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useSession } from "./providers";
 import { BagIcon, SearchIcon, UserIcon } from "./icons";
+import { SearchOverlay } from "./search-overlay";
 import { ThemeToggle } from "./theme-toggle";
 
 const iconLinkCls =
@@ -10,12 +12,18 @@ const iconLinkCls =
 
 export function NavActions() {
   const { user, cartCount, unreadCount, shopEnabled } = useSession();
+  const [searchOpen, setSearchOpen] = useState(false);
 
   return (
     <div className="flex items-center">
-      <Link href="/search" aria-label="Search" className={iconLinkCls}>
+      <button
+        type="button"
+        aria-label="Search"
+        onClick={() => setSearchOpen(true)}
+        className={iconLinkCls}
+      >
         <SearchIcon className="size-[18px]" />
-      </Link>
+      </button>
       {shopEnabled && (
         <Link href="/cart" aria-label="Cart" className={iconLinkCls}>
           <BagIcon className="size-[18px]" />
@@ -40,6 +48,7 @@ export function NavActions() {
         )}
       </Link>
       <ThemeToggle />
+      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

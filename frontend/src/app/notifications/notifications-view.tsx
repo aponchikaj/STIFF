@@ -7,6 +7,7 @@ import { notificationsApi } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { useAsync } from "@/lib/hooks";
 import { XIcon } from "@/components/icons";
+import { Reveal } from "@/components/motion";
 import { useSession } from "@/components/providers";
 import { btnGhostSm, ErrorNote, Loading } from "@/components/ui";
 
@@ -38,7 +39,7 @@ export function NotificationsView() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <Reveal className="flex flex-wrap items-end justify-between gap-4">
         <h1 className="text-4xl uppercase tracking-tight sm:text-6xl">
           Inbox
         </h1>
@@ -55,7 +56,7 @@ export function NotificationsView() {
             Mark all read ({data.unreadCount})
           </button>
         )}
-      </div>
+      </Reveal>
 
       {loading && <Loading label="Loading notifications" />}
       {error && <ErrorNote message={error} />}

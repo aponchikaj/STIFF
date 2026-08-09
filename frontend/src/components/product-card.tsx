@@ -21,8 +21,7 @@ export function ProductCard({ product }: { product: Product }) {
           </span>
         )}
       </div>
-      {/* Details hidden until hover on pointer devices; always visible on touch */}
-      <div className="mt-3 transition-all duration-300 sm:translate-y-1 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100 sm:group-focus-visible:translate-y-0 sm:group-focus-visible:opacity-100">
+      <div className="mt-3">
         <div className="flex items-baseline justify-between gap-2">
           <h3 className="text-xs font-bold uppercase tracking-wide sm:text-sm">
             {product.name}

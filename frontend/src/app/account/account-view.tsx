@@ -7,6 +7,7 @@ import { authApi, profileApi } from "@/lib/api";
 import type { OrderStatus } from "@/lib/api";
 import { formatDate, formatPrice, shortId } from "@/lib/format";
 import { errorMessage, useAsync } from "@/lib/hooks";
+import { Reveal } from "@/components/motion";
 import { useSession } from "@/components/providers";
 import { btnGhostSm, btnOutline, Loading } from "@/components/ui";
 
@@ -30,16 +31,22 @@ export function AccountView() {
 
   return (
     <div className="flex flex-col gap-14">
-      <Header
-        unreadCount={unreadCount}
-        onLogout={async () => {
-          await logout();
-          router.push("/");
-        }}
-      />
+      <Reveal>
+        <Header
+          unreadCount={unreadCount}
+          onLogout={async () => {
+            await logout();
+            router.push("/");
+          }}
+        />
+      </Reveal>
       {!user.isVerified && <VerifyBanner />}
-      <Stats />
-      <Orders />
+      <Reveal delay={0.05}>
+        <Stats />
+      </Reveal>
+      <Reveal delay={0.1}>
+        <Orders />
+      </Reveal>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { authApi, profileApi } from "@/lib/api";
 import { errorMessage, useAsync } from "@/lib/hooks";
+import { Reveal } from "@/components/motion";
 import { useSession } from "@/components/providers";
 import {
   btnGhostSm,
@@ -29,14 +30,14 @@ export function SettingsView() {
 
   return (
     <div className="flex flex-col gap-14">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <Reveal className="flex flex-wrap items-end justify-between gap-4">
         <h1 className="text-4xl uppercase tracking-tight sm:text-6xl">
           Settings
         </h1>
         <Link href="/account" className={btnOutline}>
           ← My account
         </Link>
-      </div>
+      </Reveal>
 
       <Appearance />
       <Notifications />

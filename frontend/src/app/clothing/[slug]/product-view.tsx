@@ -58,14 +58,14 @@ export function ProductView({ slug }: { slug: string }) {
 
   return (
     <>
-      <section className="mx-auto grid w-full max-w-5xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-2 lg:gap-16">
+      <section className="mx-auto grid w-full max-w-4xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-14">
         {/* Mobile: swipeable snap carousel; desktop: stacked scroll gallery */}
         <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto lg:flex-col lg:overflow-visible">
           {gallery.map((src, i) => (
             <Reveal
               key={i}
               delay={i * 0.08}
-              className="w-[82%] shrink-0 snap-center lg:w-full"
+              className="w-[70%] max-w-[340px] shrink-0 snap-center sm:w-[45%] lg:w-full lg:max-w-none"
             >
               <ProductImage
                 src={src}

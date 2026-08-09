@@ -21,7 +21,7 @@ export default function Home() {
       <MarqueeBand />
 
       <IfShop>
-        <section className="w-full px-4 py-24 sm:px-6">
+        <section className="w-full border-t border-subtle px-4 py-20 sm:px-6 sm:py-24">
           <Reveal className="flex flex-wrap items-end justify-between gap-x-4 gap-y-5">
             <h2 className="text-3xl uppercase tracking-tight sm:text-5xl">
               Featured drops
@@ -47,7 +47,7 @@ export default function Home() {
 
       <section
         aria-label="Gallery preview"
-        className="w-full px-4 py-24 sm:px-6"
+        className="w-full border-t border-subtle px-4 py-20 sm:px-6 sm:py-24"
       >
         <Reveal className="flex flex-wrap items-end justify-between gap-x-4 gap-y-5">
           <h2 className="text-3xl uppercase tracking-tight sm:text-5xl">
