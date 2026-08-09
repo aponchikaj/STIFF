@@ -7,7 +7,7 @@ import { errorMessage } from "@/lib/hooks";
 import { useSession } from "@/components/providers";
 import { btnSolid, Field, inputCls } from "@/components/ui";
 
-export function RegisterForm() {
+export function RegisterForm({ defaultEmail = "" }: { defaultEmail?: string }) {
   const router = useRouter();
   const { setUser } = useSession();
   const [busy, setBusy] = useState(false);
@@ -55,6 +55,7 @@ export function RegisterForm() {
           name="email"
           type="email"
           required
+          defaultValue={defaultEmail}
           autoComplete="email"
           placeholder="you@example.com"
           className={inputCls}

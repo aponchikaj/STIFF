@@ -87,9 +87,12 @@ export function Footer() {
       </div>
 
       <div className="border-t border-subtle">
-        <div className="flex w-full items-center justify-between gap-4 px-4 py-5 sm:px-6">
+        <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-5 sm:px-6">
           <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
             © 2026 STIFF — All rights reserved
+          </p>
+          <p className="hidden text-[10px] font-medium uppercase tracking-[0.25em] text-muted sm:block">
+            [ 41.7151° N, 44.8271° E — Tbilisi ]
           </p>
           <BackToTop />
         </div>

@@ -9,12 +9,23 @@ export function ProductCard({ product }: { product: Product }) {
       href={`/clothing/${product.slug}`}
       className="group block rounded-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
     >
-      <div className="relative overflow-hidden transition-opacity group-hover:opacity-90">
+      <div className="relative overflow-hidden">
         <ProductImage
           src={product.images[0]}
           alt={product.name}
           iconClassName="size-10 text-subtle transition-transform duration-500 group-hover:rotate-[360deg] sm:size-12"
         />
+        {/* Second angle crossfades in on hover */}
+        {product.images[1] && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={product.images[1]}
+            alt=""
+            aria-hidden="true"
+            loading="lazy"
+            className="absolute inset-0 h-full w-full bg-surface object-cover opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+          />
+        )}
         {product.stock === 0 && (
           <span className="absolute left-2 top-2 rounded-[2px] bg-foreground px-2 py-1 text-[9px] font-bold uppercase tracking-[0.15em] text-background">
             Sold out

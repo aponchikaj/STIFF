@@ -13,8 +13,8 @@ import { IfShop } from "./if-shop";
 import { Magnetic } from "./motion";
 import { btnOutline, btnSolid } from "./ui";
 
-/** Simple, conversion-focused hero: mark + promise + one clear action.
- *  Content drifts up and fades on scroll; the asterisk slowly rotates out. */
+/** Conversion-focused hero with 3D scroll depth: the block tilts back,
+ *  drifts up and fades while the asterisk rotates out. */
 export function HomeHero() {
   const ref = useRef<HTMLElement>(null);
   const reduce = useReducedMotion();
@@ -25,14 +25,23 @@ export function HomeHero() {
   const opacity = useTransform(scrollYProgress, [0, 0.9], [1, 0]);
   const y = useTransform(scrollYProgress, [0, 1], [0, 140]);
   const rotate = useTransform(scrollYProgress, [0, 1], [0, 270]);
+  const rotateX = useTransform(scrollYProgress, [0, 1], [0, 24]);
+  const scale = useTransform(scrollYProgress, [0, 1], [1, 0.94]);
 
   return (
     <section
       ref={ref}
-      className="relative flex h-[87svh] flex-col items-center justify-center px-6"
+      style={{ perspective: 1000 }}
+      className="relative flex h-[87svh] flex-col items-center justify-center overflow-hidden px-6"
     >
+      {/* Corner crosshairs */}
+      <span aria-hidden="true" className="absolute left-4 top-4 select-none text-sm text-muted sm:left-6 sm:top-6">+</span>
+      <span aria-hidden="true" className="absolute right-4 top-4 select-none text-sm text-muted sm:right-6 sm:top-6">+</span>
+      <span aria-hidden="true" className="absolute bottom-4 left-4 select-none text-sm text-muted sm:bottom-6 sm:left-6">+</span>
+      <span aria-hidden="true" className="absolute bottom-4 right-4 select-none text-sm text-muted sm:bottom-6 sm:right-6">+</span>
+
       <motion.div
-        style={reduce ? undefined : { opacity, y }}
+        style={reduce ? undefined : { opacity, y, scale, rotateX }}
         className="flex flex-col items-center text-center"
       >
         <p className="text-[11px] font-medium uppercase tracking-[0.35em] text-muted">
@@ -53,19 +62,27 @@ export function HomeHero() {
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <IfShop>
             <Magnetic className="inline-block">
-              <Link href="/clothing" className={btnSolid}>
+              <Link
+                href="/clothing"
+                className={`${btnSolid} active:scale-[0.98]`}
+              >
                 Shop the drop
               </Link>
             </Magnetic>
           </IfShop>
           <Magnetic className="inline-block">
-            <Link href="/gallery" className={`${btnOutline} h-12 px-6`}>
+            <Link
+              href="/gallery"
+              className={`${btnOutline} h-12 px-6 active:scale-[0.98]`}
+            >
               See the archive
             </Link>
           </Magnetic>
         </div>
+        <p className="mt-10 text-[10px] font-medium uppercase tracking-[0.25em] text-muted">
+          [ 41.7151° N, 44.8271° E — Tbilisi ]
+        </p>
       </motion.div>
-
     </section>
   );
 }

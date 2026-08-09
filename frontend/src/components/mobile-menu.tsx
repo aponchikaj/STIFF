@@ -119,8 +119,17 @@ export function MobileMenu() {
               </div>
 
               <ul className="flex flex-col px-4 py-6">
-                {mainLinks.map(({ label, href }) => (
-                  <li key={href}>
+                {mainLinks.map(({ label, href }, i) => (
+                  <motion.li
+                    key={href}
+                    initial={reduce ? false : { opacity: 0, x: -24 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{
+                      duration: 0.4,
+                      ease: EASE,
+                      delay: 0.1 + i * 0.06,
+                    }}
+                  >
                     <Link
                       href={href}
                       onClick={() => setOpen(false)}
@@ -128,13 +137,22 @@ export function MobileMenu() {
                     >
                       {label}
                     </Link>
-                  </li>
+                  </motion.li>
                 ))}
               </ul>
 
               <ul className="mt-auto flex flex-col gap-1 border-t border-subtle px-4 py-6">
-                {accountLinks.map(({ label, href }) => (
-                  <li key={href}>
+                {accountLinks.map(({ label, href }, i) => (
+                  <motion.li
+                    key={href}
+                    initial={reduce ? false : { opacity: 0, x: -16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{
+                      duration: 0.35,
+                      ease: EASE,
+                      delay: 0.25 + i * 0.05,
+                    }}
+                  >
                     <Link
                       href={href}
                       onClick={() => setOpen(false)}
@@ -142,8 +160,22 @@ export function MobileMenu() {
                     >
                       {label}
                     </Link>
-                  </li>
+                  </motion.li>
                 ))}
+                <motion.li
+                  initial={reduce ? false : { opacity: 0, x: -16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.35, ease: EASE, delay: 0.5 }}
+                >
+                  <a
+                    href="https://www.instagram.com/stiff__________/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block rounded-[2px] py-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
+                  >
+                    @stiff__________
+                  </a>
+                </motion.li>
               </ul>
             </motion.nav>
               </>

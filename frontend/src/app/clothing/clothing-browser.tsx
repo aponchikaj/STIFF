@@ -14,7 +14,6 @@ import {
   chipCls,
   ErrorNote,
   inputCls,
-  Loading,
   selectCls,
 } from "@/components/ui";
 
@@ -133,7 +132,20 @@ export function ClothingBrowser({ category }: { category: string }) {
       </div>
 
       {error && <ErrorNote message={error} />}
-      {loading && items.length === 0 && <Loading label="Loading pieces" />}
+      {loading && items.length === 0 && (
+        <ul
+          aria-hidden="true"
+          className="mt-10 grid grid-cols-2 gap-x-0.5 gap-y-8 sm:mt-12 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
+        >
+          {Array.from({ length: 8 }).map((_, i) => (
+            <li key={i}>
+              <div className="aspect-[3/4] animate-pulse bg-surface" />
+              <div className="mt-3 h-3 w-2/3 animate-pulse bg-surface" />
+              <div className="mt-1.5 h-2.5 w-1/3 animate-pulse bg-surface" />
+            </li>
+          ))}
+        </ul>
+      )}
       {!loading && !error && items.length === 0 && (
         <p className="py-16 text-sm text-muted">
           Nothing here yet — the next drop is on its way.

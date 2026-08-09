@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { productsApi } from "@/lib/api";
 import { formatPrice } from "@/lib/format";
 import { useAsync } from "@/lib/hooks";
@@ -16,6 +17,7 @@ import { btnOutline, Loading } from "@/components/ui";
 
 export function ProductView({ slug }: { slug: string }) {
   const { shopEnabled } = useSession();
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const { data: product, loading, error } = useAsync(
     () => productsApi.getProduct(slug),
     [slug],
@@ -58,6 +60,9 @@ export function ProductView({ slug }: { slug: string }) {
 
   return (
     <>
+      {lightbox && (
+        <Lightbox src={lightbox} onClose={() => setLightbox(null)} />
+      )}
       <section className="mx-auto grid w-full max-w-4xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-14">
         {/* Mobile: swipeable snap carousel; desktop: stacked scroll gallery */}
         <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto lg:flex-col lg:overflow-visible">
@@ -67,11 +72,20 @@ export function ProductView({ slug }: { slug: string }) {
               delay={i * 0.08}
               className="w-[70%] max-w-[340px] shrink-0 snap-center sm:w-[45%] lg:w-full lg:max-w-none"
             >
-              <ProductImage
-                src={src}
-                alt={`${product.name} — view ${i + 1}`}
-                iconClassName="size-12 text-subtle"
-              />
+              <button
+                type="button"
+                aria-label={src ? "Open full-size image" : undefined}
+                disabled={!src}
+                onClick={() => src && setLightbox(src)}
+                className="group block w-full cursor-zoom-in overflow-hidden rounded-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted disabled:cursor-default"
+              >
+                <ProductImage
+                  src={src}
+                  alt={`${product.name} — view ${i + 1}`}
+                  iconClassName="size-12 text-subtle"
+                  className="transition-transform duration-700 ease-out group-hover:scale-105"
+                />
+              </button>
             </Reveal>
           ))}
         </div>
@@ -109,7 +123,7 @@ export function ProductView({ slug }: { slug: string }) {
       </section>
 
       {relatedItems.length > 0 && (
-        <section className="w-full px-4 pb-24 sm:px-6">
+        <section className="mx-auto w-full max-w-5xl px-4 pb-24 sm:px-6">
           <Reveal>
             <h2 className="text-2xl uppercase tracking-tight sm:text-4xl">
               More like this
@@ -127,5 +141,44 @@ export function ProductView({ slug }: { slug: string }) {
         </section>
       )}
     </>
+  );
+}
+
+function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Full-size image"
+      onClick={onClose}
+      className="fixed inset-0 z-[90] flex cursor-zoom-out items-center justify-center bg-foreground/90 p-4"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        className="max-h-[92svh] max-w-full rounded-[2px] object-contain"
+      />
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={onClose}
+        className="absolute right-4 top-4 flex size-11 items-center justify-center rounded-[2px] bg-background text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
+      >
+        ×
+      </button>
+    </div>
   );
 }

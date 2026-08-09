@@ -4,13 +4,17 @@ import { RegisterForm } from "./register-form";
 
 export const metadata: Metadata = { title: "Register — STIFF" };
 
-export default function RegisterPage() {
+export default async function RegisterPage({
+  searchParams,
+}: PageProps<"/register">) {
+  const { email } = await searchParams;
+
   return (
     <AuthShell
       title="Join Stiff"
       footer={[{ text: "Already have an account?", label: "Log in", href: "/login" }]}
     >
-      <RegisterForm />
+      <RegisterForm defaultEmail={typeof email === "string" ? email : ""} />
     </AuthShell>
   );
 }

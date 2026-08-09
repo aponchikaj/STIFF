@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { CartDrawer } from "./cart-drawer";
 import { useSession } from "./providers";
 import { BagIcon, SearchIcon, UserIcon } from "./icons";
 import { SearchOverlay } from "./search-overlay";
@@ -13,6 +14,7 @@ const iconLinkCls =
 export function NavActions() {
   const { user, cartCount, unreadCount, shopEnabled } = useSession();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
 
   return (
     <div className="flex items-center">
@@ -25,14 +27,19 @@ export function NavActions() {
         <SearchIcon className="size-[18px]" />
       </button>
       {shopEnabled && (
-        <Link href="/cart" aria-label="Cart" className={iconLinkCls}>
+        <button
+          type="button"
+          aria-label="Open cart"
+          onClick={() => setCartOpen(true)}
+          className={iconLinkCls}
+        >
           <BagIcon className="size-[18px]" />
           {cartCount > 0 && (
             <span className="absolute right-0 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-[2px] bg-foreground px-1 text-[9px] font-bold leading-none text-background">
               {cartCount > 99 ? "99+" : cartCount}
             </span>
           )}
-        </Link>
+        </button>
       )}
       <Link
         href={user ? "/account" : "/login"}
@@ -49,6 +56,7 @@ export function NavActions() {
       </Link>
       <ThemeToggle />
       <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
     </div>
   );
 }

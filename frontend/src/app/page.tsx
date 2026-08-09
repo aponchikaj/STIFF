@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AboutTeaser } from "@/components/about-teaser";
 import { AsteriskMark } from "@/components/asterisk-mark";
 import { CategoryRows } from "@/components/category-rows";
+import { DropSignup } from "@/components/drop-signup";
 import { FeaturedProducts } from "@/components/featured-products";
 import { GalleryPreview } from "@/components/gallery-preview";
 import { HomeHero } from "@/components/home-hero";
@@ -182,6 +183,7 @@ export default function Home() {
             Make an account to get notified the second a drop lands, track
             your orders, and have your say in the comments.
           </p>
+          <DropSignup />
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <IfShop>
               <Magnetic className="inline-block">
