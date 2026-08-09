@@ -15,8 +15,12 @@ export class MailService {
     this.from =
       this.configService.get<string>('MAIL_FROM') ??
       'STIFF <onboarding@resend.dev>';
+    // Email links always point at the public site; PUBLIC_SITE_URL wins so a
+    // local backend (FRONTEND_URL=localhost for CORS) still sends real links.
     this.frontendUrl =
-      this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
+      this.configService.get<string>('PUBLIC_SITE_URL') ??
+      this.configService.get<string>('FRONTEND_URL') ??
+      'http://localhost:3000';
   }
 
   async sendVerificationEmail(email: string, token: string): Promise<void> {
