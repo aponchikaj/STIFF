@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Comment } from '../comments/comment.entity';
 import { Paginated, paginate } from '../common/types/paginated';
+import { padNumber, slugify } from '../common/utils/slug';
 import { Reaction, ReactionType } from '../reactions/reaction.entity';
 import { User } from '../users/user.entity';
 import {
@@ -44,29 +45,6 @@ const NEIGHBOUR_FIELDS = [
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-/**
- * URL-safe form of a title. Archive titles are numbers ("0057") and survive
- * this untouched; anything typed by hand becomes lowercase and hyphenated so
- * it can't produce a link that needs escaping.
- */
-function slugify(input: string): string {
-  const slug = input
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 120);
-  // Non-Latin titles (Georgian, say) strip to nothing — fall back to a
-  // timestamp rather than saving an empty slug the router can't address.
-  return slug || `shot-${Date.now()}`;
-}
-
-/** Archive numbering is zero-padded to four digits. */
-function pad(n: number): string {
-  return String(n).padStart(4, '0');
-}
 
 @Injectable()
 export class GalleryService {
@@ -249,7 +227,7 @@ export class GalleryService {
     const taken = new Set<string>();
 
     for (const [index, dto] of dtos.entries()) {
-      const title = dto.title?.trim() || pad(nextNumber++);
+      const title = dto.title?.trim() || padNumber(nextNumber++);
       const slug = slugify(dto.slug ?? title);
 
       // Two files in the same batch can resolve to the same slug, and the

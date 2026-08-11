@@ -1,13 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { adminApi, galleryApi } from "@/lib/api";
-import type { GalleryItem, UploadedImage } from "@/lib/api";
+import type { GalleryItem } from "@/lib/api";
 import { errorMessage, useAsync } from "@/lib/hooks";
 import { imageUrl } from "@/lib/image";
+import { GalleryUpload } from "./gallery-upload";
 import {
   btnGhostSm,
-  btnOutline,
   btnSolidSm,
   ErrorNote,
   inputCls,
@@ -15,219 +15,27 @@ import {
   Loading,
 } from "../ui";
 
-/** A file that has reached Cloudinary and is waiting to be described. */
-interface Draft {
-  /** Local id — the upload has no database row yet. */
-  key: string;
-  fileName: string;
-  image: UploadedImage;
-  title: string;
-  altText: string;
-  description: string;
-}
-
 /**
- * The gallery is the whole site until the shop opens, so adding to it has to
- * be quick: pick a folder of files, let the archive number them, write alt
- * text where it matters, publish in one request.
+ * Two halves: staging a new shoot, and maintaining what's already published.
  */
 export function GalleryTab() {
   const { data, loading, error, reload } = useAsync(
     () => galleryApi.listGallery({ pageSize: 50, includeArchived: true }),
     [],
   );
-  const [drafts, setDrafts] = useState<Draft[]>([]);
-  const [uploading, setUploading] = useState(0);
-  const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const fileInput = useRef<HTMLInputElement>(null);
-
-  async function addFiles(files: FileList) {
-    setNote(null);
-    setUploading((n) => n + files.length);
-    // Sequential: a shoot is a dozen 10MB files and firing them all at once
-    // just makes every one of them slow.
-    for (const file of Array.from(files)) {
-      try {
-        const image = await adminApi.uploadImage(file);
-        setDrafts((prev) => [
-          ...prev,
-          {
-            key: `${file.name}-${Date.now()}-${prev.length}`,
-            fileName: file.name,
-            image,
-            title: "",
-            altText: "",
-            description: "",
-          },
-        ]);
-      } catch (err) {
-        setNote(`${file.name}: ${errorMessage(err)}`);
-      } finally {
-        setUploading((n) => n - 1);
-      }
-    }
-    if (fileInput.current) fileInput.current.value = "";
-  }
-
-  function editDraft(key: string, patch: Partial<Draft>) {
-    setDrafts((prev) =>
-      prev.map((d) => (d.key === key ? { ...d, ...patch } : d)),
-    );
-  }
-
-  async function publish() {
-    if (drafts.length === 0) return;
-    setBusy(true);
-    setNote(null);
-    try {
-      const created = await adminApi.createGalleryItems(
-        drafts.map((d) => ({
-          title: d.title.trim() || undefined,
-          altText: d.altText.trim() || undefined,
-          description: d.description.trim() || undefined,
-          imageUrl: d.image.url,
-          width: d.image.width ?? undefined,
-          height: d.image.height ?? undefined,
-        })),
-      );
-      setDrafts([]);
-      setNote(
-        `Published ${created.length} shot${created.length === 1 ? "" : "s"}.`,
-      );
-      reload();
-    } catch (err) {
-      setNote(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
 
   return (
     <div className="flex flex-col gap-12">
-      <section className="flex flex-col gap-4">
-        <p className={labelCls}>New shots</p>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <label className={`${btnOutline} cursor-pointer`}>
-            {uploading > 0 ? `Uploading ${uploading}…` : "Choose images"}
-            <input
-              ref={fileInput}
-              type="file"
-              multiple
-              accept="image/jpeg,image/png,image/webp"
-              onChange={(e) => {
-                const files = e.target.files;
-                if (files && files.length > 0) void addFiles(files);
-              }}
-              className="sr-only"
-            />
-          </label>
-          {drafts.length > 0 && (
-            <>
-              <button
-                type="button"
-                onClick={() => void publish()}
-                disabled={busy || uploading > 0}
-                className={btnSolidSm}
-              >
-                {busy
-                  ? "Publishing…"
-                  : `Publish ${drafts.length} shot${drafts.length === 1 ? "" : "s"}`}
-              </button>
-              <button
-                type="button"
-                onClick={() => setDrafts([])}
-                disabled={busy}
-                className={btnGhostSm}
-              >
-                Discard
-              </button>
-            </>
-          )}
-        </div>
-
-        <p className="max-w-xl text-xs leading-6 text-muted">
-          Leave a title blank and the shot carries on the archive numbering.
-          Alt text describes the photograph for screen readers and search —
-          worth writing, the number alone tells them nothing.
-        </p>
-
-        {drafts.length > 0 && (
-          <ul className="flex flex-col gap-4">
-            {drafts.map((draft) => (
-              <li
-                key={draft.key}
-                className="flex flex-col gap-3 border border-subtle p-3 sm:flex-row sm:items-start"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={imageUrl(draft.image.url, 192)}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                  className="size-24 shrink-0 rounded-[2px] bg-surface object-cover"
-                />
-                <div className="flex min-w-0 flex-1 flex-col gap-2">
-                  <p className="truncate text-[10px] uppercase tracking-[0.15em] text-muted">
-                    {draft.fileName}
-                  </p>
-                  <input
-                    value={draft.title}
-                    onChange={(e) =>
-                      editDraft(draft.key, { title: e.target.value })
-                    }
-                    maxLength={120}
-                    placeholder="Title — blank to auto-number"
-                    aria-label={`Title for ${draft.fileName}`}
-                    className={`${inputCls} h-10`}
-                  />
-                  <input
-                    value={draft.altText}
-                    onChange={(e) =>
-                      editDraft(draft.key, { altText: e.target.value })
-                    }
-                    maxLength={300}
-                    placeholder="Alt text — describe the photograph"
-                    aria-label={`Alt text for ${draft.fileName}`}
-                    className={`${inputCls} h-10`}
-                  />
-                  <input
-                    value={draft.description}
-                    onChange={(e) =>
-                      editDraft(draft.key, { description: e.target.value })
-                    }
-                    maxLength={2000}
-                    placeholder="Caption (optional)"
-                    aria-label={`Caption for ${draft.fileName}`}
-                    className={`${inputCls} h-10`}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setDrafts((prev) =>
-                      prev.filter((d) => d.key !== draft.key),
-                    )
-                  }
-                  className={`${btnGhostSm} self-start`}
-                >
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <p aria-live="polite" className="min-h-4 text-xs text-muted">
-          {note}
-        </p>
-      </section>
+      <GalleryUpload onPublished={reload} />
 
       <section>
         <p className={labelCls}>Archive ({data?.total ?? 0})</p>
         {loading && <Loading label="Loading gallery" />}
         {error && <ErrorNote message={error} />}
+        <p aria-live="polite" className="min-h-4 text-xs text-muted">
+          {note}
+        </p>
         {data && (
           <ArchiveList
             items={data.items}
