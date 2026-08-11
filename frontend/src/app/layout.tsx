@@ -74,7 +74,7 @@ const structuredData = {
       name: SITE_NAME,
       url: SITE_URL,
       logo: `${SITE_URL}/icon.svg`,
-      email: "stiffon@gmail.com",
+      email: "stiffenter@gmail.com",
       address: {
         "@type": "PostalAddress",
         addressLocality: "Tbilisi",
@@ -104,6 +104,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${archivo.variable} ${archivoBlack.variable} h-full antialiased`}
     >
       <head>
+        {/* Every product and gallery image is served from Cloudinary — open
+            the connection during HTML parse instead of at first <img>. */}
+        <link rel="preconnect" href="https://res.cloudinary.com" />
+        <link rel="dns-prefetch" href="https://res.cloudinary.com" />
         {/* Applies the stored theme before first paint to avoid a flash */}
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
         <script

@@ -44,7 +44,6 @@ export class UploadsController {
   )
   async upload(@UploadedFile() file?: Express.Multer.File) {
     if (!file) throw new BadRequestException('No file uploaded');
-    const url = await this.uploadsService.store(file);
-    return { url };
+    return this.uploadsService.store(file);
   }
 }

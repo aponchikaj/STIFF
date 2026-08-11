@@ -84,6 +84,9 @@ export interface GalleryItem {
   title: string;
   description: string | null;
   imageUrl: string;
+  /** Intrinsic pixel size, so the layout can reserve the box before load. */
+  width: number | null;
+  height: number | null;
   sortOrder: number;
   isArchived: boolean;
   likeCount: number;
@@ -92,8 +95,18 @@ export interface GalleryItem {
   createdAt: string;
 }
 
+export type GalleryNeighbour = Pick<
+  GalleryItem,
+  "id" | "title" | "imageUrl" | "width" | "height"
+>;
+
 export interface GalleryItemDetail extends GalleryItem {
   myReaction: ReactionType | null;
+  /** 1-based position in the archive, for the "042 / 057" counter. */
+  position: number;
+  total: number;
+  prev: GalleryNeighbour | null;
+  next: GalleryNeighbour | null;
 }
 
 export interface CartItem {
@@ -312,7 +325,15 @@ export interface CreateGalleryItemInput {
   title: string;
   description?: string;
   imageUrl: string;
+  width?: number;
+  height?: number;
   sortOrder?: number;
+}
+
+export interface UploadedImage {
+  url: string;
+  width: number | null;
+  height: number | null;
 }
 
 export type UpdateGalleryItemInput = Partial<CreateGalleryItemInput> & {

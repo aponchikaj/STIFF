@@ -10,7 +10,8 @@ export class GalleryItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  // Doubles as the public slug (/gallery/0001), so it has to stay unique.
+  @Column({ unique: true })
   title: string;
 
   @Column({ type: 'text', nullable: true })
@@ -18,6 +19,14 @@ export class GalleryItem {
 
   @Column()
   imageUrl: string;
+
+  // Intrinsic pixel size of the upload. The frontend reserves the exact box
+  // before the image loads, so the masonry grid never reflows.
+  @Column({ type: 'int', nullable: true })
+  width: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  height: number | null;
 
   @Column({ type: 'int', default: 0 })
   sortOrder: number;

@@ -170,6 +170,7 @@ export function CartDrawer({
                         <ProductImage
                           src={item.product.images[0]}
                           alt={item.product.name}
+                          sizes="64px"
                           iconClassName="size-5 text-subtle"
                         />
                       </Link>

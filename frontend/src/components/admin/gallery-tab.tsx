@@ -2,7 +2,9 @@
 
 import { useRef, useState } from "react";
 import { adminApi, galleryApi } from "@/lib/api";
+import type { UploadedImage } from "@/lib/api";
 import { errorMessage, useAsync } from "@/lib/hooks";
+import { imageUrl } from "@/lib/image";
 import {
   btnGhostSm,
   btnOutline,
@@ -22,7 +24,7 @@ export function GalleryTab() {
   );
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [image, setImage] = useState<UploadedImage | null>(null);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -34,7 +36,7 @@ export function GalleryTab() {
         className="flex max-w-xl flex-col gap-4"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (!imageUrl) {
+          if (!image) {
             setNote("Upload an image first.");
             return;
           }
@@ -44,11 +46,13 @@ export function GalleryTab() {
             await adminApi.createGalleryItem({
               title,
               description: description || undefined,
-              imageUrl,
+              imageUrl: image.url,
+              width: image.width ?? undefined,
+              height: image.height ?? undefined,
             });
             setTitle("");
             setDescription("");
-            setImageUrl("");
+            setImage(null);
             setNote("Added to gallery.");
             reload();
           } catch (err) {
@@ -80,16 +84,18 @@ export function GalleryTab() {
           />
         </Field>
         <div className="flex items-center gap-3">
-          {imageUrl ? (
+          {image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={imageUrl}
+              src={imageUrl(image.url, 192)}
               alt=""
+              loading="lazy"
+              decoding="async"
               className="size-24 rounded-[2px] bg-surface object-cover"
             />
           ) : null}
           <label className={`${btnOutline} cursor-pointer`}>
-            {uploading ? "Uploading…" : imageUrl ? "Replace image" : "Upload image"}
+            {uploading ? "Uploading…" : image ? "Replace image" : "Upload image"}
             <input
               ref={fileInput}
               type="file"
@@ -100,8 +106,7 @@ export function GalleryTab() {
                 setUploading(true);
                 setNote(null);
                 try {
-                  const { url } = await adminApi.uploadImage(file);
-                  setImageUrl(url);
+                  setImage(await adminApi.uploadImage(file));
                 } catch (err) {
                   setNote(errorMessage(err));
                 } finally {
@@ -135,8 +140,10 @@ export function GalleryTab() {
               <div className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={item.imageUrl}
+                  src={imageUrl(item.imageUrl, 320)}
                   alt={item.title}
+                  loading="lazy"
+                  decoding="async"
                   className={`aspect-square w-full rounded-[2px] bg-surface object-cover ${
                     item.isArchived ? "opacity-40" : ""
                   }`}

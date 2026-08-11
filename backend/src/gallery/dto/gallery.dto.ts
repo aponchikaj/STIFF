@@ -28,6 +28,16 @@ export class CreateGalleryItemDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
+  width?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  height?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
   sortOrder?: number;
 }
 
@@ -47,6 +57,16 @@ export class UpdateGalleryItemDto {
   @IsString()
   @MinLength(1)
   imageUrl?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  width?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  height?: number;
 
   @IsOptional()
   @Type(() => Number)

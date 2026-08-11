@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRef } from "react";
 import {
@@ -34,6 +35,21 @@ export function HomeHero() {
       style={{ perspective: 1000 }}
       className="relative flex h-[87svh] flex-col items-center justify-center overflow-hidden px-6"
     >
+      {/* Backdrop: the one photograph on the page. Scrimmed hard through the
+          middle so the centred column keeps its contrast in both themes. */}
+      <div aria-hidden="true" className="absolute inset-0 overflow-hidden">
+        <Image
+          src="/hero-cat.jpg"
+          alt=""
+          fill
+          sizes="100vw"
+          loading="eager"
+          fetchPriority="high"
+          className="hero-photo object-cover object-bottom"
+        />
+        <div className="hero-scrim absolute inset-0" />
+      </div>
+
       {/* Corner crosshairs */}
       <span aria-hidden="true" className="absolute left-4 top-4 select-none text-sm text-muted sm:left-6 sm:top-6">+</span>
       <span aria-hidden="true" className="absolute right-4 top-4 select-none text-sm text-muted sm:right-6 sm:top-6">+</span>
@@ -42,7 +58,7 @@ export function HomeHero() {
 
       <motion.div
         style={reduce ? undefined : { opacity, y, scale, rotateX }}
-        className="flex flex-col items-center text-center"
+        className="relative flex flex-col items-center text-center"
       >
         <p className="text-[11px] font-medium uppercase tracking-[0.35em] text-muted">
           Tbilisi — est. 2026

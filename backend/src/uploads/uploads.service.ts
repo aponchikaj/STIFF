@@ -11,6 +11,13 @@ import { extname, join } from 'path';
 
 const UPLOAD_DIR = join(process.cwd(), 'uploads');
 
+export interface StoredImage {
+  url: string;
+  /** Null on the local-disk fallback, which doesn't decode the image. */
+  width: number | null;
+  height: number | null;
+}
+
 @Injectable()
 export class UploadsService {
   private readonly logger = new Logger(UploadsService.name);
@@ -36,10 +43,10 @@ export class UploadsService {
     }
   }
 
-  /** Stores the image and returns its public URL. */
-  async store(file: Express.Multer.File): Promise<string> {
+  /** Stores the image and returns its public URL plus intrinsic dimensions. */
+  async store(file: Express.Multer.File): Promise<StoredImage> {
     if (this.cloudinaryEnabled) {
-      return new Promise<string>((resolve, reject) => {
+      return new Promise<StoredImage>((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
           { folder: 'stiff', resource_type: 'image' },
           (error, result) => {
@@ -50,7 +57,11 @@ export class UploadsService {
               reject(new InternalServerErrorException('Image upload failed'));
               return;
             }
-            resolve(result.secure_url);
+            resolve({
+              url: result.secure_url,
+              width: result.width ?? null,
+              height: result.height ?? null,
+            });
           },
         );
         stream.end(file.buffer);
@@ -64,6 +75,6 @@ export class UploadsService {
     await fs.writeFile(join(UPLOAD_DIR, name), file.buffer);
     const appUrl =
       this.configService.get<string>('APP_URL') ?? 'http://localhost:4000';
-    return `${appUrl}/uploads/${name}`;
+    return { url: `${appUrl}/uploads/${name}`, width: null, height: null };
   }
 }

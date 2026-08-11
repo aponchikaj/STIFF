@@ -1,6 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+
+  // framer-motion re-exports a large surface; importing per-module keeps the
+  // client bundle to what each component actually uses.
+  experimental: {
+    optimizePackageImports: ["framer-motion"],
+  },
+
   // When BACKEND_URL is set (deployed environments), the frontend proxies
   // /api/* to the backend on its own domain. Auth cookies then stay
   // first-party, which survives browsers' third-party-cookie blocking.

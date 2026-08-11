@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { searchApi } from "@/lib/api";
 import type { SearchResults } from "@/lib/api";
 import { formatPrice } from "@/lib/format";
+import { galleryPath } from "@/lib/gallery-url";
 import { errorMessage } from "@/lib/hooks";
 import { XIcon } from "./icons";
 import { ProductImage } from "./product-image";
@@ -136,6 +137,7 @@ export function SearchOverlay({
                         src={product.images[0]}
                         alt=""
                         aspect="aspect-square"
+                        sizes="48px"
                         iconClassName="size-4 text-subtle"
                       />
                     </div>
@@ -164,7 +166,7 @@ export function SearchOverlay({
               {results.gallery.map((item) => (
                 <li key={item.id}>
                   <Link
-                    href={`/gallery/${item.id}`}
+                    href={galleryPath(item)}
                     onClick={onClose}
                     className="group block rounded-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
                   >
@@ -172,6 +174,7 @@ export function SearchOverlay({
                       src={item.imageUrl}
                       alt={item.title}
                       aspect="aspect-square"
+                      sizes="(min-width: 640px) 16vw, 33vw"
                       className="transition-opacity group-hover:opacity-90"
                     />
                     <p className="mt-1 truncate text-[9px] font-medium uppercase tracking-[0.15em] text-muted">

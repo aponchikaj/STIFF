@@ -5,6 +5,7 @@ import { adminApi, productsApi } from "@/lib/api";
 import type { Product } from "@/lib/api";
 import { formatPrice } from "@/lib/format";
 import { errorMessage, useAsync } from "@/lib/hooks";
+import { imageUrl } from "@/lib/image";
 import { AsteriskMark } from "../asterisk-mark";
 import {
   btnGhostSm,
@@ -225,8 +226,10 @@ export function ProductsTab() {
                 <div key={url} className="relative">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={url}
+                    src={imageUrl(url, 160)}
                     alt=""
+                    loading="lazy"
+                    decoding="async"
                     className="size-20 rounded-[2px] bg-surface object-cover"
                   />
                   <button
@@ -293,8 +296,10 @@ export function ProductsTab() {
               {product.images[0] ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={product.images[0]}
+                  src={imageUrl(product.images[0], 400)}
                   alt={product.name}
+                  loading="lazy"
+                  decoding="async"
                   className="aspect-square w-full bg-surface object-cover"
                 />
               ) : (

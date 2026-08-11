@@ -178,6 +178,7 @@ export function CartView() {
                     <ProductImage
                       src={item.product.images[0]}
                       alt={item.product.name}
+                      sizes="(min-width: 640px) 96px, 80px"
                       iconClassName="size-6 text-subtle"
                     />
                   </Link>

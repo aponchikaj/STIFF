@@ -22,6 +22,7 @@ import type {
   TrafficReport,
   UpdateGalleryItemInput,
   UpdateProductInput,
+  UploadedImage,
   UserStats,
 } from "./types";
 
@@ -220,7 +221,7 @@ export function broadcast(
 
 // ---------- uploads ----------
 
-export function uploadImage(file: File): Promise<{ url: string }> {
+export function uploadImage(file: File): Promise<UploadedImage> {
   const form = new FormData();
   form.append("file", file);
   return apiFetch("/uploads", { method: "POST", body: form });

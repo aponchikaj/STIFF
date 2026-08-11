@@ -68,7 +68,7 @@ export class MailService {
       'Reply from STIFF',
       html,
       `${this.frontendUrl}/contact`,
-      'stiffon@gmail.com',
+      'stiffenter@gmail.com',
     );
   }
 

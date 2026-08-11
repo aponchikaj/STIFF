@@ -30,10 +30,11 @@ export class GalleryController {
     return this.galleryService.list(query, user);
   }
 
+  /** `slug` is the item's title (/gallery/0001); a UUID still resolves too. */
   @Public()
-  @Get(':id')
-  getOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user?: User) {
-    return this.galleryService.getById(id, user);
+  @Get(':slug')
+  getOne(@Param('slug') slug: string, @CurrentUser() user?: User) {
+    return this.galleryService.getBySlug(slug, user);
   }
 
   @Post()

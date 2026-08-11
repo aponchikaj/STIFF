@@ -1,19 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { productsApi } from "@/lib/api";
 import { formatPrice } from "@/lib/format";
 import { useAsync } from "@/lib/hooks";
 import { CommentsSection } from "@/components/comments-section";
+import { CrystalMark } from "@/components/crystal-mark";
 import { ShopClosed } from "@/components/if-shop";
+import { Lightbox } from "@/components/lightbox";
 import { Reveal } from "@/components/motion";
 import { useSession } from "@/components/providers";
 import { ProductCard } from "@/components/product-card";
 import { ProductControls } from "@/components/product-controls";
 import { ProductImage } from "@/components/product-image";
 import { ReactionButtons } from "@/components/reaction-buttons";
+import { ShareButton } from "@/components/share-button";
+import { productShareSubject } from "@/lib/share-subject";
 import { btnOutline, Loading } from "@/components/ui";
+
+/** At or below this many units the piece is flagged as running out. */
+const LOW_STOCK = 5;
 
 export function ProductView({ slug }: { slug: string }) {
   const { shopEnabled } = useSession();
@@ -54,6 +61,7 @@ export function ProductView({ slug }: { slug: string }) {
   }
 
   const gallery = product.images.length > 0 ? product.images : [null];
+  const shareSubject = productShareSubject(product);
   const relatedItems = (related?.items ?? [])
     .filter((p) => p.id !== product.id)
     .slice(0, 4);
@@ -82,6 +90,8 @@ export function ProductView({ slug }: { slug: string }) {
                 <ProductImage
                   src={src}
                   alt={`${product.name} — view ${i + 1}`}
+                  sizes="(min-width: 1024px) 400px, (min-width: 640px) 45vw, 70vw"
+                  priority={i === 0}
                   iconClassName="size-12 text-subtle"
                   className="transition-transform duration-700 ease-out group-hover:scale-105"
                 />
@@ -97,15 +107,23 @@ export function ProductView({ slug }: { slug: string }) {
           <h1 className="mt-2 text-4xl uppercase tracking-tight sm:text-5xl">
             {product.name}
           </h1>
-          <p className="mt-3 text-lg text-muted">
-            {formatPrice(product.priceCents)}
-          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <p className="text-lg text-muted">
+              {formatPrice(product.priceCents)}
+            </p>
+            {product.stock > 0 && product.stock <= LOW_STOCK && (
+              <span className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
+                <CrystalMark className="h-4" />
+                Only {product.stock} left
+              </span>
+            )}
+          </div>
           {product.description && (
             <p className="mt-6 max-w-md text-sm leading-6 text-muted">
               {product.description}
             </p>
           )}
-          <div className="mt-6">
+          <div className="mt-6 flex flex-wrap items-center gap-2">
             <ReactionButtons
               targetType="product"
               targetId={product.id}
@@ -113,6 +131,7 @@ export function ProductView({ slug }: { slug: string }) {
               dislikeCount={product.dislikeCount}
               myReaction={product.myReaction}
             />
+            {shareSubject && <ShareButton subject={shareSubject} />}
           </div>
           <ProductControls product={product} />
         </div>
@@ -141,44 +160,5 @@ export function ProductView({ slug }: { slug: string }) {
         </section>
       )}
     </>
-  );
-}
-
-function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
-  }, [onClose]);
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Full-size image"
-      onClick={onClose}
-      className="fixed inset-0 z-[90] flex cursor-zoom-out items-center justify-center bg-foreground/90 p-4"
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt=""
-        className="max-h-[92svh] max-w-full rounded-[2px] object-contain"
-      />
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className="absolute right-4 top-4 flex size-11 items-center justify-center rounded-[2px] bg-background text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
-      >
-        ×
-      </button>
-    </div>
   );
 }

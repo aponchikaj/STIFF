@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { galleryApi } from "@/lib/api";
+import { galleryPath } from "@/lib/gallery-url";
 import { useAsync } from "@/lib/hooks";
 import { ScaleIn } from "./motion";
 import { ProductImage } from "./product-image";
@@ -22,13 +23,14 @@ export function GalleryPreview() {
         <li key={item.id}>
           <ScaleIn delay={i * 0.06}>
             <Link
-              href={`/gallery/${item.id}`}
+              href={galleryPath(item)}
               className="group block rounded-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
             >
               <ProductImage
                 src={item.imageUrl}
                 alt={item.title}
                 aspect="aspect-square"
+                sizes="(min-width: 1024px) 25vw, 50vw"
                 className="transition-opacity group-hover:opacity-90"
               />
               <p className="mt-2 truncate text-[10px] font-medium uppercase tracking-[0.2em] text-muted">

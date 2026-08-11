@@ -72,6 +72,7 @@ export function ProductCarousel() {
               <ProductImage
                 src={product.images[0]}
                 alt={product.name}
+                sizes="(min-width: 1280px) 16vw, (min-width: 1024px) 19vw, (min-width: 640px) 31vw, 46vw"
                 iconClassName="size-8 text-subtle"
               />
               {product.stock === 0 && (

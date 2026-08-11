@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { searchApi } from "@/lib/api";
 import type { SearchResults } from "@/lib/api";
+import { galleryPath } from "@/lib/gallery-url";
 import { errorMessage } from "@/lib/hooks";
 import { Reveal } from "@/components/motion";
 import { ProductCard } from "@/components/product-card";
@@ -111,13 +112,14 @@ export function SearchView() {
             {results.gallery.map((item) => (
               <li key={item.id}>
                 <Link
-                  href={`/gallery/${item.id}`}
+                  href={galleryPath(item)}
                   className="group block rounded-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
                 >
                   <ProductImage
                     src={item.imageUrl}
                     alt={item.title}
                     aspect="aspect-square"
+                    sizes="(min-width: 1280px) 16vw, (min-width: 640px) 25vw, 50vw"
                     className="transition-opacity group-hover:opacity-90"
                   />
                   <p className="mt-2 truncate text-[10px] font-medium uppercase tracking-[0.2em] text-muted">

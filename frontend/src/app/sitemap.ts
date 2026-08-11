@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { galleryPath } from "@/lib/gallery-url";
 import { serverApiBase, SITE_URL } from "@/lib/site";
 
 interface ProductRow {
@@ -7,7 +8,8 @@ interface ProductRow {
 }
 
 interface GalleryRow {
-  id: string;
+  /** Doubles as the URL slug — see galleryPath. */
+  title: string;
   createdAt: string;
 }
 
@@ -55,7 +57,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       const data = (await res.json()) as { items: GalleryRow[] };
       for (const item of data.items) {
         entries.push({
-          url: `${SITE_URL}/gallery/${item.id}`,
+          url: `${SITE_URL}${galleryPath(item)}`,
           lastModified: new Date(item.createdAt),
           changeFrequency: "monthly",
           priority: 0.5,

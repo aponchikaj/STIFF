@@ -4,7 +4,7 @@ import { contentApi } from "@/lib/api";
 import { useAsync } from "@/lib/hooks";
 import { SocialLinks } from "@/components/social-links";
 
-const FALLBACK = { email: "stiffon@gmail.com", location: "Tbilisi, Georgia" };
+const FALLBACK = { email: "stiffenter@gmail.com", location: "Tbilisi, Georgia" };
 
 /** Contact details, editable from the admin panel (contact-info content). */
 export function ContactInfo() {

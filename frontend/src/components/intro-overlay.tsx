@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useState } from "react";
 import { AsteriskMark } from "./asterisk-mark";
+import { CrystalMark } from "./crystal-mark";
 
 type Phase = "loading" | "reveal" | "nav" | "gone";
 
@@ -64,7 +65,9 @@ export function IntroOverlay() {
   return (
     <div
       aria-hidden="true"
-      className="intro-overlay fixed inset-0 z-40 flex flex-col bg-background"
+      className={`intro-overlay fixed inset-0 z-40 flex flex-col bg-background transition-opacity duration-[650ms] ease-out ${
+        phase === "nav" ? "opacity-0" : "opacity-100"
+      }`}
     >
       {/* Without JS the intro can never finish — hide it so content shows */}
       <noscript>
@@ -79,12 +82,24 @@ export function IntroOverlay() {
             phase === "loading" ? "intro-hold" : "intro-shift-run"
           }`}
         >
-          {/* 6-fold symmetry hides the rotation snap when the spin stops */}
-          <AsteriskMark
-            className={`size-16 sm:size-28 ${
-              phase === "loading" ? "animate-spin-slow" : ""
-            }`}
-          />
+          {/* The crystal holds the loading beat, then crossfades into the
+              asterisk as the wordmark lands — the mark it becomes. */}
+          <div className="relative size-16 [perspective:600px] sm:size-28">
+            <span
+              className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
+                phase === "loading"
+                  ? "animate-crystal-turn opacity-100"
+                  : "opacity-0"
+              }`}
+            >
+              <CrystalMark className="h-full" />
+            </span>
+            <AsteriskMark
+              className={`absolute inset-0 size-full transition-opacity duration-300 ${
+                phase === "loading" ? "opacity-0" : "opacity-100"
+              }`}
+            />
+          </div>
           <div className="overflow-hidden">
             <span
               className={`font-display block text-7xl uppercase leading-none tracking-tight sm:text-9xl ${
