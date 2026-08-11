@@ -6,7 +6,7 @@ import { productsApi } from "@/lib/api";
 import { formatPrice } from "@/lib/format";
 import { useAsync } from "@/lib/hooks";
 import { CommentsSection } from "@/components/comments-section";
-import { CrystalMark } from "@/components/crystal-mark";
+import { AsteriskMark } from "@/components/asterisk-mark";
 import { ShopClosed } from "@/components/if-shop";
 import { Lightbox } from "@/components/lightbox";
 import { Reveal } from "@/components/motion";
@@ -113,7 +113,7 @@ export function ProductView({ slug }: { slug: string }) {
             </p>
             {product.stock > 0 && product.stock <= LOW_STOCK && (
               <span className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
-                <CrystalMark className="h-4" />
+                <AsteriskMark className="size-3.5" />
                 Only {product.stock} left
               </span>
             )}

@@ -33,7 +33,7 @@ export function HomeHero() {
     <section
       ref={ref}
       style={{ perspective: 1000 }}
-      className="relative flex h-[87svh] flex-col items-center justify-center overflow-hidden px-6"
+      className="relative flex h-screen flex-col items-center justify-center overflow-hidden px-6"
     >
       {/* Backdrop: the one photograph on the page. Scrimmed hard through the
           middle so the centred column keeps its contrast in both themes. */}

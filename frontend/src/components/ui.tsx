@@ -37,9 +37,10 @@ export function chipCls(active: boolean): string {
   }`;
 }
 
+/** The asterisk is the loader — it ticks arm by arm rather than spinning. */
 export function Spinner({ className = "size-6" }: { className?: string }) {
   return (
-    <AsteriskMark className={`animate-spin-slow text-muted ${className}`} />
+    <AsteriskMark className={`animate-asterisk-tick text-muted ${className}`} />
   );
 }
 

@@ -2,7 +2,6 @@
 
 import { useLayoutEffect, useState } from "react";
 import { AsteriskMark } from "./asterisk-mark";
-import { CrystalMark } from "./crystal-mark";
 
 type Phase = "loading" | "reveal" | "nav" | "gone";
 
@@ -65,7 +64,7 @@ export function IntroOverlay() {
   return (
     <div
       aria-hidden="true"
-      className={`intro-overlay fixed inset-0 z-40 flex flex-col bg-background transition-opacity duration-[650ms] ease-out ${
+      className={`intro-overlay fixed inset-0 z-40 flex flex-col overflow-hidden bg-background transition-opacity duration-[650ms] ease-out ${
         phase === "nav" ? "opacity-0" : "opacity-100"
       }`}
     >
@@ -73,30 +72,28 @@ export function IntroOverlay() {
       <noscript>
         <style>{`.intro-overlay{display:none}`}</style>
       </noscript>
-      {/* Mirrors the page structure (4rem navbar + 87svh hero) so the
-          overlay composition sits exactly where the real hero renders */}
+      {/* Mirrors the page structure (4rem navbar + 100vh hero) so the overlay
+          composition sits exactly where the real hero renders. The block runs
+          taller than the viewport by the navbar's height — same as the page —
+          which is why the overlay clips rather than scrolls. */}
       <div className="h-16 shrink-0" />
-      <div className="flex h-[87svh] items-center justify-center px-6">
+      <div className="flex h-screen items-center justify-center px-6">
         <div
           className={`flex items-center gap-4 sm:gap-6 ${
             phase === "loading" ? "intro-hold" : "intro-shift-run"
           }`}
         >
-          {/* The crystal holds the loading beat, then crossfades into the
-              asterisk as the wordmark lands — the mark it becomes. */}
-          <div className="relative size-16 [perspective:600px] sm:size-28">
-            <span
-              className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
-                phase === "loading"
-                  ? "animate-crystal-turn opacity-100"
-                  : "opacity-0"
-              }`}
-            >
-              <CrystalMark className="h-full" />
-            </span>
+          {/* One mark throughout: the asterisk ticks while the page boots,
+              then comes to rest as the wordmark slides out of it. The glyph is
+              six-fold symmetric, so stopping mid-cycle is invisible. */}
+          <div
+            className={`size-16 sm:size-28 ${
+              phase === "loading" ? "animate-asterisk-breathe" : ""
+            }`}
+          >
             <AsteriskMark
-              className={`absolute inset-0 size-full transition-opacity duration-300 ${
-                phase === "loading" ? "opacity-0" : "opacity-100"
+              className={`size-full ${
+                phase === "loading" ? "animate-asterisk-tick" : ""
               }`}
             />
           </div>

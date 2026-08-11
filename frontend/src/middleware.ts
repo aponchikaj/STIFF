@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { clientIp, isMonitorIp } from "@/lib/monitor-ips";
 
 /**
  * Staging gate: when STAGING_USER + STAGING_PASSWORD are set on a
@@ -22,6 +23,14 @@ export async function middleware(request: NextRequest) {
   const user = process.env.STAGING_USER;
   const password = process.env.STAGING_PASSWORD;
   if (!user || !password) return NextResponse.next();
+
+  // Uptime monitors can't answer a Basic Auth challenge, so they'd report the
+  // staging deployments as permanently down. Let their probes straight through.
+  // This gate is a "keep staging out of public view" measure, not access
+  // control over data, so trusting a proxy header here is an acceptable trade.
+  if (isMonitorIp(clientIp(request.headers))) {
+    return NextResponse.next();
+  }
 
   const token = await expectedToken(user, password);
 
