@@ -1,0 +1,6 @@
+# Database dumps taken before schema changes — real gallery content, not source
+pg_dump_backup_*.sql
+*.dump
+
+# OS
+.DS_Store

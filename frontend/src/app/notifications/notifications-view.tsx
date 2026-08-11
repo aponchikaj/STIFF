@@ -4,12 +4,34 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { notificationsApi } from "@/lib/api";
+import type { NotificationMeta } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { useAsync } from "@/lib/hooks";
 import { XIcon } from "@/components/icons";
 import { Reveal } from "@/components/motion";
 import { useSession } from "@/components/providers";
 import { btnGhostSm, ErrorNote, Loading } from "@/components/ui";
+
+/**
+ * Where a notification actually points.
+ *
+ * The stored `targetId` is a UUID, and both `/clothing/:id` and `/gallery/:id`
+ * resolve a UUID as well as a slug — so the link can be built without another
+ * round trip to look the slug up.
+ */
+function notificationLink(
+  meta: NotificationMeta | null,
+): { href: string; label: string } | null {
+  if (!meta) return null;
+  if (meta.targetId && meta.targetType === "product") {
+    return { href: `/clothing/${meta.targetId}`, label: "View piece" };
+  }
+  if (meta.targetId && meta.targetType === "gallery") {
+    return { href: `/gallery/${meta.targetId}`, label: "View shot" };
+  }
+  if (meta.orderId) return { href: "/account", label: "View order" };
+  return null;
+}
 
 export function NotificationsView() {
   const { user, loading: sessionLoading, refreshBadges } = useSession();
@@ -94,14 +116,17 @@ export function NotificationsView() {
                 </p>
               </div>
               <p className="mt-1 text-sm leading-6 text-muted">{n.body}</p>
-              {n.meta?.targetType === "product" && n.meta.targetId && (
-                <Link
-                  href="/clothing"
-                  className="mt-1 inline-block text-[11px] font-medium uppercase tracking-[0.15em] text-foreground underline-offset-4 hover:underline"
-                >
-                  View piece
-                </Link>
-              )}
+              {(() => {
+                const link = notificationLink(n.meta);
+                return link ? (
+                  <Link
+                    href={link.href}
+                    className="mt-1 inline-block text-[11px] font-medium uppercase tracking-[0.15em] text-foreground underline-offset-4 hover:underline"
+                  >
+                    {link.label}
+                  </Link>
+                ) : null;
+              })()}
             </button>
             <button
               type="button"

@@ -1,0 +1,38 @@
+---
+description: Summarize each task as soon as it is finished, before starting the next one
+alwaysApply: true
+---
+
+# Summarize every finished task
+
+When working through a list of tasks, write a short summary the moment a task
+is done — before moving on to the next one. Don't save it all for one summary
+at the end of the session.
+
+Mark the todo completed and write the summary in the same step.
+
+## What a summary covers
+
+- What changed, in plain language, and which files or areas it touched
+- How it was verified (lint, build, tests, migration run, a real request)
+- Anything left unfinished, risky, or worth a decision later
+
+## Shape
+
+Keep it to a few sentences of prose. No headers, no bullet lists, no tables for
+a single task — those are for the end-of-session wrap-up across many tasks.
+
+Lead with the outcome:
+
+> Gallery items now have a stable `slug` column, so renaming a title no longer
+> breaks a shared link. Touched the entity, service, DTOs and the frontend URL
+> builder, plus a migration that backfills `slug` from `title`. Verified with
+> lint, both builds, the backend test suite, and a live request to
+> `/api/gallery/0057`. Old `/gallery/<title>` links still resolve through a
+> fallback lookup.
+
+## Why
+
+The person reading this stepped away while the work ran. A summary that arrives
+with each finished task tells them where things stand without reading the whole
+transcript, and surfaces a wrong turn while it is still cheap to correct.
