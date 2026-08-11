@@ -39,9 +39,18 @@ means push directly to `main`, no intermediate steps required.
 - Backend reads config from `backend/.env` via `@nestjs/config` (global).
   Database connection settings are `DB_HOST`, `DB_PORT`, `DB_USERNAME`,
   `DB_PASSWORD`, `DB_NAME`.
-- TypeORM uses `autoLoadEntities` and `synchronize: true` outside production —
-  register entities via `TypeOrmModule.forFeature` in feature modules; no
-  migrations during early development.
+- TypeORM uses `autoLoadEntities` — register entities via
+ `TypeOrmModule.forFeature` in feature modules.
+- **`synchronize` is off everywhere.** Schema changes go through migrations in
+ `backend/src/migrations/`, reviewed as code like any other change. After
+ editing an entity, run `npm run migration:generate -- src/migrations/SomeName`,
+ read the generated SQL, then `npm run migration:run`. Pending migrations also
+ run automatically on boot unless `DB_MIGRATIONS_RUN=false`.
+- The database is a **hosted Supabase Postgres**, shared by local development
+ and the deployed site — there is real content in it (the gallery archive).
+ Treat every schema change as a production change, and back up with
+ `pg_dump --schema=public` (use `/Library/PostgreSQL/17/bin/pg_dump`; the
+ Homebrew one is v14 and refuses the v17 server) before structural work.
 - Global `ValidationPipe` with `whitelist` and `transform` is enabled —
   use `class-validator` decorators on DTOs.
 - Frontend calls the API via `NEXT_PUBLIC_API_URL` from `frontend/.env.local`

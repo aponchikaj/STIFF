@@ -48,8 +48,16 @@ import { UsersModule } from './users/users.module';
           config.get<string>('DB_SSL') === 'true'
             ? { rejectUnauthorized: false }
             : false,
+        // Migration SQL is unqualified, so new objects land in the first entry.
+        // The rest only exist so extension functions resolve — Supabase installs
+        // those outside public.
+        extra: { options: '-c search_path=public,extensions' },
         autoLoadEntities: true,
-        synchronize: config.get<string>('NODE_ENV') !== 'production',
+        // Never let TypeORM reshape a live schema on boot. Schema changes go
+        // through `npm run migration:generate` and are reviewed as code.
+        synchronize: false,
+        migrations: [__dirname + '/migrations/*{.ts,.js}'],
+        migrationsRun: config.get<string>('DB_MIGRATIONS_RUN') !== 'false',
       }),
     }),
     MailModule,
