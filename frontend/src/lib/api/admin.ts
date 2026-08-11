@@ -2,6 +2,7 @@ import { apiFetch } from "./client";
 import type {
   AdminUser,
   AnalyticsOverview,
+  BulkGalleryItemInput,
   Comment,
   ContactMessage,
   ContentKey,
@@ -13,6 +14,7 @@ import type {
   Paginated,
   PaginationParams,
   Product,
+  ReorderEntry,
   Role,
   SafeUser,
   SiteContent,
@@ -114,6 +116,19 @@ export function createGalleryItem(
   data: CreateGalleryItemInput,
 ): Promise<GalleryItem> {
   return apiFetch("/gallery", { method: "POST", body: data });
+}
+
+/** Whole shoot in one request; untitled shots continue the archive numbering. */
+export function createGalleryItems(
+  items: BulkGalleryItemInput[],
+): Promise<GalleryItem[]> {
+  return apiFetch("/gallery/bulk", { method: "POST", body: { items } });
+}
+
+export function reorderGallery(
+  items: ReorderEntry[],
+): Promise<{ success: boolean; updated: number }> {
+  return apiFetch("/gallery/reorder", { method: "PATCH", body: { items } });
 }
 
 export function updateGalleryItem(

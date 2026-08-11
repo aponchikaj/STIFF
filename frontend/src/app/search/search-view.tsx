@@ -117,7 +117,7 @@ export function SearchView() {
                 >
                   <ProductImage
                     src={item.imageUrl}
-                    alt={item.title}
+                    alt={item.altText ?? item.title}
                     aspect="aspect-square"
                     sizes="(min-width: 1280px) 16vw, (min-width: 640px) 25vw, 50vw"
                     className="transition-opacity group-hover:opacity-90"

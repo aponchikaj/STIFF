@@ -36,9 +36,13 @@ export class SearchController {
         .getMany(),
       this.galleryRepo
         .createQueryBuilder('item')
-        .where('(item.title ILIKE :like OR item.description ILIKE :like)', {
-          like,
-        })
+        // Archived shots are pulled from the public archive, so they must not
+        // come back through search either.
+        .where('item.isArchived = false')
+        .andWhere(
+          '(item.title ILIKE :like OR item.description ILIKE :like OR item.altText ILIKE :like)',
+          { like },
+        )
         .orderBy('item.createdAt', 'DESC')
         .take(12)
         .getMany(),

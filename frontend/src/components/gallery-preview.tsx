@@ -28,7 +28,7 @@ export function GalleryPreview() {
             >
               <ProductImage
                 src={item.imageUrl}
-                alt={item.title}
+                alt={item.altText ?? item.title}
                 aspect="aspect-square"
                 sizes="(min-width: 1024px) 25vw, 50vw"
                 className="transition-opacity group-hover:opacity-90"

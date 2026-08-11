@@ -112,7 +112,7 @@ export function GalleryGrid() {
                 <figure>
                   <ProductImage
                     src={item.imageUrl}
-                    alt={item.title}
+                    alt={item.altText ?? item.title}
                     aspect=""
                     width={item.width}
                     height={item.height}

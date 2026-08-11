@@ -25,6 +25,12 @@ export class GalleryItem {
   @Column({ type: 'text', nullable: true })
   description: string | null;
 
+  // Describes the photograph for screen readers and for the alt attribute.
+  // Null means "no description written yet" — the UI falls back to the title,
+  // which is only ever a catalogue number.
+  @Column({ type: 'varchar', length: 300, nullable: true })
+  altText: string | null;
+
   @Column()
   imageUrl: string;
 

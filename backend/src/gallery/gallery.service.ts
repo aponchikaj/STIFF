@@ -10,6 +10,7 @@ import { Paginated, paginate } from '../common/types/paginated';
 import { Reaction, ReactionType } from '../reactions/reaction.entity';
 import { User } from '../users/user.entity';
 import {
+  BulkGalleryItemDto,
   CreateGalleryItemDto,
   ListGalleryQueryDto,
   UpdateGalleryItemDto,
@@ -19,7 +20,7 @@ import { GalleryItem } from './gallery-item.entity';
 /** Just enough to render a prev/next thumbnail and prefetch its route. */
 export type GalleryNeighbour = Pick<
   GalleryItem,
-  'id' | 'slug' | 'title' | 'imageUrl' | 'width' | 'height'
+  'id' | 'slug' | 'title' | 'altText' | 'imageUrl' | 'width' | 'height'
 >;
 
 export type GalleryItemWithReaction = GalleryItem & {
@@ -35,6 +36,7 @@ const NEIGHBOUR_FIELDS = [
   'item.id',
   'item.slug',
   'item.title',
+  'item.altText',
   'item.imageUrl',
   'item.width',
   'item.height',
@@ -42,6 +44,29 @@ const NEIGHBOUR_FIELDS = [
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * URL-safe form of a title. Archive titles are numbers ("0057") and survive
+ * this untouched; anything typed by hand becomes lowercase and hyphenated so
+ * it can't produce a link that needs escaping.
+ */
+function slugify(input: string): string {
+  const slug = input
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 120);
+  // Non-Latin titles (Georgian, say) strip to nothing — fall back to a
+  // timestamp rather than saving an empty slug the router can't address.
+  return slug || `shot-${Date.now()}`;
+}
+
+/** Archive numbering is zero-padded to four digits. */
+function pad(n: number): string {
+  return String(n).padStart(4, '0');
+}
 
 @Injectable()
 export class GalleryService {
@@ -193,12 +218,13 @@ export class GalleryService {
   }
 
   async create(dto: CreateGalleryItemDto): Promise<GalleryItem> {
-    const slug = dto.slug ?? dto.title;
+    const slug = slugify(dto.slug ?? dto.title);
     await this.assertSlugFree(slug);
     const item = this.galleryRepo.create({
       slug,
       title: dto.title,
       description: dto.description ?? null,
+      altText: dto.altText ?? null,
       imageUrl: dto.imageUrl,
       width: dto.width ?? null,
       height: dto.height ?? null,
@@ -207,16 +233,107 @@ export class GalleryService {
     return this.galleryRepo.save(item);
   }
 
+  /**
+   * Add a batch of shots in one request.
+   *
+   * Titles are optional per item: a shoot is usually dropped in as a folder of
+   * files, and numbering them by hand is the slowest part of the job. Anything
+   * without a title continues the archive's numbering (0058, 0059, …), and the
+   * batch keeps the order the files arrived in.
+   */
+  async createMany(dtos: BulkGalleryItemDto[]): Promise<GalleryItem[]> {
+    let nextNumber = await this.nextArchiveNumber();
+    const maxSort = await this.maxSortOrder();
+
+    const rows: GalleryItem[] = [];
+    const taken = new Set<string>();
+
+    for (const [index, dto] of dtos.entries()) {
+      const title = dto.title?.trim() || pad(nextNumber++);
+      const slug = slugify(dto.slug ?? title);
+
+      // Two files in the same batch can resolve to the same slug, and the
+      // unique index would only fail on the second insert — check the batch
+      // as well as the table.
+      if (taken.has(slug)) {
+        throw new ConflictException(
+          `"${slug}" appears twice in this upload — slugs must be unique.`,
+        );
+      }
+      taken.add(slug);
+      await this.assertSlugFree(slug);
+
+      rows.push(
+        this.galleryRepo.create({
+          slug,
+          title,
+          description: dto.description ?? null,
+          altText: dto.altText ?? null,
+          imageUrl: dto.imageUrl,
+          width: dto.width ?? null,
+          height: dto.height ?? null,
+          sortOrder: dto.sortOrder ?? maxSort + 1 + index,
+        }),
+      );
+    }
+
+    return this.galleryRepo.save(rows);
+  }
+
+  /**
+   * Highest number already used as a title, so a bulk upload can carry on from
+   * it. Titles that aren't plain numbers are ignored.
+   */
+  private async nextArchiveNumber(): Promise<number> {
+    const row = await this.galleryRepo
+      .createQueryBuilder('item')
+      .select(
+        `MAX(NULLIF(regexp_replace(item.title, '\\D', '', 'g'), '')::int)`,
+        'max',
+      )
+      .where(`item.title ~ '^[0-9]+$'`)
+      .getRawOne<{ max: string | null }>();
+    return (row?.max ? parseInt(row.max, 10) : 0) + 1;
+  }
+
+  private async maxSortOrder(): Promise<number> {
+    const row = await this.galleryRepo
+      .createQueryBuilder('item')
+      .select('MAX(item.sortOrder)', 'max')
+      .getRawOne<{ max: number | null }>();
+    return row?.max ?? 0;
+  }
+
+  /**
+   * Persist a new archive order in one transaction, so a failure halfway
+   * through can't leave the gallery in a half-sorted state.
+   */
+  async reorder(entries: { id: string; sortOrder: number }[]): Promise<void> {
+    await this.galleryRepo.manager.transaction(async (manager) => {
+      for (const entry of entries) {
+        await manager.update(
+          GalleryItem,
+          { id: entry.id },
+          {
+            sortOrder: entry.sortOrder,
+          },
+        );
+      }
+    });
+  }
+
   async update(id: string, dto: UpdateGalleryItemDto): Promise<GalleryItem> {
     const item = await this.galleryRepo.findOne({ where: { id } });
     if (!item) throw new NotFoundException('Gallery item not found');
 
-    if (dto.slug !== undefined && dto.slug !== item.slug) {
-      await this.assertSlugFree(dto.slug, id);
+    const slug = dto.slug === undefined ? undefined : slugify(dto.slug);
+    if (slug !== undefined && slug !== item.slug) {
+      await this.assertSlugFree(slug, id);
     }
-    if (dto.slug !== undefined) item.slug = dto.slug;
+    if (slug !== undefined) item.slug = slug;
     if (dto.title !== undefined) item.title = dto.title;
     if (dto.description !== undefined) item.description = dto.description;
+    if (dto.altText !== undefined) item.altText = dto.altText;
     if (dto.imageUrl !== undefined) item.imageUrl = dto.imageUrl;
     if (dto.width !== undefined) item.width = dto.width;
     if (dto.height !== undefined) item.height = dto.height;

@@ -3,8 +3,10 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Put,
   Query,
@@ -14,8 +16,10 @@ import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { User } from '../users/user.entity';
 import {
+  BulkCreateGalleryItemsDto,
   CreateGalleryItemDto,
   ListGalleryQueryDto,
+  ReorderGalleryDto,
   UpdateGalleryItemDto,
 } from './dto/gallery.dto';
 import { GalleryService } from './gallery.service';
@@ -41,6 +45,20 @@ export class GalleryController {
   @Roles('admin')
   create(@Body() dto: CreateGalleryItemDto) {
     return this.galleryService.create(dto);
+  }
+
+  @Post('bulk')
+  @Roles('admin')
+  createMany(@Body() dto: BulkCreateGalleryItemsDto) {
+    return this.galleryService.createMany(dto.items);
+  }
+
+  @Patch('reorder')
+  @Roles('admin')
+  @HttpCode(200)
+  async reorder(@Body() dto: ReorderGalleryDto) {
+    await this.galleryService.reorder(dto.items);
+    return { success: true, updated: dto.items.length };
   }
 
   @Put(':id')

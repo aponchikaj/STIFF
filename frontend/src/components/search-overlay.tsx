@@ -172,7 +172,7 @@ export function SearchOverlay({
                   >
                     <ProductImage
                       src={item.imageUrl}
-                      alt={item.title}
+                      alt={item.altText ?? item.title}
                       aspect="aspect-square"
                       sizes="(min-width: 640px) 16vw, 33vw"
                       className="transition-opacity group-hover:opacity-90"

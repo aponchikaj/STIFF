@@ -91,7 +91,7 @@ export function GalleryItemView({ slug }: { slug: string }) {
       {zoomed && (
         <Lightbox
           src={item.imageUrl}
-          alt={item.title}
+          alt={item.altText ?? item.title}
           caption={item.title}
           onClose={() => setZoomed(false)}
         />
@@ -205,7 +205,7 @@ function Stage({
           src={imageUrl(item.imageUrl, 1400)}
           srcSet={imageSrcSet(item.imageUrl) || undefined}
           sizes={STAGE_SIZES}
-          alt={item.title}
+          alt={item.altText ?? item.title}
           width={item.width ?? undefined}
           height={item.height ?? undefined}
           loading="eager"
@@ -306,7 +306,7 @@ function Filmstrip({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={imageUrl(shot.imageUrl, 160)}
-                  alt={shot.title}
+                  alt={shot.altText ?? shot.title}
                   loading="lazy"
                   decoding="async"
                   className="size-14 bg-surface object-cover sm:size-16"

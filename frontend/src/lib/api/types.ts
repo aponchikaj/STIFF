@@ -84,6 +84,8 @@ export interface GalleryItem {
   slug: string;
   title: string;
   description: string | null;
+  /** Written description of the photograph; falls back to the title. */
+  altText: string | null;
   imageUrl: string;
   /** Intrinsic pixel size, so the layout can reserve the box before load. */
   width: number | null;
@@ -98,7 +100,7 @@ export interface GalleryItem {
 
 export type GalleryNeighbour = Pick<
   GalleryItem,
-  "id" | "slug" | "title" | "imageUrl" | "width" | "height"
+  "id" | "slug" | "title" | "altText" | "imageUrl" | "width" | "height"
 >;
 
 export interface GalleryItemDetail extends GalleryItem {
@@ -326,10 +328,21 @@ export interface CreateGalleryItemInput {
   title: string;
   slug?: string;
   description?: string;
+  altText?: string;
   imageUrl: string;
   width?: number;
   height?: number;
   sortOrder?: number;
+}
+
+/** A shot in a bulk upload — the archive numbers it when no title is given. */
+export type BulkGalleryItemInput = Omit<CreateGalleryItemInput, "title"> & {
+  title?: string;
+};
+
+export interface ReorderEntry {
+  id: string;
+  sortOrder: number;
 }
 
 export interface UploadedImage {
