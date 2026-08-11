@@ -4,9 +4,7 @@ import { DataSource } from 'typeorm';
 loadEnv();
 
 const DB_SCHEMA = process.env.DB_SCHEMA ?? 'public';
-const SEARCH_PATH = [
-  ...new Set([DB_SCHEMA, 'public', 'extensions']),
-].join(',');
+const SEARCH_PATH = [...new Set([DB_SCHEMA, 'public', 'extensions'])].join(',');
 
 /**
  * Standalone DataSource for the TypeORM CLI (migration:generate / run / revert).
