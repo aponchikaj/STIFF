@@ -51,7 +51,7 @@ export function Lightbox({
         sizes="100vw"
         alt={alt}
         decoding="async"
-        className="max-h-[92svh] max-w-full rounded-[2px] object-contain"
+        className="max-h-[92dvh] max-w-full rounded-[2px] object-contain"
       />
       {caption && (
         <p className="pointer-events-none absolute bottom-5 left-1/2 -translate-x-1/2 text-[10px] font-medium uppercase tracking-[0.25em] text-background">

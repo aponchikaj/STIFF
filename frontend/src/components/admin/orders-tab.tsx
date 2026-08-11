@@ -300,7 +300,7 @@ function OrderDetails({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[90svh] w-full overflow-y-auto border border-foreground bg-background p-5 sm:max-w-lg sm:p-6"
+        className="max-h-[90dvh] w-full overflow-y-auto border border-foreground bg-background p-5 sm:max-w-lg sm:p-6"
       >
         <div className="flex items-start justify-between gap-3">
           <div>

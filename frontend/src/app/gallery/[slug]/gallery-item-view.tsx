@@ -157,7 +157,7 @@ export function GalleryItemView({ slug }: { slug: string }) {
 
 /**
  * The photograph, centred on a full-bleed field with paging controls at the
- * edges. Sized in `svh` so the whole shot is visible without scrolling, on
+ * edges. Sized in `dvh` so the whole shot is visible without scrolling, on
  * phones included.
  */
 function Stage({
@@ -176,7 +176,7 @@ function Stage({
   return (
     <section
       aria-label={`Shot ${item.title}`}
-      className="relative flex min-h-[62svh] items-center justify-center overflow-hidden bg-surface px-14 py-6 sm:min-h-[70svh] sm:px-20"
+      className="relative flex min-h-[62dvh] items-center justify-center overflow-hidden bg-surface px-14 py-6 sm:min-h-[70dvh] sm:px-20"
       onTouchStart={(e) => {
         const t = e.touches[0];
         touchStart.current = { x: t.clientX, y: t.clientY };
@@ -211,7 +211,7 @@ function Stage({
           loading="eager"
           fetchPriority="high"
           decoding="sync"
-          className="max-h-[58svh] w-auto max-w-full rounded-[2px] object-contain transition-opacity duration-200 group-hover:opacity-95 sm:max-h-[66svh]"
+          className="max-h-[58dvh] w-auto max-w-full rounded-[2px] object-contain transition-opacity duration-200 group-hover:opacity-95 sm:max-h-[66dvh]"
         />
       </button>
 
@@ -328,7 +328,7 @@ function StageSkeleton() {
       <div
         aria-busy="true"
         aria-label="Loading shot"
-        className="min-h-[62svh] w-full animate-pulse bg-surface sm:min-h-[70svh]"
+        className="min-h-[62dvh] w-full animate-pulse bg-surface sm:min-h-[70dvh]"
       />
     </>
   );

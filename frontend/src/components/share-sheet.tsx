@@ -149,7 +149,7 @@ export function ShareSheet({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[92svh] w-full max-w-3xl flex-col overflow-y-auto rounded-t-[2px] border border-subtle bg-background sm:rounded-[2px]"
+        className="flex max-h-[92dvh] w-full max-w-3xl flex-col overflow-y-auto rounded-t-[2px] border border-subtle bg-background sm:rounded-[2px]"
       >
         <div className="flex items-center justify-between border-b border-subtle px-5 py-4">
           <p className="text-[11px] font-medium uppercase tracking-[0.25em] text-muted">

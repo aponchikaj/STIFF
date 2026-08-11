@@ -122,7 +122,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <TrackPageview />
           {/* Fills at least one full screen (minus the h-16 navbar), so the
               footer is only reached by scrolling. */}
-          <div className="flex min-h-[calc(100svh-4rem)] flex-1 flex-col">
+          <div className="flex min-h-[calc(100dvh-4rem)] flex-1 flex-col">
             {children}
           </div>
           <Footer />

@@ -72,12 +72,12 @@ export function IntroOverlay() {
       <noscript>
         <style>{`.intro-overlay{display:none}`}</style>
       </noscript>
-      {/* Mirrors the page structure (4rem navbar + 100vh hero) so the overlay
+      {/* Mirrors the page structure (4rem navbar + 100dvh hero) so the overlay
           composition sits exactly where the real hero renders. The block runs
           taller than the viewport by the navbar's height — same as the page —
           which is why the overlay clips rather than scrolls. */}
       <div className="h-16 shrink-0" />
-      <div className="flex h-screen items-center justify-center px-6">
+      <div className="flex h-dvh items-center justify-center px-6">
         <div
           className={`flex items-center gap-4 sm:gap-6 ${
             phase === "loading" ? "intro-hold" : "intro-shift-run"
