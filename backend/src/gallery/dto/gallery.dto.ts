@@ -16,6 +16,14 @@ export class CreateGalleryItemDto {
   @MaxLength(120)
   title: string;
 
+  // Optional override for the stable URL slug. If omitted, the service uses
+  // `title` (preserving the previous behavior where title==slug).
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  slug?: string;
+
   @IsOptional()
   @IsString()
   @MaxLength(2000)
@@ -47,6 +55,13 @@ export class UpdateGalleryItemDto {
   @MinLength(1)
   @MaxLength(120)
   title?: string;
+
+  // Updating slug is allowed (admin flow), but it must remain unique.
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  slug?: string;
 
   @IsOptional()
   @IsString()

@@ -10,8 +10,16 @@ export class GalleryItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  // Doubles as the public slug (/gallery/0001), so it has to stay unique.
-  @Column({ unique: true })
+  // Stable, public URL slug for the route: `/gallery/{slug}`.
+  //
+  // This must be unique, but `title` is allowed to change without breaking
+  // shared links.
+  @Column({ type: 'varchar', length: 120, unique: true })
+  slug: string;
+
+  // Human-readable label shown in the UI. This is intentionally *not* unique:
+  // slugs are unique and stable.
+  @Column({ type: 'varchar', length: 120 })
   title: string;
 
   @Column({ type: 'text', nullable: true })

@@ -19,7 +19,7 @@ import { GalleryItem } from './gallery-item.entity';
 /** Just enough to render a prev/next thumbnail and prefetch its route. */
 export type GalleryNeighbour = Pick<
   GalleryItem,
-  'id' | 'title' | 'imageUrl' | 'width' | 'height'
+  'id' | 'slug' | 'title' | 'imageUrl' | 'width' | 'height'
 >;
 
 export type GalleryItemWithReaction = GalleryItem & {
@@ -33,6 +33,7 @@ export type GalleryItemWithReaction = GalleryItem & {
 
 const NEIGHBOUR_FIELDS = [
   'item.id',
+  'item.slug',
   'item.title',
   'item.imageUrl',
   'item.width',
@@ -83,14 +84,20 @@ export class GalleryService {
   }
 
   /**
-   * Public lookup by slug. The slug is the item's title (`/gallery/0001`), but
-   * a raw UUID is still accepted so links shared before the switch keep
-   * resolving.
+   * Public lookup by route param.
+   *
+   * Order of resolution:
+   * - UUID: `/gallery/{uuid}`
+   * - Slug: `/gallery/{slug}`
+   * - Legacy fallback: older shared links used `title` as the slug. After
+   *   migration we keep `slug` stable, but we still fall back to `title` for
+   *   safety.
    */
   async getBySlug(slug: string, user?: User): Promise<GalleryItemWithReaction> {
     const item = UUID_PATTERN.test(slug)
       ? await this.galleryRepo.findOne({ where: { id: slug } })
-      : await this.galleryRepo.findOne({ where: { title: slug } });
+      : ((await this.galleryRepo.findOne({ where: { slug } })) ??
+        (await this.galleryRepo.findOne({ where: { title: slug } })));
 
     if (!item || (item.isArchived && user?.role !== 'admin')) {
       throw new NotFoundException('Gallery item not found');
@@ -171,22 +178,25 @@ export class GalleryService {
   }
 
   /**
-   * The title is the public slug, so it has to be unique. The column carries a
-   * unique index as the real guarantee; this check exists to turn the raw
-   * driver error into a message the admin panel can show.
+   * Ensure the stable URL slug stays unique.
+   *
+   * The DB constraint is the final guarantee, but we translate clashes into a
+   * readable message for the admin panel.
    */
-  private async assertTitleFree(title: string, exceptId?: string) {
-    const clash = await this.galleryRepo.findOne({ where: { title } });
+  private async assertSlugFree(slug: string, exceptId?: string) {
+    const clash = await this.galleryRepo.findOne({ where: { slug } });
     if (clash && clash.id !== exceptId) {
       throw new ConflictException(
-        `"${title}" is already used by another shot — titles must be unique.`,
+        `"${slug}" is already used by another shot — slugs must be unique.`,
       );
     }
   }
 
   async create(dto: CreateGalleryItemDto): Promise<GalleryItem> {
-    await this.assertTitleFree(dto.title);
+    const slug = dto.slug ?? dto.title;
+    await this.assertSlugFree(slug);
     const item = this.galleryRepo.create({
+      slug,
       title: dto.title,
       description: dto.description ?? null,
       imageUrl: dto.imageUrl,
@@ -201,9 +211,10 @@ export class GalleryService {
     const item = await this.galleryRepo.findOne({ where: { id } });
     if (!item) throw new NotFoundException('Gallery item not found');
 
-    if (dto.title !== undefined && dto.title !== item.title) {
-      await this.assertTitleFree(dto.title, id);
+    if (dto.slug !== undefined && dto.slug !== item.slug) {
+      await this.assertSlugFree(dto.slug, id);
     }
+    if (dto.slug !== undefined) item.slug = dto.slug;
     if (dto.title !== undefined) item.title = dto.title;
     if (dto.description !== undefined) item.description = dto.description;
     if (dto.imageUrl !== undefined) item.imageUrl = dto.imageUrl;

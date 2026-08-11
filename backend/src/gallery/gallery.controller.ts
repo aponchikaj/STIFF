@@ -30,7 +30,7 @@ export class GalleryController {
     return this.galleryService.list(query, user);
   }
 
-  /** `slug` is the item's title (/gallery/0001); a UUID still resolves too. */
+  /** `slug` is the stable URL slug (/gallery/{slug}); UUIDs still resolve. */
   @Public()
   @Get(':slug')
   getOne(@Param('slug') slug: string, @CurrentUser() user?: User) {

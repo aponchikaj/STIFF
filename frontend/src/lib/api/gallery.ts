@@ -12,7 +12,7 @@ export function listGallery(
   return apiFetch("/gallery", { query: { ...params } });
 }
 
-/** `slug` is the shot's title (0001); a raw UUID also resolves. */
+/** `slug` is the stable gallery URL slug; a raw UUID also resolves. */
 export function getGalleryItem(slug: string): Promise<GalleryItemDetail> {
   return apiFetch(`/gallery/${encodeURIComponent(slug)}`);
 }

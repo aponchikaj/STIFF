@@ -81,6 +81,7 @@ export interface ProductDetail extends Product {
 
 export interface GalleryItem {
   id: string;
+  slug: string;
   title: string;
   description: string | null;
   imageUrl: string;
@@ -97,7 +98,7 @@ export interface GalleryItem {
 
 export type GalleryNeighbour = Pick<
   GalleryItem,
-  "id" | "title" | "imageUrl" | "width" | "height"
+  "id" | "slug" | "title" | "imageUrl" | "width" | "height"
 >;
 
 export interface GalleryItemDetail extends GalleryItem {
@@ -323,6 +324,7 @@ export interface UpdateProductInput extends Partial<CreateProductInput> {
 
 export interface CreateGalleryItemInput {
   title: string;
+  slug?: string;
   description?: string;
   imageUrl: string;
   width?: number;

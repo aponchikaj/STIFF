@@ -1,11 +1,10 @@
 /**
- * Gallery shots are addressed by their title — /gallery/0001 rather than a
- * UUID. Titles are unique (enforced by a unique index on the column), so the
- * title is a stable, readable slug.
+ * Gallery shots are addressed by their stable URL slug — /gallery/{slug}
+ * rather than a UUID.
  *
- * The API still resolves a raw UUID, so links shared before the switch keep
- * working; nothing in the app should generate them any more.
+ * For safety/compat, if a caller only has `title`, we fall back to it.
  */
-export function galleryPath(item: { title: string }): string {
-  return `/gallery/${encodeURIComponent(item.title)}`;
+export function galleryPath(item: { slug?: string; title: string }): string {
+  const slug = item.slug ?? item.title;
+  return `/gallery/${encodeURIComponent(slug)}`;
 }

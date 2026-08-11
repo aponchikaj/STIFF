@@ -13,6 +13,7 @@ import { SITE_URL } from "./site";
 /** Absolute link for a gallery shot — the share sheet prints and shares it. */
 export function galleryShareSubject(item: {
   title: string;
+  slug?: string;
   imageUrl: string;
   description?: string | null;
 }): ShareSubject {
