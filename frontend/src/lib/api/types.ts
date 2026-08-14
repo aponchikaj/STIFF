@@ -284,6 +284,59 @@ export interface SearchResults {
   gallery: GalleryItem[];
 }
 
+export type CollabCodeStatus = "unused" | "claimed" | "revoked";
+
+export interface CollabOverview {
+  slug: string;
+  title: string;
+  maxCodes: number;
+  strictMode: boolean;
+  unused: number;
+  claimed: number;
+  revoked: number;
+  total: number;
+  hasVideo: boolean;
+  videoUploadedAt: string | null;
+  qrBaseUrl: string;
+}
+
+export interface CollabCodeRow {
+  id: string;
+  serial: string;
+  status: CollabCodeStatus;
+  label: string | null;
+  claimedAt: string | null;
+  createdAt: string;
+}
+
+export interface CollabCodeAccess {
+  serial: string;
+  token: string;
+  path: string;
+}
+
+export interface CollabSessionView {
+  serial: string;
+  title: string;
+  hasVideo: boolean;
+  strictMode: boolean;
+}
+
+export interface CollabPlayback {
+  url: string;
+  expiresAt: string | null;
+  serial: string;
+  title: string;
+  mode: "signed" | "proxy";
+  strictMode: boolean;
+}
+
+export interface CollabPublicConfig {
+  title: string;
+  strictMode: boolean;
+  hasVideo: boolean;
+}
+
 // ---------- request param types ----------
 
 export interface ProductListParams extends PaginationParams {

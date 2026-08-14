@@ -23,6 +23,7 @@ export default function robots(): MetadataRoute.Robots {
         "/reset-password",
         "/forgot-password",
         "/search",
+        "/c/",
       ],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,

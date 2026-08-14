@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
 import { Archivo, Archivo_Black } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
-import { Navbar } from "@/components/navbar";
-import { Footer } from "@/components/footer";
 import { Providers } from "@/components/providers";
-import { TrackPageview } from "@/components/track-pageview";
+import { SiteChrome } from "@/components/site-chrome";
 import {
   IS_INDEXABLE,
   SITE_DESCRIPTION,
@@ -116,18 +114,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <Providers>
-          <Navbar />
-          <div
-            aria-hidden="true"
-            className="scroll-progress pointer-events-none fixed inset-x-0 top-16 z-40 h-0.5 bg-foreground"
-          />
-          <TrackPageview />
-          {/* Fills at least one full screen (minus the h-16 navbar), so the
-              footer is only reached by scrolling. */}
-          <div className="flex min-h-[calc(100dvh-4rem)] flex-1 flex-col">
-            {children}
-          </div>
-          <Footer />
+          <SiteChrome>{children}</SiteChrome>
         </Providers>
         <Analytics />
       </body>

@@ -72,6 +72,8 @@ export interface ApiFetchOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   query?: QueryParams;
+  /** Collab session 401s are not a logged-out user — skip the auth refresh. */
+  skipRefresh?: boolean;
 }
 
 function buildUrl(path: string, query?: QueryParams): string {
@@ -178,7 +180,11 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const res = await rawFetch(path, options);
 
-  if (res.status === 401 && !path.startsWith("/auth/")) {
+  if (
+    res.status === 401 &&
+    !path.startsWith("/auth/") &&
+    !options.skipRefresh
+  ) {
     const refreshed = await tryRefresh();
     if (refreshed) {
       return parseResponse<T>(await rawFetch(path, options));
@@ -186,4 +192,42 @@ export async function apiFetch<T>(
   }
 
   return parseResponse<T>(res);
+}
+
+/** Turn a backend-relative path into a URL the video element can request. */
+export function resolveApiUrl(path: string): string {
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  const suffix = path.startsWith("/") ? path : `/${path}`;
+  return `${API_URL}${suffix}`;
+}
+
+/** Fetch a binary admin export as a blob (QR PNG preview). */
+export async function apiBlob(path: string): Promise<Blob> {
+  let res = await rawFetch(path, { method: "GET" });
+  if (res.status === 401 && !path.startsWith("/auth/")) {
+    const refreshed = await tryRefresh();
+    if (refreshed) res = await rawFetch(path, { method: "GET" });
+  }
+  if (!res.ok) {
+    await parseResponse(res);
+    throw new ApiError(res.status, ["Download failed"]);
+  }
+  return res.blob();
+}
+
+/** Download a binary admin export (QR zip / PNG). */
+export async function apiDownload(
+  path: string,
+  filename: string,
+): Promise<void> {
+  const blob = await apiBlob(path);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }

@@ -10,6 +10,7 @@ import { AppService } from './app.service';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AuthModule } from './auth/auth.module';
 import { CartModule } from './cart/cart.module';
+import { CollabModule } from './collab/collab.module';
 import { CommentsModule } from './comments/comments.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -72,6 +73,7 @@ import { UsersModule } from './users/users.module';
     NotificationsModule,
     ContactModule,
     ContentModule,
+    CollabModule,
     AnalyticsModule,
     UploadsModule,
     SearchModule,

@@ -13,6 +13,7 @@ import { CommentsTab } from "./comments-tab";
 import { ContactsTab } from "./contacts-tab";
 import { GalleryTab } from "./gallery-tab";
 import { ContentTab } from "./content-tab";
+import { CollabTab } from "./collab-tab";
 import { BroadcastTab } from "./broadcast-tab";
 
 const TABS = [
@@ -25,6 +26,7 @@ const TABS = [
   "Contacts",
   "Gallery",
   "Content",
+  "Collab",
   "Broadcast",
 ] as const;
 
@@ -76,6 +78,7 @@ export function AdminPanel() {
         {tab === "Contacts" && <ContactsTab />}
         {tab === "Gallery" && <GalleryTab />}
         {tab === "Content" && <ContentTab />}
+        {tab === "Collab" && <CollabTab />}
         {tab === "Broadcast" && <BroadcastTab />}
       </div>
     </div>

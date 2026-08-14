@@ -1,8 +1,13 @@
-import { apiFetch } from "./client";
+import { apiBlob, apiDownload, apiFetch } from "./client";
 import type {
   AdminUser,
   AnalyticsOverview,
   BulkGalleryItemInput,
+  CollabCodeAccess,
+  CollabCodeRow,
+  CollabCodeStatus,
+  CollabOverview,
+  CollabPlayback,
   Comment,
   ContactMessage,
   ContentKey,
@@ -240,4 +245,113 @@ export function uploadImage(file: File): Promise<UploadedImage> {
   const form = new FormData();
   form.append("file", file);
   return apiFetch("/uploads", { method: "POST", body: form });
+}
+
+// ---------- collab (STIFF × KEBURIA) ----------
+
+const COLLAB_SLUG = "keburia";
+
+export function getCollab(): Promise<CollabOverview> {
+  return apiFetch(`/collab/${COLLAB_SLUG}`);
+}
+
+export function listCollabCodes(params?: {
+  page?: number;
+  pageSize?: number;
+  status?: CollabCodeStatus;
+}): Promise<Paginated<CollabCodeRow>> {
+  return apiFetch(`/collab/${COLLAB_SLUG}/codes`, { query: { ...params } });
+}
+
+export function generateCollabCodes(
+  count: number,
+): Promise<{ created: number; total: number }> {
+  return apiFetch(`/collab/${COLLAB_SLUG}/codes/generate`, {
+    method: "POST",
+    body: { count },
+  });
+}
+
+export function updateCollab(data: {
+  title?: string;
+  maxCodes?: number;
+  strictMode?: boolean;
+}): Promise<CollabOverview> {
+  return apiFetch(`/collab/${COLLAB_SLUG}`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function downloadCollabQrZip(): Promise<void> {
+  return apiDownload(
+    `/collab/${COLLAB_SLUG}/codes/qr.zip`,
+    "stiff-keburia-qr.zip",
+  );
+}
+
+export function downloadCollabQr(id: string, serial: string): Promise<void> {
+  return apiDownload(
+    `/collab/${COLLAB_SLUG}/codes/${id}/qr`,
+    `stiff-keburia-${serial}.png`,
+  );
+}
+
+export function fetchCollabQrBlob(id: string): Promise<Blob> {
+  return apiBlob(`/collab/${COLLAB_SLUG}/codes/${id}/qr`);
+}
+
+export function getCollabCodeAccess(id: string): Promise<CollabCodeAccess> {
+  return apiFetch(`/collab/${COLLAB_SLUG}/codes/${id}`);
+}
+
+export function updateCollabCode(
+  id: string,
+  data: { label?: string },
+): Promise<CollabCodeRow> {
+  return apiFetch(`/collab/${COLLAB_SLUG}/codes/${id}`, {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export function revokeCollabCode(id: string): Promise<{ success: boolean }> {
+  return apiFetch(`/collab/${COLLAB_SLUG}/codes/${id}/revoke`, {
+    method: "POST",
+  });
+}
+
+export function resetCollabCode(id: string): Promise<{ success: boolean }> {
+  return apiFetch(`/collab/${COLLAB_SLUG}/codes/${id}/reset`, {
+    method: "POST",
+  });
+}
+
+export function regenerateCollabCode(id: string): Promise<CollabCodeRow> {
+  return apiFetch(`/collab/${COLLAB_SLUG}/codes/${id}/regenerate`, {
+    method: "POST",
+  });
+}
+
+export function deleteCollabCode(id: string): Promise<{ success: boolean }> {
+  return apiFetch(`/collab/${COLLAB_SLUG}/codes/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export function uploadCollabVideo(file: File): Promise<{ success: boolean }> {
+  const form = new FormData();
+  form.append("file", file);
+  return apiFetch(`/collab/${COLLAB_SLUG}/video`, {
+    method: "POST",
+    body: form,
+  });
+}
+
+export function deleteCollabVideo(): Promise<{ success: boolean }> {
+  return apiFetch(`/collab/${COLLAB_SLUG}/video`, { method: "DELETE" });
+}
+
+export function previewCollabVideo(): Promise<CollabPlayback> {
+  return apiFetch(`/collab/${COLLAB_SLUG}/preview`);
 }

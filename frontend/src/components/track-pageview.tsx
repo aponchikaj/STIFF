@@ -9,7 +9,8 @@ export function TrackPageview() {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!pathname || pathname.startsWith("/admin")) return;
+    if (!pathname || pathname.startsWith("/admin") || pathname.startsWith("/c/"))
+      return;
     let visitorId: string | null = null;
     try {
       visitorId = localStorage.getItem("stiff_vid");

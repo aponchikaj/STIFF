@@ -42,3 +42,6 @@ lerna-debug.log*
 
 # Local image uploads (Cloudinary fallback)
 /uploads
+
+# Private collab video when Cloudinary is not configured
+/private-media

@@ -308,3 +308,53 @@ h2 {
   content-visibility: auto;
   contain-intrinsic-size: auto 12dvh;
 }
+
+/* Sealed collab room: no selection, no callout sheet, no long-press save. */
+.collab-room {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.collab-watermark-a,
+.collab-watermark-b {
+  position: absolute;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.28);
+  mix-blend-mode: overlay;
+  white-space: nowrap;
+}
+
+.collab-watermark-a {
+  top: 18%;
+  left: 12%;
+  animation: collab-drift 11s ease-in-out infinite;
+}
+
+.collab-watermark-b {
+  bottom: 22%;
+  right: 10%;
+  animation: collab-drift 13s ease-in-out infinite reverse;
+}
+
+@keyframes collab-drift {
+  0% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(18px, 12px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .collab-watermark-a,
+  .collab-watermark-b {
+    animation: none;
+  }
+}
