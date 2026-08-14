@@ -1,6 +1,25 @@
 import type { NextConfig } from "next";
 import { HOSTED_BACKEND_URL } from "./src/lib/hosted-backend";
 
+function backendOrigin(): string | undefined {
+  const raw = process.env.BACKEND_URL?.trim();
+  if (raw) {
+    try {
+      const url = new URL(raw);
+      if (
+        (url.protocol === "http:" || url.protocol === "https:") &&
+        url.hostname.includes(".")
+      ) {
+        return url.origin;
+      }
+    } catch {
+      // Placeholder values like "BACKEND_URL" are not origins.
+    }
+  }
+  if (process.env.NODE_ENV === "production") return HOSTED_BACKEND_URL;
+  return undefined;
+}
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
 
@@ -15,18 +34,16 @@ const nextConfig: NextConfig = {
   // first-party, which survives browsers' third-party-cookie blocking.
   // Pair it with NEXT_PUBLIC_API_URL=/api on the same environment.
   async rewrites() {
-    const backend =
-      process.env.BACKEND_URL ||
-      (process.env.NODE_ENV === "production" ? HOSTED_BACKEND_URL : undefined);
+    const backend = backendOrigin();
     if (!backend) return [];
     return [
       {
         source: "/api/:path*",
-        destination: `${backend.replace(/\/$/, "")}/api/:path*`,
+        destination: `${backend}/api/:path*`,
       },
       {
         source: "/uploads/:path*",
-        destination: `${backend.replace(/\/$/, "")}/uploads/:path*`,
+        destination: `${backend}/uploads/:path*`,
       },
     ];
   },
