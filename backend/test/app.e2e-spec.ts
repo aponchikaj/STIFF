@@ -1,8 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
+import { configureApp } from './../src/configure-app';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
@@ -12,15 +14,23 @@ describe('AppController (e2e)', () => {
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication();
+    app = moduleFixture.createNestApplication<NestExpressApplication>();
+    configureApp(app as NestExpressApplication);
     await app.init();
   });
 
-  it('/ (GET)', () => {
+  it('/ (GET) answers without the /api prefix so host-root monitors succeed', () => {
     return request(app.getHttpServer())
       .get('/')
       .expect(200)
-      .expect('Hello World!');
+      .expect((res) => {
+        expect(res.body).toEqual(
+          expect.objectContaining({
+            status: expect.stringMatching(/^(ok|degraded)$/),
+            database: expect.stringMatching(/^(up|down)$/),
+          }),
+        );
+      });
   });
 
   afterEach(async () => {
