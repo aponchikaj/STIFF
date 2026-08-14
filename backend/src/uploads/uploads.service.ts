@@ -74,7 +74,10 @@ export class UploadsService {
     await fs.mkdir(UPLOAD_DIR, { recursive: true });
     await fs.writeFile(join(UPLOAD_DIR, name), file.buffer);
     const appUrl =
-      this.configService.get<string>('APP_URL') ?? 'http://localhost:4000';
+      this.configService.get<string>('APP_URL') ??
+      (process.env.NODE_ENV === 'production'
+        ? 'https://stiff-i3nq.onrender.com'
+        : 'http://localhost:4000');
     return { url: `${appUrl}/uploads/${name}`, width: null, height: null };
   }
 }

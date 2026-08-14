@@ -1,4 +1,6 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ??
+  (process.env.NODE_ENV === "production" ? "/api" : "http://localhost:4000/api");
 
 /* Bearer-token fallback: httpOnly cookies are primary, but when the API is
  * on another domain browsers may refuse third-party cookies — so tokens

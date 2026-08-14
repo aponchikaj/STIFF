@@ -1,3 +1,5 @@
+import { HOSTED_BACKEND_URL } from "@/lib/hosted-backend";
+
 /** Canonical site config for SEO. Set NEXT_PUBLIC_SITE_URL per environment:
  *  https://stiff.ge in production, the environment's own URL on staging —
  *  anything that isn't the production URL is kept out of search indexes. */
@@ -18,5 +20,8 @@ export function serverApiBase(): string {
   if (backend) return `${backend.replace(/\/$/, "")}/api`;
   const publicUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
   if (publicUrl.startsWith("http")) return publicUrl;
+  if (process.env.NODE_ENV === "production") {
+    return `${HOSTED_BACKEND_URL}/api`;
+  }
   return "http://localhost:4000/api";
 }

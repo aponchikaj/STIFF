@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { HOSTED_BACKEND_URL } from "./src/lib/hosted-backend";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
@@ -14,7 +15,9 @@ const nextConfig: NextConfig = {
   // first-party, which survives browsers' third-party-cookie blocking.
   // Pair it with NEXT_PUBLIC_API_URL=/api on the same environment.
   async rewrites() {
-    const backend = process.env.BACKEND_URL;
+    const backend =
+      process.env.BACKEND_URL ||
+      (process.env.NODE_ENV === "production" ? HOSTED_BACKEND_URL : undefined);
     if (!backend) return [];
     return [
       {

@@ -33,6 +33,6 @@ async function bootstrap() {
   // Served outside the /api prefix: http://localhost:4000/uploads/<file>
   app.useStaticAssets(uploadsDir, { prefix: '/uploads' });
 
-  await app.listen(process.env.PORT ?? 4000);
+  await app.listen(process.env.PORT ?? 4000, '0.0.0.0');
 }
 void bootstrap();

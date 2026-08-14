@@ -1,0 +1,20 @@
+# Render Blueprint for the NestJS API.
+# If the service already exists in the dashboard, also set these there:
+#   Root Directory  backend
+#   Build Command   npm install --include=dev && npm run build
+#   Start Command   npm run start:prod
+services:
+  - type: web
+    name: stiff-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_URL
+        value: https://stiff-i3nq.onrender.com
+      - key: FRONTEND_URL
+        value: https://stiff.ge
