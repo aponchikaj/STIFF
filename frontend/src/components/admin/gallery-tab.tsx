@@ -4,7 +4,7 @@ import { useState } from "react";
 import { adminApi, galleryApi } from "@/lib/api";
 import type { GalleryItem } from "@/lib/api";
 import { errorMessage, useAsync } from "@/lib/hooks";
-import { imageUrl } from "@/lib/image";
+import { asRotation, imageUrl } from "@/lib/image";
 import { GalleryUpload } from "./gallery-upload";
 import {
   btnGhostSm,
@@ -14,6 +14,24 @@ import {
   labelCls,
   Loading,
 } from "../ui";
+
+const TURNS = [0, 90, 180, 270] as const;
+
+async function rotateShot(
+  item: GalleryItem,
+  direction: 1 | -1,
+  onChanged: () => void,
+  onError: (message: string) => void,
+) {
+  const current = asRotation(item.rotation);
+  const next = TURNS[(TURNS.indexOf(current) + direction + 4) % 4];
+  try {
+    await adminApi.updateGalleryItem(item.id, { rotation: next });
+    onChanged();
+  } catch (err) {
+    onError(errorMessage(err));
+  }
+}
 
 /**
  * Two halves: staging a new shoot, and maintaining what's already published.
@@ -120,7 +138,7 @@ function ArchiveList({
             <div className="relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={imageUrl(item.imageUrl, 320)}
+                src={imageUrl(item.imageUrl, 320, "tile", item.rotation)}
                 alt={item.altText ?? item.title}
                 loading="lazy"
                 decoding="async"
@@ -162,6 +180,26 @@ function ArchiveList({
                 className={btnGhostSm}
               >
                 ↓
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void rotateShot(item, -1, onChanged, onError)
+                }
+                aria-label={`Rotate ${item.title} counter-clockwise`}
+                className={btnGhostSm}
+              >
+                ↺
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void rotateShot(item, 1, onChanged, onError)
+                }
+                aria-label={`Rotate ${item.title} clockwise`}
+                className={btnGhostSm}
+              >
+                ↻
               </button>
               <AltTextButton item={item} onChanged={onChanged} onError={onError} />
               <button

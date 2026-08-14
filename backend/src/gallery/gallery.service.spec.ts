@@ -20,6 +20,7 @@ function shot(overrides: Partial<GalleryItem> = {}): GalleryItem {
     imageUrl: 'https://example.com/a.jpg',
     width: 100,
     height: 100,
+    rotation: 0,
     sortOrder: 0,
     isArchived: false,
     likeCount: 0,
@@ -168,6 +169,7 @@ describe('GalleryService', () => {
 
       expect(created.slug).toBe('summer-shoot-01');
       expect(created.title).toBe('Summer Shoot 01');
+      expect(created.rotation).toBe(0);
     });
 
     it('leaves an archive number untouched', async () => {
@@ -237,6 +239,19 @@ describe('GalleryService', () => {
           { title: 'same name', imageUrl: 'b' },
         ]),
       ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('update', () => {
+    it('stores a delivery rotation without touching pixel size', async () => {
+      const item = shot({ width: 1179, height: 744, rotation: 0 });
+      repo.findOne.mockResolvedValueOnce(item);
+
+      const updated = await service.update(item.id, { rotation: 270 });
+
+      expect(updated.rotation).toBe(270);
+      expect(updated.width).toBe(1179);
+      expect(updated.height).toBe(744);
     });
   });
 

@@ -174,6 +174,7 @@ export function SearchOverlay({
                       src={item.imageUrl}
                       alt={item.altText ?? item.title}
                       aspect="aspect-square"
+                      rotation={item.rotation}
                       sizes="(min-width: 640px) 16vw, 33vw"
                       className="transition-opacity group-hover:opacity-90"
                     />

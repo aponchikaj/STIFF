@@ -40,6 +40,8 @@ export interface ShareSubject {
   url: string;
   /** Small label above/below the title. Defaults to the archive wording. */
   kicker?: string;
+  /** Clockwise degrees applied when fetching the source photo. */
+  rotation?: number;
 }
 
 const INK = "#f5f5f5";
@@ -377,7 +379,7 @@ export async function renderShareImage(
 
   // Request a render wide enough for the largest box the templates draw into.
   const [img] = await Promise.all([
-    loadImage(imageUrl(subject.imageUrl, 1440, "detail")),
+    loadImage(imageUrl(subject.imageUrl, 1440, "detail", subject.rotation ?? 0)),
     ensureFonts(fonts),
   ]);
 

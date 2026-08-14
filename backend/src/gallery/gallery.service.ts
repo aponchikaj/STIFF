@@ -21,7 +21,14 @@ import { GalleryItem } from './gallery-item.entity';
 /** Just enough to render a prev/next thumbnail and prefetch its route. */
 export type GalleryNeighbour = Pick<
   GalleryItem,
-  'id' | 'slug' | 'title' | 'altText' | 'imageUrl' | 'width' | 'height'
+  | 'id'
+  | 'slug'
+  | 'title'
+  | 'altText'
+  | 'imageUrl'
+  | 'width'
+  | 'height'
+  | 'rotation'
 >;
 
 export type GalleryItemWithReaction = GalleryItem & {
@@ -41,6 +48,7 @@ const NEIGHBOUR_FIELDS = [
   'item.imageUrl',
   'item.width',
   'item.height',
+  'item.rotation',
 ] as const;
 
 const UUID_PATTERN =
@@ -206,6 +214,7 @@ export class GalleryService {
       imageUrl: dto.imageUrl,
       width: dto.width ?? null,
       height: dto.height ?? null,
+      rotation: dto.rotation ?? 0,
       sortOrder: dto.sortOrder ?? 0,
     });
     return this.galleryRepo.save(item);
@@ -250,6 +259,7 @@ export class GalleryService {
           imageUrl: dto.imageUrl,
           width: dto.width ?? null,
           height: dto.height ?? null,
+          rotation: dto.rotation ?? 0,
           sortOrder: dto.sortOrder ?? maxSort + 1 + index,
         }),
       );
@@ -315,6 +325,7 @@ export class GalleryService {
     if (dto.imageUrl !== undefined) item.imageUrl = dto.imageUrl;
     if (dto.width !== undefined) item.width = dto.width;
     if (dto.height !== undefined) item.height = dto.height;
+    if (dto.rotation !== undefined) item.rotation = dto.rotation;
     if (dto.sortOrder !== undefined) item.sortOrder = dto.sortOrder;
     if (dto.isArchived !== undefined) item.isArchived = dto.isArchived;
 

@@ -75,6 +75,7 @@ export function GalleryPreview() {
                 aspect=""
                 width={item.width}
                 height={item.height}
+                rotation={item.rotation}
                 sizes={PREVIEW_SIZES}
                 className="transition-opacity duration-200 group-hover:opacity-90"
               />

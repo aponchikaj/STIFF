@@ -3,8 +3,10 @@ import {
   type ImageFit,
   DETAIL_WIDTHS,
   TILE_WIDTHS,
+  asRotation,
   imageSrcSet,
   imageUrl,
+  orientedSize,
 } from "@/lib/image";
 import { AsteriskMark } from "./asterisk-mark";
 
@@ -36,6 +38,7 @@ export const ProductImage = memo(function ProductImage({
   height,
   priority = false,
   fit = "tile",
+  rotation = 0,
 }: {
   src?: string | null;
   alt: string;
@@ -51,6 +54,8 @@ export const ProductImage = memo(function ProductImage({
   priority?: boolean;
   /** Tiles stay small and cheap; detail is the stage / product gallery. */
   fit?: ImageFit;
+  /** Clockwise degrees. Applied at Cloudinary so the reserved box matches. */
+  rotation?: number | null;
 }) {
   if (!src) {
     return (
@@ -62,18 +67,20 @@ export const ProductImage = memo(function ProductImage({
     );
   }
 
+  const turn = asRotation(rotation);
+  const size = orientedSize(width, height, turn);
   const widths = fit === "detail" ? DETAIL_WIDTHS : TILE_WIDTHS;
-  const srcSet = imageSrcSet(src, widths, fit);
+  const srcSet = imageSrcSet(src, widths, fit, turn);
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={imageUrl(src, FALLBACK_WIDTH[fit], fit)}
+      src={imageUrl(src, FALLBACK_WIDTH[fit], fit, turn)}
       srcSet={srcSet || undefined}
       sizes={srcSet ? sizes : undefined}
       alt={alt}
-      width={width ?? undefined}
-      height={height ?? undefined}
+      width={size.width}
+      height={size.height}
       loading={priority ? "eager" : "lazy"}
       fetchPriority={priority ? "high" : "low"}
       decoding="async"

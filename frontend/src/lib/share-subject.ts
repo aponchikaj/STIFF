@@ -16,12 +16,14 @@ export function galleryShareSubject(item: {
   slug?: string;
   imageUrl: string;
   description?: string | null;
+  rotation?: number | null;
 }): ShareSubject {
   return {
     title: item.title,
     imageUrl: item.imageUrl,
     caption: item.description ?? null,
     url: `${SITE_URL}${galleryPath(item)}`,
+    rotation: item.rotation ?? 0,
   };
 }
 

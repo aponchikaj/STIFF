@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { GalleryItem, Paginated } from "@/lib/api";
 import { galleryPath } from "@/lib/gallery-url";
-import { TILE_WIDTHS, imageSrcSet, imageUrl } from "@/lib/image";
+import { TILE_WIDTHS, imageSrcSet, imageUrl, orientedSize } from "@/lib/image";
 import { serverApiBase, SITE_URL } from "@/lib/site";
 import { shuffleCopy } from "@/lib/shuffle";
 import { GALLERY_PAGE_SIZE, TILE_SIZES } from "./constants";
@@ -48,16 +48,29 @@ export default async function GalleryPage() {
           description:
             "The STIFF archive — worn, shot, kept. Lookbook photography and community shots from Tbilisi.",
           url: `${SITE_URL}/gallery`,
-          image: shots.map((shot) => ({
-            "@type": "ImageObject",
-            contentUrl: imageUrl(shot.imageUrl, 1600, "detail"),
-            thumbnailUrl: imageUrl(shot.imageUrl, 400),
-            name: shot.title,
-            caption: shot.altText ?? shot.description ?? undefined,
-            width: shot.width ?? undefined,
-            height: shot.height ?? undefined,
-            url: `${SITE_URL}${galleryPath(shot)}`,
-          })),
+          image: shots.map((shot) => {
+            const size = orientedSize(shot.width, shot.height, shot.rotation);
+            return {
+              "@type": "ImageObject",
+              contentUrl: imageUrl(
+                shot.imageUrl,
+                1600,
+                "detail",
+                shot.rotation,
+              ),
+              thumbnailUrl: imageUrl(
+                shot.imageUrl,
+                400,
+                "tile",
+                shot.rotation,
+              ),
+              name: shot.title,
+              caption: shot.altText ?? shot.description ?? undefined,
+              width: size.width,
+              height: size.height,
+              url: `${SITE_URL}${galleryPath(shot)}`,
+            };
+          }),
         }
       : null;
 
@@ -68,8 +81,8 @@ export default async function GalleryPage() {
           key={shot.id}
           rel="preload"
           as="image"
-          href={imageUrl(shot.imageUrl, 640)}
-          imageSrcSet={imageSrcSet(shot.imageUrl, TILE_WIDTHS) || undefined}
+          href={imageUrl(shot.imageUrl, 640, "tile", shot.rotation)}
+          imageSrcSet={imageSrcSet(shot.imageUrl, TILE_WIDTHS, "tile", shot.rotation) || undefined}
           imageSizes={TILE_SIZES}
           fetchPriority={i < 2 ? "high" : "auto"}
         />

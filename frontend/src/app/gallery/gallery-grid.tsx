@@ -38,6 +38,7 @@ const GalleryTile = memo(function GalleryTile({
             aspect=""
             width={item.width}
             height={item.height}
+            rotation={item.rotation}
             sizes={TILE_SIZES}
             priority={priority}
           />

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { GalleryItemDetail } from "@/lib/api";
 import { galleryPath } from "@/lib/gallery-url";
-import { DETAIL_WIDTHS, imageSrcSet, imageUrl } from "@/lib/image";
+import { DETAIL_WIDTHS, imageSrcSet, imageUrl, orientedSize } from "@/lib/image";
 import { serverApiBase, SITE_URL } from "@/lib/site";
 import { GalleryItemView } from "./gallery-item-view";
 
@@ -40,7 +40,7 @@ export async function generateMetadata({
     item.description ??
     item.altText ??
     `Shot ${item.title} from the STIFF archive — worn, shot, kept.`;
-  const image = imageUrl(item.imageUrl, 1200, "detail");
+  const image = imageUrl(item.imageUrl, 1200, "detail", item.rotation);
   const path = galleryPath(item);
 
   return {
@@ -76,13 +76,13 @@ export default async function GalleryItemPage({
     ? {
         "@context": "https://schema.org",
         "@type": "ImageObject",
-        contentUrl: imageUrl(item.imageUrl, 1600, "detail"),
-        thumbnailUrl: imageUrl(item.imageUrl, 400),
+        contentUrl: imageUrl(item.imageUrl, 1600, "detail", item.rotation),
+        thumbnailUrl: imageUrl(item.imageUrl, 400, "tile", item.rotation),
         name: item.title,
         caption: item.altText ?? item.description ?? undefined,
         description: item.description ?? undefined,
-        width: item.width ?? undefined,
-        height: item.height ?? undefined,
+        width: orientedSize(item.width, item.height, item.rotation).width,
+        height: orientedSize(item.width, item.height, item.rotation).height,
         uploadDate: item.createdAt,
         representativeOfPage: true,
         url: `${SITE_URL}${galleryPath(item)}`,
@@ -102,9 +102,9 @@ export default async function GalleryItemPage({
           <link
             rel="preload"
             as="image"
-            href={imageUrl(item.imageUrl, 1400, "detail")}
+            href={imageUrl(item.imageUrl, 1400, "detail", item.rotation)}
             imageSrcSet={
-              imageSrcSet(item.imageUrl, DETAIL_WIDTHS, "detail") || undefined
+              imageSrcSet(item.imageUrl, DETAIL_WIDTHS, "detail", item.rotation) || undefined
             }
             imageSizes="(min-width: 1024px) 80vw, 100vw"
             fetchPriority="high"
@@ -113,14 +113,14 @@ export default async function GalleryItemPage({
             <link
               rel="prefetch"
               as="image"
-              href={imageUrl(item.next.imageUrl, 1400, "detail")}
+              href={imageUrl(item.next.imageUrl, 1400, "detail", item.next.rotation)}
             />
           )}
           {item.prev && (
             <link
               rel="prefetch"
               as="image"
-              href={imageUrl(item.prev.imageUrl, 1400, "detail")}
+              href={imageUrl(item.prev.imageUrl, 1400, "detail", item.prev.rotation)}
             />
           )}
         </>

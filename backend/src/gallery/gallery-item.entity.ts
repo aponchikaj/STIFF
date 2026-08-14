@@ -42,6 +42,13 @@ export class GalleryItem {
   @Column({ type: 'int', nullable: true })
   height: number | null;
 
+  // Clockwise degrees applied at delivery (Cloudinary `a_90` / `a_180` /
+  // `a_270`). Stored pixels stay untouched — some phone uploads land on their
+  // side, so a standing person reads left-to-right until this is set. 90 and
+  // 270 swap the displayed width/height.
+  @Column({ type: 'int', default: 0 })
+  rotation: number;
+
   @Column({ type: 'int', default: 0 })
   sortOrder: number;
 

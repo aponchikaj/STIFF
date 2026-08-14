@@ -8,6 +8,10 @@
  *
  *   .../image/upload/v123/stiff/abc.jpg
  *   .../image/upload/f_auto,q_auto:eco,c_limit,w_800/v123/stiff/abc.jpg
+ *   .../image/upload/a_270/f_auto,q_auto:eco,c_limit,w_800/v123/stiff/abc.jpg
+ *
+ * `a_90` / `a_180` / `a_270` is chained *before* the resize so a sideways
+ * phone upload is turned upright first, then limited to the requested width.
  *
  * `f_auto` picks AVIF/WebP per browser. `q_auto:eco` (tiles) and `q_auto:good`
  * (detail) trade a little quality for a lot of bytes. `c_limit` never upscales.
@@ -33,6 +37,25 @@ export const THUMB_WIDTH = 320;
 
 export type ImageFit = "tile" | "detail";
 
+/** Clockwise degrees. 0 means the stored pixels are already upright. */
+export type ImageRotation = 0 | 90 | 180 | 270;
+
+export function asRotation(value: number | null | undefined): ImageRotation {
+  return value === 90 || value === 180 || value === 270 ? value : 0;
+}
+
+/** Swap width/height when the delivery rotation is a quarter turn. */
+export function orientedSize(
+  width: number | null | undefined,
+  height: number | null | undefined,
+  rotation: number | null | undefined,
+): { width?: number; height?: number } {
+  const w = width ?? undefined;
+  const h = height ?? undefined;
+  if (rotation === 90 || rotation === 270) return { width: h, height: w };
+  return { width: w, height: h };
+}
+
 const TRANSFORM: Record<ImageFit, string> = {
   tile: "f_auto,q_auto:eco,c_limit",
   detail: "f_auto,q_auto:good,c_limit",
@@ -47,11 +70,16 @@ export function imageUrl(
   src: string,
   width: number,
   fit: ImageFit = "tile",
+  rotation: number = 0,
 ): string {
   const match = CLOUDINARY_UPLOAD.exec(src);
   if (!match) return src;
   const [, base, rest] = match;
-  return `${base}${TRANSFORM[fit]},w_${width}/${rest}`;
+  const angle =
+    rotation === 90 || rotation === 180 || rotation === 270
+      ? `a_${rotation}/`
+      : "";
+  return `${base}${angle}${TRANSFORM[fit]},w_${width}/${rest}`;
 }
 
 /** Candidate set for the `srcset` attribute; empty string when not applicable. */
@@ -59,9 +87,10 @@ export function imageSrcSet(
   src: string,
   widths: readonly number[] = TILE_WIDTHS,
   fit: ImageFit = "tile",
+  rotation: number = 0,
 ): string {
   if (!isCloudinary(src)) return "";
-  return widths.map((w) => `${imageUrl(src, w, fit)} ${w}w`).join(", ");
+  return widths.map((w) => `${imageUrl(src, w, fit, rotation)} ${w}w`).join(", ");
 }
 
 /**

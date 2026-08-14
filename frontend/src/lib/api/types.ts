@@ -90,6 +90,8 @@ export interface GalleryItem {
   /** Intrinsic pixel size, so the layout can reserve the box before load. */
   width: number | null;
   height: number | null;
+  /** Clockwise degrees applied at delivery. 0 / omitted means the file is already upright. */
+  rotation?: number;
   sortOrder: number;
   isArchived: boolean;
   likeCount: number;
@@ -100,7 +102,14 @@ export interface GalleryItem {
 
 export type GalleryNeighbour = Pick<
   GalleryItem,
-  "id" | "slug" | "title" | "altText" | "imageUrl" | "width" | "height"
+  | "id"
+  | "slug"
+  | "title"
+  | "altText"
+  | "imageUrl"
+  | "width"
+  | "height"
+  | "rotation"
 >;
 
 export interface GalleryItemDetail extends GalleryItem {
@@ -385,6 +394,7 @@ export interface CreateGalleryItemInput {
   imageUrl: string;
   width?: number;
   height?: number;
+  rotation?: number;
   sortOrder?: number;
 }
 

@@ -57,6 +57,12 @@ export class CreateGalleryItemDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
+  @IsIn([0, 90, 180, 270])
+  rotation?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
   sortOrder?: number;
 }
 
@@ -98,6 +104,12 @@ export class UpdateGalleryItemDto {
   @Type(() => Number)
   @IsInt()
   height?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsIn([0, 90, 180, 270])
+  rotation?: number;
 
   @IsOptional()
   @Type(() => Number)
@@ -150,6 +162,12 @@ export class BulkGalleryItemDto {
   @Type(() => Number)
   @IsInt()
   height?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsIn([0, 90, 180, 270])
+  rotation?: number;
 
   @IsOptional()
   @Type(() => Number)

@@ -8,7 +8,7 @@ import type { GalleryItem, GalleryItemDetail } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { galleryPath } from "@/lib/gallery-url";
 import { useAsync } from "@/lib/hooks";
-import { imageSrcSet, imageUrl, DETAIL_WIDTHS } from "@/lib/image";
+import { imageSrcSet, imageUrl, DETAIL_WIDTHS, orientedSize } from "@/lib/image";
 import { CommentsSection } from "@/components/comments-section";
 import { Lightbox } from "@/components/lightbox";
 import { ReactionButtons } from "@/components/reaction-buttons";
@@ -103,6 +103,7 @@ export function GalleryItemView({
           src={item.imageUrl}
           alt={item.altText ?? item.title}
           caption={item.title}
+          rotation={item.rotation}
           onClose={() => setZoomed(false)}
         />
       )}
@@ -212,12 +213,12 @@ function Stage({
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={imageUrl(item.imageUrl, 1400, "detail")}
-          srcSet={imageSrcSet(item.imageUrl, DETAIL_WIDTHS, "detail") || undefined}
+          src={imageUrl(item.imageUrl, 1400, "detail", item.rotation)}
+          srcSet={imageSrcSet(item.imageUrl, DETAIL_WIDTHS, "detail", item.rotation) || undefined}
           sizes={STAGE_SIZES}
           alt={item.altText ?? item.title}
-          width={item.width ?? undefined}
-          height={item.height ?? undefined}
+          width={orientedSize(item.width, item.height, item.rotation).width}
+          height={orientedSize(item.width, item.height, item.rotation).height}
           loading="eager"
           fetchPriority="high"
           decoding="async"
@@ -315,7 +316,7 @@ function Filmstrip({
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={imageUrl(shot.imageUrl, 160)}
+                  src={imageUrl(shot.imageUrl, 160, "tile", shot.rotation)}
                   alt={shot.altText ?? shot.title}
                   loading="lazy"
                   decoding="async"

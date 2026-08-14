@@ -119,6 +119,7 @@ export function SearchView() {
                     src={item.imageUrl}
                     alt={item.altText ?? item.title}
                     aspect="aspect-square"
+                    rotation={item.rotation}
                     sizes="(min-width: 1280px) 16vw, (min-width: 640px) 25vw, 50vw"
                     className="transition-opacity group-hover:opacity-90"
                   />
