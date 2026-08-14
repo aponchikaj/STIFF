@@ -1,4 +1,11 @@
-import { imageBlurUrl, imageSrcSet, imageUrl } from "@/lib/image";
+import { memo } from "react";
+import {
+  type ImageFit,
+  DETAIL_WIDTHS,
+  TILE_WIDTHS,
+  imageSrcSet,
+  imageUrl,
+} from "@/lib/image";
 import { AsteriskMark } from "./asterisk-mark";
 
 /**
@@ -6,17 +13,19 @@ import { AsteriskMark } from "./asterisk-mark";
  *
  * Never renders the stored original — `src` is rewritten to a Cloudinary
  * transformation and offered at several widths so the browser downloads the
- * one that fits the slot. A blurred 24px version sits behind it as the
- * placeholder, so tiles are never blank while decoding.
+ * one that fits the slot. Tiles skip extra placeholder requests so bandwidth
+ * goes to the real photo; the surface color holds the box until it lands.
  */
 
 /** Conservative default: assumes a card in a multi-column grid. */
 const DEFAULT_SIZES = "(min-width: 1280px) 20vw, (min-width: 640px) 33vw, 50vw";
 
-/** Fallback for browsers ignoring srcset — mid-range, not the original. */
-const FALLBACK_WIDTH = 800;
+const FALLBACK_WIDTH: Record<ImageFit, number> = {
+  tile: 640,
+  detail: 1400,
+};
 
-export function ProductImage({
+export const ProductImage = memo(function ProductImage({
   src,
   alt,
   aspect = "aspect-[3/4]",
@@ -26,6 +35,7 @@ export function ProductImage({
   width,
   height,
   priority = false,
+  fit = "tile",
 }: {
   src?: string | null;
   alt: string;
@@ -39,6 +49,8 @@ export function ProductImage({
   height?: number | null;
   /** Above the fold: load eagerly and jump the queue. */
   priority?: boolean;
+  /** Tiles stay small and cheap; detail is the stage / product gallery. */
+  fit?: ImageFit;
 }) {
   if (!src) {
     return (
@@ -50,34 +62,25 @@ export function ProductImage({
     );
   }
 
-  const blur = imageBlurUrl(src);
-  const srcSet = imageSrcSet(src);
+  const widths = fit === "detail" ? DETAIL_WIDTHS : TILE_WIDTHS;
+  const srcSet = imageSrcSet(src, widths, fit);
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={imageUrl(src, FALLBACK_WIDTH)}
+      src={imageUrl(src, FALLBACK_WIDTH[fit], fit)}
       srcSet={srcSet || undefined}
       sizes={srcSet ? sizes : undefined}
       alt={alt}
       width={width ?? undefined}
       height={height ?? undefined}
       loading={priority ? "eager" : "lazy"}
-      fetchPriority={priority ? "high" : "auto"}
-      decoding={priority ? "sync" : "async"}
-      style={
-        blur
-          ? {
-              backgroundImage: `url("${blur}")`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }
-          : undefined
-      }
+      fetchPriority={priority ? "high" : "low"}
+      decoding="async"
       // `aspect` wins over any intrinsic width/height attributes, so tiles that
       // opt into a fixed ratio still crop; `aspect=""` keeps natural height and
       // uses the attributes to reserve the right box.
       className={`${aspect} w-full bg-surface object-cover ${aspect ? "" : "h-auto"} ${className}`}
     />
   );
-}
+});

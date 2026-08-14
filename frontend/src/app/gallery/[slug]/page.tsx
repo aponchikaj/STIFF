@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { GalleryItemDetail } from "@/lib/api";
 import { galleryPath } from "@/lib/gallery-url";
-import { imageUrl } from "@/lib/image";
+import { DETAIL_WIDTHS, imageSrcSet, imageUrl } from "@/lib/image";
 import { serverApiBase, SITE_URL } from "@/lib/site";
 import { GalleryItemView } from "./gallery-item-view";
 
@@ -40,7 +40,7 @@ export async function generateMetadata({
     item.description ??
     item.altText ??
     `Shot ${item.title} from the STIFF archive — worn, shot, kept.`;
-  const image = imageUrl(item.imageUrl, 1200);
+  const image = imageUrl(item.imageUrl, 1200, "detail");
   const path = galleryPath(item);
 
   return {
@@ -76,7 +76,7 @@ export default async function GalleryItemPage({
     ? {
         "@context": "https://schema.org",
         "@type": "ImageObject",
-        contentUrl: imageUrl(item.imageUrl, 1600),
+        contentUrl: imageUrl(item.imageUrl, 1600, "detail"),
         thumbnailUrl: imageUrl(item.imageUrl, 400),
         name: item.title,
         caption: item.altText ?? item.description ?? undefined,
@@ -97,13 +97,41 @@ export default async function GalleryItemPage({
 
   return (
     <>
+      {item && (
+        <>
+          <link
+            rel="preload"
+            as="image"
+            href={imageUrl(item.imageUrl, 1400, "detail")}
+            imageSrcSet={
+              imageSrcSet(item.imageUrl, DETAIL_WIDTHS, "detail") || undefined
+            }
+            imageSizes="(min-width: 1024px) 80vw, 100vw"
+            fetchPriority="high"
+          />
+          {item.next && (
+            <link
+              rel="prefetch"
+              as="image"
+              href={imageUrl(item.next.imageUrl, 1400, "detail")}
+            />
+          )}
+          {item.prev && (
+            <link
+              rel="prefetch"
+              as="image"
+              href={imageUrl(item.prev.imageUrl, 1400, "detail")}
+            />
+          )}
+        </>
+      )}
       {jsonLd && (
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       )}
-      <GalleryItemView slug={slug} />
+      <GalleryItemView key={slug} slug={slug} initial={item} />
     </>
   );
 }

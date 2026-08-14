@@ -6,7 +6,6 @@ import { productsApi } from "@/lib/api";
 import type { Product, ProductSort } from "@/lib/api";
 import { errorMessage } from "@/lib/hooks";
 import { ShopClosed } from "@/components/if-shop";
-import { Reveal } from "@/components/motion";
 import { ProductCard } from "@/components/product-card";
 import { useSession } from "@/components/providers";
 import {
@@ -80,7 +79,7 @@ export function ClothingBrowser({ category }: { category: string }) {
 
   return (
     <>
-      <Reveal className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-4xl uppercase tracking-tight sm:text-6xl">
             Clothing
@@ -102,7 +101,7 @@ export function ClothingBrowser({ category }: { category: string }) {
             </li>
           ))}
         </ul>
-      </Reveal>
+      </div>
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <input
@@ -154,10 +153,8 @@ export function ClothingBrowser({ category }: { category: string }) {
 
       <ul className="mt-10 grid grid-cols-2 gap-x-0.5 gap-y-8 sm:mt-12 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
         {items.map((product, i) => (
-          <li key={product.id}>
-            <Reveal delay={(i % 4) * 0.06}>
-              <ProductCard product={product} />
-            </Reveal>
+          <li key={product.id} className={i < 4 ? undefined : "cv-auto"}>
+            <ProductCard product={product} priority={i < 4} />
           </li>
         ))}
       </ul>

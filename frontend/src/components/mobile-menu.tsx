@@ -71,9 +71,9 @@ export function MobileMenu() {
         <MenuIcon className="size-5" />
       </button>
 
-      {/* Portaled to <body>: the navbar's backdrop-blur makes the header the
-          containing block for fixed children, which pinned this panel to the
-          64px bar and let page content stack over it. */}
+      {/* Portaled to <body>: a transform on the sticky header (intro drop-in)
+          makes it the containing block for fixed children, which pinned this
+          panel to the 64px bar and let page content stack over it. */}
       {mounted &&
         createPortal(
           <AnimatePresence>

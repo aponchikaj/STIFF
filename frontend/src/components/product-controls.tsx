@@ -174,7 +174,7 @@ export function ProductControls({ product }: { product: ProductDetail }) {
         showStickyBar &&
         !soldOut &&
         createPortal(
-          <div className="fixed inset-x-0 bottom-0 z-[55] border-t border-foreground bg-background/95 backdrop-blur-md">
+          <div className="fixed inset-x-0 bottom-0 z-[55] border-t border-foreground bg-background">
             <div className="mx-auto flex h-16 w-full max-w-4xl items-center justify-between gap-3 px-4 sm:px-6">
               <div className="min-w-0">
                 <p className="truncate text-xs font-bold uppercase tracking-wide">

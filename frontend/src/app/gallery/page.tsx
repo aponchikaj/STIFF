@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import type { GalleryItem, Paginated } from "@/lib/api";
 import { galleryPath } from "@/lib/gallery-url";
-import { imageUrl } from "@/lib/image";
+import { TILE_WIDTHS, imageSrcSet, imageUrl } from "@/lib/image";
 import { serverApiBase, SITE_URL } from "@/lib/site";
-import { Reveal } from "@/components/motion";
+import { shuffleCopy } from "@/lib/shuffle";
+import { GALLERY_PAGE_SIZE, TILE_SIZES } from "./constants";
 import { GalleryGrid } from "./gallery-grid";
 
-/** Enough shots to describe the collection without shipping a huge blob. */
-const JSON_LD_SHOTS = 24;
+/** Stable mix so consecutive archive numbers don't sit together, without
+ *  a per-visit reshuffle that would mismatch the SSR HTML. */
+const GRID_SEED = 0x51e77f;
 
 export const metadata: Metadata = {
   title: "Gallery",
@@ -16,26 +18,27 @@ export const metadata: Metadata = {
   alternates: { canonical: "/gallery" },
 };
 
-async function fetchShots(): Promise<GalleryItem[]> {
+async function fetchShots(): Promise<Paginated<GalleryItem>> {
   try {
     const res = await fetch(
-      `${serverApiBase()}/gallery?pageSize=${JSON_LD_SHOTS}`,
+      `${serverApiBase()}/gallery?page=1&pageSize=${GALLERY_PAGE_SIZE}`,
       { next: { revalidate: 3600 } },
     );
-    if (!res.ok) return [];
-    const data = (await res.json()) as Paginated<GalleryItem>;
-    return data.items;
+    if (!res.ok) {
+      return { items: [], total: 0, page: 1, pageSize: GALLERY_PAGE_SIZE };
+    }
+    return (await res.json()) as Paginated<GalleryItem>;
   } catch {
-    return [];
+    return { items: [], total: 0, page: 1, pageSize: GALLERY_PAGE_SIZE };
   }
 }
 
 export default async function GalleryPage() {
-  const shots = await fetchShots();
+  const data = await fetchShots();
+  const shots = shuffleCopy(data.items, GRID_SEED);
 
-  // The grid itself is client-rendered and paginated, so a crawler that
-  // doesn't run JavaScript would otherwise see an empty page. This describes
-  // the collection and every image in the first page of it.
+  // The grid hydrates from this payload so the first photos are in the HTML
+  // (and start downloading during parse) instead of waiting on client JS.
   const jsonLd =
     shots.length > 0
       ? {
@@ -47,7 +50,7 @@ export default async function GalleryPage() {
           url: `${SITE_URL}/gallery`,
           image: shots.map((shot) => ({
             "@type": "ImageObject",
-            contentUrl: imageUrl(shot.imageUrl, 1600),
+            contentUrl: imageUrl(shot.imageUrl, 1600, "detail"),
             thumbnailUrl: imageUrl(shot.imageUrl, 400),
             name: shot.title,
             caption: shot.altText ?? shot.description ?? undefined,
@@ -60,21 +63,32 @@ export default async function GalleryPage() {
 
   return (
     <section className="w-full px-4 py-12 sm:px-6 sm:py-16">
+      {shots.slice(0, 4).map((shot, i) => (
+        <link
+          key={shot.id}
+          rel="preload"
+          as="image"
+          href={imageUrl(shot.imageUrl, 640)}
+          imageSrcSet={imageSrcSet(shot.imageUrl, TILE_WIDTHS) || undefined}
+          imageSizes={TILE_SIZES}
+          fetchPriority={i < 2 ? "high" : "auto"}
+        />
+      ))}
       {jsonLd && (
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       )}
-      <Reveal className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <h1 className="text-4xl uppercase tracking-tight sm:text-6xl">
           Gallery
         </h1>
         <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
           The archive
         </p>
-      </Reveal>
-      <GalleryGrid />
+      </div>
+      <GalleryGrid initialItems={shots} initialTotal={data.total} />
     </section>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { imageSrcSet, imageUrl } from "@/lib/image";
+import { imageSrcSet, imageUrl, DETAIL_WIDTHS } from "@/lib/image";
 
 /**
  * Full-screen image viewer. Closes on backdrop click, the × button, or Escape,
@@ -46,8 +46,8 @@ export function Lightbox({
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={imageUrl(src, MAX_WIDTH)}
-        srcSet={imageSrcSet(src) || undefined}
+        src={imageUrl(src, MAX_WIDTH, "detail")}
+        srcSet={imageSrcSet(src, DETAIL_WIDTHS, "detail") || undefined}
         sizes="100vw"
         alt={alt}
         decoding="async"

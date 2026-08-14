@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Product } from "@/lib/api";
 import { formatPrice } from "@/lib/format";
-import { imageSrcSet, imageUrl } from "@/lib/image";
+import { TILE_WIDTHS, imageSrcSet, imageUrl } from "@/lib/image";
 import { ProductImage } from "./product-image";
 import { productShareSubject } from "@/lib/share-subject";
 import { ShareButton } from "./share-button";
@@ -41,13 +41,14 @@ export function ProductCard({
         {hoverImage && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={imageUrl(hoverImage, 800)}
-            srcSet={imageSrcSet(hoverImage) || undefined}
+            src={imageUrl(hoverImage, 640)}
+            srcSet={imageSrcSet(hoverImage, TILE_WIDTHS) || undefined}
             sizes={sizes}
             alt=""
             aria-hidden="true"
             loading="lazy"
             decoding="async"
+            fetchPriority="low"
             className="absolute inset-0 h-full w-full bg-surface object-cover opacity-0 transition-opacity duration-300 group-hover:opacity-100"
           />
         )}

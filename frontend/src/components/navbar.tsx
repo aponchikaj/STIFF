@@ -6,7 +6,7 @@ import { NavLinks } from "./nav-links";
 
 export function Navbar() {
   return (
-    <header className="site-header sticky top-0 z-50 border-b border-subtle bg-background/80 backdrop-blur-md">
+    <header className="site-header sticky top-0 z-50 border-b border-subtle bg-background">
       <nav
         aria-label="Main"
         className="flex h-16 w-full items-center justify-between gap-1 px-3 sm:px-6"

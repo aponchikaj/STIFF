@@ -1,33 +1,76 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { galleryApi } from "@/lib/api";
 import type { GalleryItem } from "@/lib/api";
 import { galleryPath } from "@/lib/gallery-url";
 import { errorMessage } from "@/lib/hooks";
-import { ScaleIn } from "@/components/motion";
 import { ErrorNote, Loading } from "@/components/ui";
 import { ProductImage } from "@/components/product-image";
 import { ShareButton } from "@/components/share-button";
 import { galleryShareSubject } from "@/lib/share-subject";
 import { shuffleCopy } from "@/lib/shuffle";
-
-/** Column count matches the `columns-*` classes below — keep the two in sync. */
-const TILE_SIZES =
-  "(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw";
-
-/** One screenful-ish. The rest streams in as the visitor scrolls. */
-const PAGE_SIZE = 24;
+import { GALLERY_PAGE_SIZE, TILE_SIZES } from "./constants";
 
 /** Roughly the first viewport of tiles; these skip lazy-loading. */
 const EAGER_TILES = 6;
 
-export function GalleryGrid() {
-  const [items, setItems] = useState<GalleryItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
+const GalleryTile = memo(function GalleryTile({
+  item,
+  priority,
+}: {
+  item: GalleryItem;
+  priority: boolean;
+}) {
+  return (
+    <div className="group relative mb-4 break-inside-avoid">
+      {/* The share button is a sibling of the link, not a child — a
+          button inside an anchor is invalid and swallows the click. */}
+      <Link
+        href={galleryPath(item)}
+        className="block rounded-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
+      >
+        <figure>
+          <ProductImage
+            src={item.imageUrl}
+            alt={item.altText ?? item.title}
+            aspect=""
+            width={item.width}
+            height={item.height}
+            sizes={TILE_SIZES}
+            priority={priority}
+          />
+          <figcaption className="mt-2 flex items-baseline justify-between gap-2 text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
+            <span className="truncate">{item.title}</span>
+            <span className="shrink-0">
+              {item.likeCount > 0 ? `${item.likeCount} ♥` : ""}
+            </span>
+          </figcaption>
+        </figure>
+      </Link>
+      {/* Always reachable on touch, revealed on hover on pointer
+          devices, and always shown once focused. */}
+      <ShareButton
+        subject={galleryShareSubject(item)}
+        variant="icon"
+        className="absolute right-2 top-2 opacity-0 focus-visible:opacity-100 group-hover:opacity-100 max-[1024px]:opacity-100"
+      />
+    </div>
+  );
+});
+
+export function GalleryGrid({
+  initialItems = [],
+  initialTotal = 0,
+}: {
+  initialItems?: GalleryItem[];
+  initialTotal?: number;
+}) {
+  const [items, setItems] = useState<GalleryItem[]>(initialItems);
+  const [total, setTotal] = useState(initialTotal);
+  const [page, setPage] = useState(initialItems.length > 0 ? 1 : 0);
+  const [loading, setLoading] = useState(initialItems.length === 0);
   const [error, setError] = useState<string | null>(null);
   const sentinel = useRef<HTMLDivElement>(null);
   // One seed per visit so a re-render doesn't reshuffle tiles already on screen.
@@ -40,16 +83,19 @@ export function GalleryGrid() {
       try {
         const res = await galleryApi.listGallery({
           page: next,
-          pageSize: PAGE_SIZE,
+          pageSize: GALLERY_PAGE_SIZE,
         });
         // Shuffle only the incoming page, then append. Already-visible tiles
         // stay put; consecutive archive numbers (0001, 0002) stop sitting
-        // next to each other.
+        // next to each other. Page 1 arrives pre-shuffled from the server.
         const pageSeed = visitSeed ^ Math.imul(next, 0x9e3779b9);
         setItems((prev) => {
           const seen = new Set(prev.map((i) => i.id));
           const incoming = res.items.filter((i) => !seen.has(i.id));
-          return [...prev, ...shuffleCopy(incoming, pageSeed)];
+          return [
+            ...prev,
+            ...(next === 1 ? incoming : shuffleCopy(incoming, pageSeed)),
+          ];
         });
         setTotal(res.total);
         setPage(next);
@@ -63,8 +109,9 @@ export function GalleryGrid() {
   );
 
   useEffect(() => {
+    if (initialItems.length > 0) return;
     void loadPage(1);
-  }, [loadPage]);
+  }, [initialItems.length, loadPage]);
 
   const hasMore = items.length < total;
 
@@ -77,7 +124,7 @@ export function GalleryGrid() {
       (entries) => {
         if (entries[0]?.isIntersecting) void loadPage(page + 1);
       },
-      { rootMargin: "600px 0px" },
+      { rootMargin: "800px 0px" },
     );
     observer.observe(node);
     return () => observer.disconnect();
@@ -107,46 +154,11 @@ export function GalleryGrid() {
     <>
       <div className="mt-10 columns-2 gap-4 sm:mt-12 sm:columns-3 lg:columns-4 xl:columns-5">
         {items.map((item, i) => (
-          <ScaleIn
+          <GalleryTile
             key={item.id}
-            delay={(i % 3) * 0.06}
-            className="mb-4 break-inside-avoid"
-          >
-            {/* The share button is a sibling of the link, not a child — a
-                button inside an anchor is invalid and swallows the click. */}
-            <div className="group relative">
-              <Link
-                href={galleryPath(item)}
-                className="block rounded-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
-              >
-                <figure>
-                  <ProductImage
-                    src={item.imageUrl}
-                    alt={item.altText ?? item.title}
-                    aspect=""
-                    width={item.width}
-                    height={item.height}
-                    sizes={TILE_SIZES}
-                    priority={i < EAGER_TILES}
-                    className="transition-opacity group-hover:opacity-90"
-                  />
-                  <figcaption className="mt-2 flex items-baseline justify-between gap-2 text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
-                    <span className="truncate">{item.title}</span>
-                    <span className="shrink-0">
-                      {item.likeCount > 0 ? `${item.likeCount} ♥` : ""}
-                    </span>
-                  </figcaption>
-                </figure>
-              </Link>
-              {/* Always reachable on touch, revealed on hover on pointer
-                  devices, and always shown once focused. */}
-              <ShareButton
-                subject={galleryShareSubject(item)}
-                variant="icon"
-                className="absolute right-2 top-2 opacity-0 focus-visible:opacity-100 group-hover:opacity-100 max-[1024px]:opacity-100"
-              />
-            </div>
-          </ScaleIn>
+            item={item}
+            priority={i < EAGER_TILES}
+          />
         ))}
       </div>
 

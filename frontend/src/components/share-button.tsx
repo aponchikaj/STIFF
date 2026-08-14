@@ -34,7 +34,7 @@ export function ShareButton({
         aria-label={`Share ${subject.title}`}
         className={
           variant === "icon"
-            ? `${base} flex size-8 items-center justify-center bg-background/85 text-sm text-foreground backdrop-blur hover:bg-background ${className}`
+            ? `${base} flex size-8 items-center justify-center bg-background text-sm text-foreground hover:bg-surface ${className}`
             : `${base} flex h-9 items-center gap-2 border border-subtle px-4 text-[11px] font-medium uppercase tracking-[0.15em] text-muted hover:border-foreground hover:text-foreground ${className}`
         }
       >

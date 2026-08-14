@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { productsApi } from "@/lib/api";
+import type { ProductDetail } from "@/lib/api";
 import { formatPrice } from "@/lib/format";
 import { useAsync } from "@/lib/hooks";
 import { CommentsSection } from "@/components/comments-section";
@@ -22,12 +23,19 @@ import { btnOutline, Loading } from "@/components/ui";
 /** At or below this many units the piece is flagged as running out. */
 const LOW_STOCK = 5;
 
-export function ProductView({ slug }: { slug: string }) {
+export function ProductView({
+  slug,
+  initial = null,
+}: {
+  slug: string;
+  initial?: ProductDetail | null;
+}) {
   const { shopEnabled } = useSession();
   const [lightbox, setLightbox] = useState<string | null>(null);
   const { data: product, loading, error } = useAsync(
     () => productsApi.getProduct(slug),
     [slug],
+    initial,
   );
   const { data: related } = useAsync(
     () => productsApi.listProducts({ pageSize: 5, sort: "popular" }),
@@ -36,7 +44,7 @@ export function ProductView({ slug }: { slug: string }) {
 
   if (!shopEnabled) return <ShopClosed />;
 
-  if (loading) {
+  if (loading && !product) {
     return (
       <section className="flex w-full justify-center px-4 py-12 sm:px-6">
         <Loading label="Loading piece" />
@@ -75,9 +83,8 @@ export function ProductView({ slug }: { slug: string }) {
         {/* Mobile: swipeable snap carousel; desktop: stacked scroll gallery */}
         <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto lg:flex-col lg:overflow-visible">
           {gallery.map((src, i) => (
-            <Reveal
+            <div
               key={i}
-              delay={i * 0.08}
               className="w-[70%] max-w-[340px] shrink-0 snap-center sm:w-[45%] lg:w-full lg:max-w-none"
             >
               <button
@@ -92,11 +99,12 @@ export function ProductView({ slug }: { slug: string }) {
                   alt={`${product.name} — view ${i + 1}`}
                   sizes="(min-width: 1024px) 400px, (min-width: 640px) 45vw, 70vw"
                   priority={i === 0}
+                  fit="detail"
                   iconClassName="size-12 text-subtle"
-                  className="transition-transform duration-700 ease-out group-hover:scale-105"
+                  className="transition-opacity duration-200 group-hover:opacity-90"
                 />
               </button>
-            </Reveal>
+            </div>
           ))}
         </div>
 
@@ -149,11 +157,9 @@ export function ProductView({ slug }: { slug: string }) {
             </h2>
           </Reveal>
           <ul className="mt-8 grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-            {relatedItems.map((p, i) => (
-              <li key={p.id}>
-                <Reveal delay={i * 0.06}>
-                  <ProductCard product={p} />
-                </Reveal>
+            {relatedItems.map((p) => (
+              <li key={p.id} className="cv-auto">
+                <ProductCard product={p} />
               </li>
             ))}
           </ul>

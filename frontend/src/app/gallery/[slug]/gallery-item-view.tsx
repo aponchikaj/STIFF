@@ -8,7 +8,7 @@ import type { GalleryItem, GalleryItemDetail } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { galleryPath } from "@/lib/gallery-url";
 import { useAsync } from "@/lib/hooks";
-import { imageSrcSet, imageUrl } from "@/lib/image";
+import { imageSrcSet, imageUrl, DETAIL_WIDTHS } from "@/lib/image";
 import { CommentsSection } from "@/components/comments-section";
 import { Lightbox } from "@/components/lightbox";
 import { ReactionButtons } from "@/components/reaction-buttons";
@@ -25,14 +25,24 @@ const STRIP_SIZE = 24;
 /** Below this drag distance a touch is a tap, not a swipe. */
 const SWIPE_THRESHOLD = 50;
 
-export function GalleryItemView({ slug }: { slug: string }) {
+export function GalleryItemView({
+  slug,
+  initial = null,
+}: {
+  slug: string;
+  initial?: GalleryItemDetail | null;
+}) {
   const router = useRouter();
   const [zoomed, setZoomed] = useState(false);
   const {
     data: item,
     loading,
     error,
-  } = useAsync(() => galleryApi.getGalleryItem(slug), [slug]);
+  } = useAsync(
+    () => galleryApi.getGalleryItem(slug),
+    [slug],
+    initial,
+  );
 
   const prevPath = item?.prev ? galleryPath(item.prev) : null;
   const nextPath = item?.next ? galleryPath(item.next) : null;
@@ -64,7 +74,7 @@ export function GalleryItemView({ slug }: { slug: string }) {
     if (nextPath) router.prefetch(nextPath);
   }, [prevPath, nextPath, router]);
 
-  if (loading) return <StageSkeleton />;
+  if (loading && !item) return <StageSkeleton />;
 
   if (error || !item) {
     return (
@@ -98,7 +108,7 @@ export function GalleryItemView({ slug }: { slug: string }) {
       )}
 
       {/* ---- Chrome: where you are, and the way out ---- */}
-      <div className="sticky top-16 z-30 flex items-center justify-between gap-4 border-b border-subtle bg-background/90 px-4 py-2.5 backdrop-blur sm:px-6">
+      <div className="sticky top-16 z-30 flex items-center justify-between gap-4 border-b border-subtle bg-background px-4 py-2.5 sm:px-6">
         <Link
           href="/gallery"
           className="rounded-[2px] text-[10px] font-medium uppercase tracking-[0.2em] text-muted transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
@@ -202,15 +212,15 @@ function Stage({
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={imageUrl(item.imageUrl, 1400)}
-          srcSet={imageSrcSet(item.imageUrl) || undefined}
+          src={imageUrl(item.imageUrl, 1400, "detail")}
+          srcSet={imageSrcSet(item.imageUrl, DETAIL_WIDTHS, "detail") || undefined}
           sizes={STAGE_SIZES}
           alt={item.altText ?? item.title}
           width={item.width ?? undefined}
           height={item.height ?? undefined}
           loading="eager"
           fetchPriority="high"
-          decoding="sync"
+          decoding="async"
           className="max-h-[58dvh] w-auto max-w-full rounded-[2px] object-contain transition-opacity duration-200 group-hover:opacity-95 sm:max-h-[66dvh]"
         />
       </button>
@@ -309,6 +319,7 @@ function Filmstrip({
                   alt={shot.altText ?? shot.title}
                   loading="lazy"
                   decoding="async"
+                  fetchPriority="low"
                   className="size-14 bg-surface object-cover sm:size-16"
                 />
               </Link>

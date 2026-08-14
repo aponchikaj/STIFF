@@ -377,7 +377,7 @@ export async function renderShareImage(
 
   // Request a render wide enough for the largest box the templates draw into.
   const [img] = await Promise.all([
-    loadImage(imageUrl(subject.imageUrl, 1440)),
+    loadImage(imageUrl(subject.imageUrl, 1440, "detail")),
     ensureFonts(fonts),
   ]);
 

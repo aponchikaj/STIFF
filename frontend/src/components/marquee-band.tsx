@@ -22,7 +22,7 @@ export function MarqueeBand() {
   return (
     <div
       aria-hidden="true"
-      className="flex h-[12dvh] min-h-20 items-center overflow-hidden bg-foreground text-background"
+      className="marquee-band flex h-[12dvh] min-h-20 items-center overflow-hidden bg-foreground text-background"
     >
       {/* Two identical rows; the track slides -50% and loops seamlessly */}
       <div className="marquee-track flex">

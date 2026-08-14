@@ -74,8 +74,8 @@ export function SearchOverlay({
   const empty =
     results && results.products.length === 0 && results.gallery.length === 0;
 
-  // Portaled to <body>: the navbar's backdrop-blur would otherwise make the
-  // header the containing block for this fixed overlay.
+  // Portaled to <body>: a transform on the sticky header would otherwise
+  // make it the containing block for this fixed overlay.
   return createPortal(
     <div
       role="dialog"

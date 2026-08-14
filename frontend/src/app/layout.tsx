@@ -3,7 +3,6 @@ import { Archivo, Archivo_Black } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-import { ScrollProgress } from "@/components/motion";
 import { Providers } from "@/components/providers";
 import { TrackPageview } from "@/components/track-pageview";
 import {
@@ -118,7 +117,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <Providers>
           <Navbar />
-          <ScrollProgress />
+          <div
+            aria-hidden="true"
+            className="scroll-progress pointer-events-none fixed inset-x-0 top-16 z-40 h-0.5 bg-foreground"
+          />
           <TrackPageview />
           {/* Fills at least one full screen (minus the h-16 navbar), so the
               footer is only reached by scrolling. */}

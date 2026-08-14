@@ -23,6 +23,12 @@ function backendOrigin(): string | undefined {
 const nextConfig: NextConfig = {
   poweredByHeader: false,
 
+  images: {
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 2678400,
+    qualities: [65, 75],
+  },
+
   // framer-motion re-exports a large surface; importing per-module keeps the
   // client bundle to what each component actually uses.
   experimental: {
