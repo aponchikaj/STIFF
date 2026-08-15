@@ -6,7 +6,7 @@ import { clientIp, isMonitorIp } from "@/lib/monitor-ips";
  * deployment (stage.stiff.ge, pre-prod.stiff.ge), the first request must
  * pass HTTP Basic Auth; success drops a session cookie so client-side
  * navigations and API calls aren't re-challenged. Production and local
- * dev leave the vars unset and the middleware is a no-op.
+ * dev leave the vars unset and this proxy is a no-op.
  */
 
 const AUTH_COOKIE = "stiff_staging_auth";
@@ -19,7 +19,7 @@ async function expectedToken(user: string, password: string): Promise<string> {
     .join("");
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const user = process.env.STAGING_USER;
   const password = process.env.STAGING_PASSWORD;
   if (!user || !password) return NextResponse.next();

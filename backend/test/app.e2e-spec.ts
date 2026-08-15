@@ -1,13 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import type { Server } from 'http';
 import request from 'supertest';
-import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { configureApp } from './../src/configure-app';
+import type { HealthStatus } from './../src/app.service';
 
 describe('AppController (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -19,18 +20,13 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/ (GET) answers without the /api prefix so host-root monitors succeed', () => {
-    return request(app.getHttpServer())
+  it('/ (GET) answers without the /api prefix so host-root monitors succeed', async () => {
+    const res = await request(app.getHttpServer() as Server)
       .get('/')
-      .expect(200)
-      .expect((res) => {
-        expect(res.body).toEqual(
-          expect.objectContaining({
-            status: expect.stringMatching(/^(ok|degraded)$/),
-            database: expect.stringMatching(/^(up|down)$/),
-          }),
-        );
-      });
+      .expect(200);
+    const body = res.body as HealthStatus;
+    expect(body.status).toMatch(/^(ok|degraded)$/);
+    expect(body.database).toMatch(/^(up|down)$/);
   });
 
   afterEach(async () => {

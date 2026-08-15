@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { galleryApi } from "@/lib/api";
-import type { GalleryItem } from "@/lib/api";
 import { galleryPath } from "@/lib/gallery-url";
 import { useAsync } from "@/lib/hooks";
 import { shuffleCopy } from "@/lib/shuffle";

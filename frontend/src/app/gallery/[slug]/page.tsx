@@ -14,7 +14,7 @@ async function fetchShot(slug: string): Promise<GalleryItemDetail | null> {
   try {
     const res = await fetch(
       `${serverApiBase()}/gallery/${encodeURIComponent(slug)}`,
-      { next: { revalidate: 300 } },
+      { next: { revalidate: 60 } },
     );
     if (!res.ok) return null;
     return (await res.json()) as GalleryItemDetail;

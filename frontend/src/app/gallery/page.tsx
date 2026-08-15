@@ -22,7 +22,7 @@ async function fetchShots(): Promise<Paginated<GalleryItem>> {
   try {
     const res = await fetch(
       `${serverApiBase()}/gallery?page=1&pageSize=${GALLERY_PAGE_SIZE}`,
-      { next: { revalidate: 3600 } },
+      { next: { revalidate: 60 } },
     );
     if (!res.ok) {
       return { items: [], total: 0, page: 1, pageSize: GALLERY_PAGE_SIZE };

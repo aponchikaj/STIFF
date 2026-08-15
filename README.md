@@ -1,46 +1,59 @@
 # STIFF
 
-Monorepo for the STIFF brand project.
+Monorepo for the STIFF brand site: Next.js frontend and NestJS API.
 
 ## Structure
 
-- `frontend/` — Next.js 15 (App Router) + TypeScript + Tailwind CSS
-- `backend/` — NestJS + TypeORM + PostgreSQL (local install, no Docker)
+- `frontend/` — Next.js (App Router, `src/`) + TypeScript + Tailwind CSS v4
+- `backend/` — NestJS 11 + TypeORM + PostgreSQL
+
+There is no Docker. Postgres is a hosted Supabase instance shared by local
+development and production — treat every schema change as a production change.
 
 ## Getting started
 
-### 1. Start PostgreSQL (Homebrew)
+### 1. Environment
 
 ```bash
-brew services start postgresql@17
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env.local
 ```
 
-The backend expects a `stiff` database owned by the `stiff` role
-(password `stiff`) — see `backend/.env`.
+Fill `backend/.env` with the Supabase connection, JWT secrets, Cloudinary, and
+the seed admin. The frontend defaults to `http://localhost:4000/api`.
 
-### 2. Start the backend (port 4000)
+### 2. Start the API (port 4000)
 
 ```bash
 cd backend
+npm install
 npm run start:dev
 ```
 
-API is served under the `/api` prefix: http://localhost:4000/api
+Pending migrations run on boot unless `DB_MIGRATIONS_RUN=false`. Schema changes
+go through `npm run migration:generate` / `migration:run` — TypeORM
+`synchronize` is off everywhere.
 
-### 3. Start the frontend (port 3000)
+API prefix: http://localhost:4000/api  
+Health: http://localhost:4000/api/health
+
+### 3. Start the site (port 3000)
 
 ```bash
 cd frontend
+npm install
 npm run dev
 ```
 
-App runs at http://localhost:3000 and reads the API base URL from
-`NEXT_PUBLIC_API_URL` in `frontend/.env.local`.
+http://localhost:3000
 
-## Environment
+## Deploy
 
-- `backend/.env` — server port, CORS origin, database credentials (copy from `.env.example`)
-- `frontend/.env.local` — `NEXT_PUBLIC_API_URL`
-
-TypeORM `synchronize` is enabled outside production, so entities auto-create
-their tables during development.
+- **Frontend** — Vercel. Production should track `main` with
+  `NEXT_PUBLIC_API_URL=/api`, `BACKEND_URL` pointing at the Render API, and
+  `NEXT_PUBLIC_SITE_URL=https://stiff.ge` (anything else stays out of search
+  indexes).
+- **Backend** — Render (`render.yaml`). `NODE_ENV=production`,
+  `FRONTEND_URL=https://stiff.ge`, plus the same database and secrets as local.
+- Branches `stage`, `pre-prod`, and `main` are independent deploys, not a
+  required promotion pipeline.
