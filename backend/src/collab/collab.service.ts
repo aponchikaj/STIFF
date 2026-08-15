@@ -129,12 +129,42 @@ export class CollabService implements OnModuleInit {
     this.logger.log(`Seeded collab campaign ${KEBURIA_SLUG}`);
   }
 
-  qrBaseUrl(): string {
-    return (
+  /**
+   * QR codes must open the site the admin minted them from. The API is shared
+   * across stiff.ge / stage / pre-prod, so PUBLIC_SITE_URL alone would always
+   * print production. `requested` is the browser origin; unknown hosts fall
+   * back to the configured public site.
+   */
+  qrBaseUrl(requested?: string): string {
+    const fallback = (
       this.configService.get<string>('PUBLIC_SITE_URL') ??
       this.configService.get<string>('FRONTEND_URL') ??
       'https://stiff.ge'
     ).replace(/\/$/, '');
+    return this.allowedQrOrigin(requested) ?? fallback;
+  }
+
+  private allowedQrOrigin(raw?: string): string | null {
+    if (!raw?.trim()) return null;
+    try {
+      const url = new URL(raw.trim());
+      const host = url.hostname.toLowerCase();
+      const local = host === 'localhost' || host === '127.0.0.1';
+      if (local) {
+        if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+        return url.origin;
+      }
+      if (url.protocol !== 'https:') return null;
+      if (host === 'stiff.ge' || host.endsWith('.stiff.ge')) return url.origin;
+      const frontend = this.configService.get<string>('FRONTEND_URL');
+      if (frontend) {
+        const allowed = new URL(frontend).origin;
+        if (url.origin === allowed) return url.origin;
+      }
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   cookieBase() {
@@ -172,7 +202,7 @@ export class CollabService implements OnModuleInit {
     return Boolean(campaign.videoProvider && campaign.videoPublicId);
   }
 
-  async overview(slug: string): Promise<CampaignOverview> {
+  async overview(slug: string, site?: string): Promise<CampaignOverview> {
     const campaign = await this.requireCampaign(slug);
     const [unused, claimed, revoked, total] = await Promise.all([
       this.codeRepo.count({
@@ -197,7 +227,7 @@ export class CollabService implements OnModuleInit {
       total,
       hasVideo: this.hasVideo(campaign),
       videoUploadedAt: campaign.videoUploadedAt?.toISOString() ?? null,
-      qrBaseUrl: this.qrBaseUrl(),
+      qrBaseUrl: this.qrBaseUrl(site),
     };
   }
 
@@ -326,7 +356,7 @@ export class CollabService implements OnModuleInit {
     });
   }
 
-  async buildQrZip(slug: string): Promise<Buffer> {
+  async buildQrZip(slug: string, site?: string): Promise<Buffer> {
     const campaign = await this.requireCampaign(slug);
     const printable = await this.codeRepo.find({
       where: [
@@ -340,7 +370,7 @@ export class CollabService implements OnModuleInit {
     }
 
     const secret = this.tokenSecret();
-    const base = this.qrBaseUrl();
+    const base = this.qrBaseUrl(site);
     const zip = new JSZip();
     for (const code of printable) {
       const token = decryptToken(code.tokenEnc, secret);
@@ -354,6 +384,7 @@ export class CollabService implements OnModuleInit {
   async buildQrPng(
     slug: string,
     id: string,
+    site?: string,
   ): Promise<{ buffer: Buffer; filename: string }> {
     const campaign = await this.requireCampaign(slug);
     const code = await this.codeRepo.findOne({
@@ -364,7 +395,7 @@ export class CollabService implements OnModuleInit {
       throw new NotFoundException('This code has been revoked.');
     }
     const token = decryptToken(code.tokenEnc, this.tokenSecret());
-    const url = `${this.qrBaseUrl()}/c/${campaign.slug}/${token}`;
+    const url = `${this.qrBaseUrl(site)}/c/${campaign.slug}/${token}`;
     const filename = `stiff-${campaign.slug}-${padSerial(code.serial)}.png`;
     return { buffer: await this.qrPng(url), filename };
   }

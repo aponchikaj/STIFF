@@ -163,8 +163,8 @@ export class CollabController {
 
   @Get(':slug')
   @Roles('admin')
-  overview(@Param('slug') slug: string) {
-    return this.collabService.overview(slug);
+  overview(@Param('slug') slug: string, @Query('site') site?: string) {
+    return this.collabService.overview(slug, site);
   }
 
   @Patch(':slug')
@@ -223,8 +223,12 @@ export class CollabController {
 
   @Get(':slug/codes/qr.zip')
   @Roles('admin')
-  async qrZip(@Param('slug') slug: string, @Res() res: Response) {
-    const buf = await this.collabService.buildQrZip(slug);
+  async qrZip(
+    @Param('slug') slug: string,
+    @Query('site') site: string | undefined,
+    @Res() res: Response,
+  ) {
+    const buf = await this.collabService.buildQrZip(slug, site);
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader(
       'Content-Disposition',
@@ -239,9 +243,14 @@ export class CollabController {
   async qrPng(
     @Param('slug') slug: string,
     @Param('id', ParseUUIDPipe) id: string,
+    @Query('site') site: string | undefined,
     @Res() res: Response,
   ) {
-    const { buffer, filename } = await this.collabService.buildQrPng(slug, id);
+    const { buffer, filename } = await this.collabService.buildQrPng(
+      slug,
+      id,
+      site,
+    );
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Cache-Control', 'private, no-store');

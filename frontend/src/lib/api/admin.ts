@@ -251,8 +251,14 @@ export function uploadImage(file: File): Promise<UploadedImage> {
 
 const COLLAB_SLUG = "keburia";
 
+/** Origin of the admin tab so printed QRs open this environment, not production. */
+function collabSite(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  return window.location.origin;
+}
+
 export function getCollab(): Promise<CollabOverview> {
-  return apiFetch(`/collab/${COLLAB_SLUG}`);
+  return apiFetch(`/collab/${COLLAB_SLUG}`, { query: { site: collabSite() } });
 }
 
 export function listCollabCodes(params?: {
@@ -287,6 +293,7 @@ export function downloadCollabQrZip(): Promise<void> {
   return apiDownload(
     `/collab/${COLLAB_SLUG}/codes/qr.zip`,
     "stiff-keburia-qr.zip",
+    { site: collabSite() },
   );
 }
 
@@ -294,11 +301,14 @@ export function downloadCollabQr(id: string, serial: string): Promise<void> {
   return apiDownload(
     `/collab/${COLLAB_SLUG}/codes/${id}/qr`,
     `stiff-keburia-${serial}.png`,
+    { site: collabSite() },
   );
 }
 
 export function fetchCollabQrBlob(id: string): Promise<Blob> {
-  return apiBlob(`/collab/${COLLAB_SLUG}/codes/${id}/qr`);
+  return apiBlob(`/collab/${COLLAB_SLUG}/codes/${id}/qr`, {
+    site: collabSite(),
+  });
 }
 
 export function getCollabCodeAccess(id: string): Promise<CollabCodeAccess> {

@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
+import QRCode from 'qrcode';
 import { CollabCampaign } from './collab-campaign.entity';
 import { CollabCode } from './collab-code.entity';
 import { CollabService, streamLocalFile } from './collab.service';
@@ -303,6 +304,35 @@ describe('CollabService', () => {
       expect(filename).toBe('stiff-keburia-007.png');
       expect(buffer[0]).toBe(0x89);
       expect(buffer[1]).toBe(0x50);
+    });
+
+    it('encodes the admin host in the QR, not a hardcoded production URL', async () => {
+      const token = randomToken();
+      const row = unusedCode(token);
+      campaignRepo.findOne.mockResolvedValue(campaign());
+      codeRepo.findOne.mockResolvedValue(row);
+
+      await service.buildQrPng('keburia', CODE_ID, 'https://stage.stiff.ge');
+
+      expect(QRCode.toBuffer).toHaveBeenCalledWith(
+        `https://stage.stiff.ge/c/keburia/${token}`,
+        expect.any(Object),
+      );
+    });
+
+    it('keeps QR origins on stiff.ge hosts and rejects the rest', () => {
+      expect(service.qrBaseUrl('https://stage.stiff.ge')).toBe(
+        'https://stage.stiff.ge',
+      );
+      expect(service.qrBaseUrl('https://pre-prod.stiff.ge/admin')).toBe(
+        'https://pre-prod.stiff.ge',
+      );
+      expect(service.qrBaseUrl('http://localhost:3000')).toBe(
+        'http://localhost:3000',
+      );
+      expect(service.qrBaseUrl('https://evil.example')).toBe(
+        'https://stiff.ge',
+      );
     });
 
     it('refuses a PNG for a revoked code', async () => {

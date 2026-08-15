@@ -202,11 +202,14 @@ export function resolveApiUrl(path: string): string {
 }
 
 /** Fetch a binary admin export as a blob (QR PNG preview). */
-export async function apiBlob(path: string): Promise<Blob> {
-  let res = await rawFetch(path, { method: "GET" });
+export async function apiBlob(
+  path: string,
+  query?: QueryParams,
+): Promise<Blob> {
+  let res = await rawFetch(path, { method: "GET", query });
   if (res.status === 401 && !path.startsWith("/auth/")) {
     const refreshed = await tryRefresh();
-    if (refreshed) res = await rawFetch(path, { method: "GET" });
+    if (refreshed) res = await rawFetch(path, { method: "GET", query });
   }
   if (!res.ok) {
     await parseResponse(res);
@@ -219,8 +222,9 @@ export async function apiBlob(path: string): Promise<Blob> {
 export async function apiDownload(
   path: string,
   filename: string,
+  query?: QueryParams,
 ): Promise<void> {
-  const blob = await apiBlob(path);
+  const blob = await apiBlob(path, query);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
