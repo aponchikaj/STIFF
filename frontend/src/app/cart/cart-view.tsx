@@ -4,6 +4,18 @@ import Link from "next/link";
 import { useState } from "react";
 import { authApi, cartApi, ApiError } from "@/lib/api";
 import type { Order, ShippingAddress } from "@/lib/api";
+import {
+  LIVE_PAYMENT_METHODS,
+  PAYMENT_LABELS,
+  PAYMENT_METHODS,
+  PAYMENT_NOTES,
+  SHIPPING_FEES_CENTS,
+  SHIPPING_LABELS,
+  SHIPPING_METHODS,
+  stockForSize,
+  type PaymentMethod,
+  type ShippingMethod,
+} from "@/lib/checkout";
 import { formatPrice, shortId } from "@/lib/format";
 import { errorMessage, useAsync } from "@/lib/hooks";
 import { MinusIcon, PlusIcon, XIcon } from "@/components/icons";
@@ -34,6 +46,9 @@ export function CartView() {
   const [note, setNote] = useState<string | null>(null);
   const [needsVerify, setNeedsVerify] = useState(false);
   const [order, setOrder] = useState<Order | null>(null);
+  const [shippingMethod, setShippingMethod] =
+    useState<ShippingMethod>("tbilisi");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cod");
 
   if (!shopEnabled) return <ShopClosed />;
   if (sessionLoading) return <Loading label="Loading cart" />;
@@ -60,9 +75,9 @@ export function CartView() {
           <span className="font-bold text-foreground">
             #{shortId(order.id)}
           </span>{" "}
-          is confirmed — {formatPrice(order.totalCents)}, {order.items.length}{" "}
-          {order.items.length === 1 ? "item" : "items"}. You&apos;ll get a
-          notification at every step.
+          is in — {formatPrice(order.totalCents)}, {order.items.length}{" "}
+          {order.items.length === 1 ? "item" : "items"}. It stays pending until
+          we confirm payment. You&apos;ll get an email at every step.
         </p>
         <div className="flex flex-wrap justify-center gap-3">
           <Link href="/account" className={btnSolid}>
@@ -107,19 +122,24 @@ export function CartView() {
   async function checkout(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const data = new FormData(e.currentTarget);
+    const isPickup = shippingMethod === "pickup";
     const address: ShippingAddress = {
       firstName: String(data.get("firstName") ?? ""),
       lastName: String(data.get("lastName") ?? ""),
-      line1: String(data.get("line1") ?? ""),
-      city: String(data.get("city") ?? ""),
-      country: String(data.get("country") ?? ""),
+      line1: isPickup ? undefined : String(data.get("line1") ?? ""),
+      city: isPickup ? undefined : String(data.get("city") ?? ""),
+      country: isPickup ? undefined : String(data.get("country") ?? "Georgia"),
       phone: String(data.get("phone") ?? ""),
     };
     setCheckingOut(true);
     setNote(null);
     setNeedsVerify(false);
     try {
-      const placed = await cartApi.checkout({ shippingAddress: address });
+      const placed = await cartApi.checkout({
+        shippingAddress: address,
+        shippingMethod,
+        paymentMethod,
+      });
       setOrder(placed);
       await refreshBadges();
     } catch (err) {
@@ -139,6 +159,9 @@ export function CartView() {
 
   const itemCount =
     cart?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
+  const shippingCents = SHIPPING_FEES_CENTS[shippingMethod];
+  const totalCents = (cart?.subtotalCents ?? 0) + shippingCents;
+  const pickup = shippingMethod === "pickup";
 
   return (
     <div className="mx-auto w-full max-w-5xl">
@@ -163,85 +186,88 @@ export function CartView() {
 
       {cart && cart.items.length > 0 && (
         <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-14">
-          {/* Items */}
           <Reveal>
             <ul className="border-t border-subtle">
-              {cart.items.map((item) => (
-                <li
-                  key={item.id}
-                  className="flex gap-4 border-b border-subtle py-5"
-                >
-                  <Link
-                    href={`/clothing/${item.product.slug}`}
-                    className="w-20 shrink-0 rounded-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted sm:w-24"
+              {cart.items.map((item) => {
+                const available = stockForSize(item.product, item.size);
+                return (
+                  <li
+                    key={item.id}
+                    className="flex gap-4 border-b border-subtle py-5"
                   >
-                    <ProductImage
-                      src={item.product.images[0]}
-                      alt={item.product.name}
-                      sizes="(min-width: 640px) 96px, 80px"
-                      iconClassName="size-6 text-subtle"
-                    />
-                  </Link>
-                  <div className="flex min-w-0 flex-1 flex-col gap-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-xs font-bold uppercase tracking-wide sm:text-sm">
-                          {item.product.name}
-                        </p>
-                        <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.15em] text-muted">
-                          {item.size || "One size"} ·{" "}
-                          {formatPrice(item.product.priceCents)} each
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        aria-label={`Remove ${item.product.name}`}
-                        disabled={busyItem === item.id}
-                        onClick={() => removeItem(item.id)}
-                        className="flex size-8 shrink-0 items-center justify-center rounded-[2px] text-muted transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
-                      >
-                        <XIcon className="size-4" />
-                      </button>
-                    </div>
-                    <div className="mt-auto flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1">
+                    <Link
+                      href={`/clothing/${item.product.slug}`}
+                      className="w-20 shrink-0 rounded-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted sm:w-24"
+                    >
+                      <ProductImage
+                        src={item.product.images[0]}
+                        alt={item.product.name}
+                        sizes="(min-width: 640px) 96px, 80px"
+                        iconClassName="size-6 text-subtle"
+                      />
+                    </Link>
+                    <div className="flex min-w-0 flex-1 flex-col gap-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-bold uppercase tracking-wide sm:text-sm">
+                            {item.product.name}
+                          </p>
+                          <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.15em] text-muted">
+                            {item.size || "One size"} ·{" "}
+                            {formatPrice(item.product.priceCents)} each
+                          </p>
+                        </div>
                         <button
                           type="button"
-                          aria-label="Decrease quantity"
-                          disabled={busyItem === item.id || item.quantity <= 1}
-                          onClick={() =>
-                            updateQuantity(item.id, item.quantity - 1)
-                          }
-                          className="flex size-9 items-center justify-center rounded-[2px] border border-subtle text-muted transition-colors hover:border-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted disabled:opacity-40"
-                        >
-                          <MinusIcon className="size-3.5" />
-                        </button>
-                        <span className="flex h-9 min-w-9 items-center justify-center text-sm font-bold">
-                          {item.quantity}
-                        </span>
-                        <button
-                          type="button"
-                          aria-label="Increase quantity"
+                          aria-label={`Remove ${item.product.name}`}
                           disabled={busyItem === item.id}
-                          onClick={() =>
-                            updateQuantity(item.id, item.quantity + 1)
-                          }
-                          className="flex size-9 items-center justify-center rounded-[2px] border border-subtle text-muted transition-colors hover:border-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted disabled:opacity-40"
+                          onClick={() => removeItem(item.id)}
+                          className="flex size-8 shrink-0 items-center justify-center rounded-[2px] text-muted transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
                         >
-                          <PlusIcon className="size-3.5" />
+                          <XIcon className="size-4" />
                         </button>
                       </div>
-                      <p className="text-sm font-bold">
-                        {formatPrice(item.product.priceCents * item.quantity)}
-                      </p>
+                      <div className="mt-auto flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            aria-label="Decrease quantity"
+                            disabled={busyItem === item.id || item.quantity <= 1}
+                            onClick={() =>
+                              updateQuantity(item.id, item.quantity - 1)
+                            }
+                            className="flex size-9 items-center justify-center rounded-[2px] border border-subtle text-muted transition-colors hover:border-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted disabled:opacity-40"
+                          >
+                            <MinusIcon className="size-3.5" />
+                          </button>
+                          <span className="flex h-9 min-w-9 items-center justify-center text-sm font-bold">
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            aria-label="Increase quantity"
+                            disabled={
+                              busyItem === item.id || item.quantity >= available
+                            }
+                            onClick={() =>
+                              updateQuantity(item.id, item.quantity + 1)
+                            }
+                            className="flex size-9 items-center justify-center rounded-[2px] border border-subtle text-muted transition-colors hover:border-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted disabled:opacity-40"
+                          >
+                            <PlusIcon className="size-3.5" />
+                          </button>
+                        </div>
+                        <p className="text-sm font-bold">
+                          {formatPrice(item.product.priceCents * item.quantity)}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           </Reveal>
 
-          {/* Order summary */}
           <Reveal delay={0.1} className="lg:sticky lg:top-24 lg:self-start">
             <form
               onSubmit={checkout}
@@ -254,12 +280,14 @@ export function CartView() {
                   <span>{formatPrice(cart.subtotalCents)}</span>
                 </div>
                 <div className="flex justify-between text-muted">
-                  <span>Shipping</span>
-                  <span>Free</span>
+                  <span>{SHIPPING_LABELS[shippingMethod]}</span>
+                  <span>
+                    {shippingCents === 0 ? "Free" : formatPrice(shippingCents)}
+                  </span>
                 </div>
                 <div className="flex justify-between text-base font-bold">
                   <span>Total</span>
-                  <span>{formatPrice(cart.subtotalCents)}</span>
+                  <span>{formatPrice(totalCents)}</span>
                 </div>
               </div>
 
@@ -286,7 +314,65 @@ export function CartView() {
                 </div>
               )}
 
-              <p className={labelCls}>Shipping details</p>
+              <fieldset>
+                <legend className={labelCls}>Shipping</legend>
+                <div className="mt-3 flex flex-col gap-2">
+                  {SHIPPING_METHODS.map((method) => {
+                    const fee = SHIPPING_FEES_CENTS[method];
+                    const selected = shippingMethod === method;
+                    return (
+                      <button
+                        key={method}
+                        type="button"
+                        onClick={() => setShippingMethod(method)}
+                        className={`flex h-11 items-center justify-between rounded-[2px] border px-3 text-left text-xs font-medium uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted ${
+                          selected
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-subtle text-muted hover:border-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <span>{SHIPPING_LABELS[method]}</span>
+                        <span>{fee === 0 ? "Free" : formatPrice(fee)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+
+              <fieldset>
+                <legend className={labelCls}>Payment</legend>
+                <div className="mt-3 flex flex-col gap-2">
+                  {PAYMENT_METHODS.map((method) => {
+                    const live = LIVE_PAYMENT_METHODS.includes(method);
+                    const selected = paymentMethod === method;
+                    return (
+                      <button
+                        key={method}
+                        type="button"
+                        disabled={!live}
+                        onClick={() => {
+                          if (live) setPaymentMethod(method);
+                        }}
+                        className={`flex h-11 items-center justify-between rounded-[2px] border px-3 text-left text-xs font-medium uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted disabled:cursor-not-allowed disabled:opacity-40 ${
+                          selected
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-subtle text-muted hover:border-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <span>{PAYMENT_LABELS[method]}</span>
+                        {!live && <span>Coming soon</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-xs leading-6 text-muted">
+                  {PAYMENT_NOTES[paymentMethod]}
+                </p>
+              </fieldset>
+
+              <p className={labelCls}>
+                {pickup ? "Your details" : "Delivery details"}
+              </p>
               <div className="grid gap-4">
                 <div className="grid grid-cols-2 gap-4">
                   <Field id="ship-first" label="Name">
@@ -308,15 +394,17 @@ export function CartView() {
                     />
                   </Field>
                 </div>
-                <Field id="ship-line1" label="Address">
-                  <input
-                    id="ship-line1"
-                    name="line1"
-                    required
-                    autoComplete="street-address"
-                    className={inputCls}
-                  />
-                </Field>
+                {!pickup && (
+                  <Field id="ship-line1" label="Address">
+                    <input
+                      id="ship-line1"
+                      name="line1"
+                      required
+                      autoComplete="street-address"
+                      className={inputCls}
+                    />
+                  </Field>
+                )}
                 <Field id="ship-phone" label="Phone">
                   <input
                     id="ship-phone"
@@ -328,26 +416,28 @@ export function CartView() {
                     className={inputCls}
                   />
                 </Field>
-                <div className="grid grid-cols-2 gap-4">
-                  <Field id="ship-city" label="City">
-                    <input
-                      id="ship-city"
-                      name="city"
-                      required
-                      autoComplete="address-level2"
-                      className={inputCls}
-                    />
-                  </Field>
-                  <Field id="ship-country" label="Country">
-                    <input
-                      id="ship-country"
-                      name="country"
-                      required
-                      autoComplete="country-name"
-                      className={inputCls}
-                    />
-                  </Field>
-                </div>
+                {!pickup && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field id="ship-city" label="City">
+                      <input
+                        id="ship-city"
+                        name="city"
+                        required
+                        autoComplete="address-level2"
+                        className={inputCls}
+                      />
+                    </Field>
+                    <Field id="ship-country" label="Country">
+                      <input
+                        id="ship-country"
+                        name="country"
+                        defaultValue="Georgia"
+                        autoComplete="country-name"
+                        className={inputCls}
+                      />
+                    </Field>
+                  </div>
+                )}
               </div>
 
               <button
@@ -355,7 +445,7 @@ export function CartView() {
                 disabled={checkingOut}
                 className={`${btnSolid} w-full`}
               >
-                {checkingOut ? "Placing order…" : "Checkout"}
+                {checkingOut ? "Placing order…" : "Place order"}
               </button>
               <p aria-live="polite" className="min-h-5 text-xs text-muted">
                 {note}

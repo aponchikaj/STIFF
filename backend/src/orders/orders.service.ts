@@ -5,13 +5,19 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { CartItem } from '../cart/cart-item.entity';
 import { Paginated, paginate } from '../common/types/paginated';
 import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Product } from '../products/product.entity';
 import { User } from '../users/user.entity';
+import {
+  PAYMENT_METHODS,
+  SHIPPING_FEES_CENTS,
+  SHIPPING_METHODS,
+  type ShippingMethod,
+} from './checkout.constants';
 import {
   BuyNowDto,
   CheckoutDto,
@@ -22,9 +28,10 @@ import { OrderItem } from './order-item.entity';
 import { Order, OrderStatus } from './order.entity';
 
 const STATUS_MESSAGES: Record<OrderStatus, string> = {
-  pending: 'Your order is pending.',
-  paid: 'Your order has been placed and paid.',
-  shipped: 'Your order has been shipped.',
+  pending: 'We have your order.',
+  paid: 'Payment received.',
+  packed: 'Your order is packed.',
+  shipped: 'Your order is out for delivery.',
   delivered: 'Your order was delivered.',
   cancelled: 'Your order was cancelled.',
 };
@@ -60,8 +67,7 @@ export class OrdersService {
     }));
 
     const order = await this.placeOrder(user, lines, dto, true);
-    await this.notifyStatus(order);
-    // Fire-and-forget emails; MailService logs failures internally.
+    await this.notifyStatus(order, false);
     void this.mailService.sendOrderInvoice(user.email, order);
     void this.mailService.sendNewOrderAlert(order, {
       username: user.username,
@@ -78,8 +84,10 @@ export class OrdersService {
       throw new NotFoundException('Product not found');
     }
     const size = dto.size ?? '';
-    if (size && product.sizes.length > 0 && !product.sizes.includes(size)) {
-      throw new BadRequestException('Size not available for this product');
+    if (product.sizes.length > 0) {
+      if (!size || !product.sizes.includes(size)) {
+        throw new BadRequestException('Size not available for this product');
+      }
     }
 
     const order = await this.placeOrder(
@@ -88,7 +96,7 @@ export class OrdersService {
       dto,
       false,
     );
-    await this.notifyStatus(order);
+    await this.notifyStatus(order, false);
     void this.mailService.sendOrderInvoice(user.email, order);
     void this.mailService.sendNewOrderAlert(order, {
       username: user.username,
@@ -103,32 +111,39 @@ export class OrdersService {
     dto: CheckoutDto,
     clearCart: boolean,
   ): Promise<Order> {
+    if (dto.paymentMethod === 'card') {
+      throw new BadRequestException(
+        'Card checkout is not live yet. Pay on delivery or by bank transfer.',
+      );
+    }
+    const shippingMethod = dto.shippingMethod;
+    const paymentMethod = dto.paymentMethod;
+    if (!SHIPPING_METHODS.includes(shippingMethod)) {
+      throw new BadRequestException('Unknown shipping method');
+    }
+    if (!PAYMENT_METHODS.includes(paymentMethod)) {
+      throw new BadRequestException('Unknown payment method');
+    }
+
+    const address = this.normalizeAddress(shippingMethod, dto.shippingAddress);
+    const shippingCents = SHIPPING_FEES_CENTS[shippingMethod];
+
     return this.dataSource.transaction(async (manager) => {
-      // Atomic stock decrement — the WHERE guard prevents overselling under
-      // concurrent checkouts.
       for (const line of lines) {
         if (!line.product.isActive) {
           throw new BadRequestException(
             `${line.product.name} is no longer available`,
           );
         }
-        const result = await manager
-          .createQueryBuilder()
-          .update(Product)
-          .set({ stock: () => `stock - ${line.quantity}` })
-          .where('id = :id AND stock >= :quantity', {
-            id: line.product.id,
-            quantity: line.quantity,
-          })
-          .execute();
-        if (!result.affected) {
-          throw new BadRequestException(
-            `Not enough stock for ${line.product.name}`,
-          );
-        }
+        await this.decrementStock(
+          manager,
+          line.product,
+          line.size,
+          line.quantity,
+        );
       }
 
-      const totalCents = lines.reduce(
+      const subtotalCents = lines.reduce(
         (sum, line) => sum + line.product.priceCents * line.quantity,
         0,
       );
@@ -137,10 +152,13 @@ export class OrdersService {
         manager.create(Order, {
           userId: user.id,
           status: 'pending',
-          totalCents,
-          currency: 'usd',
+          totalCents: subtotalCents + shippingCents,
+          currency: 'gel',
+          paymentMethod,
           paymentIntentId: null,
-          shippingAddress: dto.shippingAddress,
+          shippingMethod,
+          shippingCents,
+          shippingAddress: address,
         }),
       );
 
@@ -162,17 +180,102 @@ export class OrdersService {
         await manager.delete(CartItem, { userId: user.id });
       }
 
-      // Mock payment: immediately mark paid. Swap for a Stripe
-      // PaymentIntent flow later without schema changes.
-      order.status = 'paid';
-      await manager.save(order);
-
       const withItems = await manager.findOne(Order, {
         where: { id: order.id },
         relations: { items: true },
       });
       return withItems ?? order;
     });
+  }
+
+  private normalizeAddress(
+    method: ShippingMethod,
+    addr: CheckoutDto['shippingAddress'],
+  ): CheckoutDto['shippingAddress'] {
+    if (method === 'pickup') {
+      return {
+        ...addr,
+        line1: addr.line1?.trim() || 'Pickup in Tbilisi',
+        city: 'Tbilisi',
+        country: 'Georgia',
+      };
+    }
+    if (!addr.line1?.trim() || !addr.city?.trim()) {
+      throw new BadRequestException(
+        'Address and city are required for delivery',
+      );
+    }
+    return {
+      ...addr,
+      country: addr.country?.trim() || 'Georgia',
+    };
+  }
+
+  private async decrementStock(
+    manager: EntityManager,
+    product: Product,
+    size: string,
+    quantity: number,
+  ): Promise<void> {
+    if (product.sizes.length === 0) {
+      const result = await manager
+        .createQueryBuilder()
+        .update(Product)
+        .set({ stock: () => `stock - ${quantity}` })
+        .where('id = :id AND stock >= :quantity', {
+          id: product.id,
+          quantity,
+        })
+        .execute();
+      if (!result.affected) {
+        throw new BadRequestException(`Not enough stock for ${product.name}`);
+      }
+      return;
+    }
+    if (!size || !product.sizes.includes(size)) {
+      throw new BadRequestException(`Pick a size for ${product.name}`);
+    }
+    const rows: unknown = await manager.query(
+      `UPDATE "products"
+       SET "stockBySize" = jsonb_set(
+             COALESCE("stockBySize", '{}'::jsonb),
+             ARRAY[$1],
+             to_jsonb(COALESCE(("stockBySize"->>$1)::int, 0) - $2)
+           ),
+           "stock" = "stock" - $2
+       WHERE "id" = $3
+         AND COALESCE(("stockBySize"->>$1)::int, 0) >= $2
+       RETURNING "id"`,
+      [size, quantity, product.id],
+    );
+    if (!Array.isArray(rows) || rows.length === 0) {
+      throw new BadRequestException(
+        `Not enough stock for ${product.name} (${size})`,
+      );
+    }
+  }
+
+  private async incrementStock(
+    manager: EntityManager,
+    productId: string,
+    size: string,
+    quantity: number,
+  ): Promise<void> {
+    if (!size) {
+      await manager.increment(Product, { id: productId }, 'stock', quantity);
+      return;
+    }
+    await manager.query(
+      `UPDATE "products"
+       SET "stockBySize" = jsonb_set(
+             COALESCE("stockBySize", '{}'::jsonb),
+             ARRAY[$1],
+             to_jsonb(COALESCE(("stockBySize"->>$1)::int, 0) + $2)
+           ),
+           "stock" = "stock" + $2
+       WHERE "id" = $3`,
+      [size, quantity, productId],
+    );
   }
 
   async getOne(id: string, user: User): Promise<Order> {
@@ -201,7 +304,6 @@ export class OrdersService {
       qb.andWhere('order.createdAt >= :from', { from: query.from });
     }
     if (query.to) {
-      // Inclusive end of day.
       qb.andWhere("order.createdAt < CAST(:to AS date) + INTERVAL '1 day'", {
         to: query.to,
       });
@@ -223,7 +325,7 @@ export class OrdersService {
   async updateStatus(id: string, dto: UpdateOrderStatusDto): Promise<Order> {
     const order = await this.orderRepo.findOne({
       where: { id },
-      relations: { items: true },
+      relations: { items: true, user: true },
     });
     if (!order) throw new NotFoundException('Order not found');
     if (order.status === dto.status) return order;
@@ -237,26 +339,31 @@ export class OrdersService {
       for (const item of order.items) {
         if (!item.productId) continue;
         if (enteringCancelled) {
-          await manager.increment(
-            Product,
-            { id: item.productId },
-            'stock',
+          await this.incrementStock(
+            manager,
+            item.productId,
+            item.size,
             item.quantity,
           );
         } else if (leavingCancelled) {
-          await manager.decrement(
-            Product,
-            { id: item.productId },
-            'stock',
-            item.quantity,
-          );
+          const product = await manager.findOne(Product, {
+            where: { id: item.productId },
+          });
+          if (product) {
+            await this.decrementStock(
+              manager,
+              product,
+              item.size,
+              item.quantity,
+            );
+          }
         }
       }
       order.status = dto.status;
       await manager.save(order);
     });
 
-    await this.notifyStatus(order);
+    await this.notifyStatus(order, true);
     return order;
   }
 
@@ -284,10 +391,10 @@ export class OrdersService {
       if (order.status !== 'cancelled') {
         for (const item of order.items) {
           if (item.productId) {
-            await manager.increment(
-              Product,
-              { id: item.productId },
-              'stock',
+            await this.incrementStock(
+              manager,
+              item.productId,
+              item.size,
               item.quantity,
             );
           }
@@ -297,7 +404,10 @@ export class OrdersService {
     });
   }
 
-  private async notifyStatus(order: Order): Promise<void> {
+  private async notifyStatus(
+    order: Order,
+    emailCustomer: boolean,
+  ): Promise<void> {
     if (!order.userId) return;
     await this.notificationsService.notify(
       order.userId,
@@ -306,5 +416,15 @@ export class OrdersService {
       STATUS_MESSAGES[order.status],
       { orderId: order.id },
     );
+    const email =
+      order.user?.email ??
+      (
+        await this.dataSource.getRepository(User).findOne({
+          where: { id: order.userId },
+        })
+      )?.email;
+    if (emailCustomer && email) {
+      void this.mailService.sendOrderStatus(email, order);
+    }
   }
 }

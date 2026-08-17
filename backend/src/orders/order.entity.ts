@@ -11,9 +11,10 @@ import {
 } from 'typeorm';
 import { User } from '../users/user.entity';
 import { OrderItem } from './order-item.entity';
+import type { PaymentMethod, ShippingMethod } from './checkout.constants';
 
 export type OrderStatus =
-  'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
+  'pending' | 'paid' | 'packed' | 'shipped' | 'delivered' | 'cancelled';
 
 export interface ShippingAddress {
   firstName?: string;
@@ -43,7 +44,7 @@ export class Order {
   @Index()
   @Column({
     type: 'enum',
-    enum: ['pending', 'paid', 'shipped', 'delivered', 'cancelled'],
+    enum: ['pending', 'paid', 'packed', 'shipped', 'delivered', 'cancelled'],
     default: 'pending',
   })
   status: OrderStatus;
@@ -51,11 +52,20 @@ export class Order {
   @Column('int')
   totalCents: number;
 
-  @Column({ type: 'varchar', length: 3, default: 'usd' })
+  @Column({ type: 'varchar', length: 3, default: 'gel' })
   currency: string;
+
+  @Column({ type: 'varchar', length: 20, default: 'cod' })
+  paymentMethod: PaymentMethod;
 
   @Column({ type: 'varchar', nullable: true })
   paymentIntentId: string | null;
+
+  @Column({ type: 'varchar', length: 20, default: 'tbilisi' })
+  shippingMethod: ShippingMethod;
+
+  @Column({ type: 'int', default: 0 })
+  shippingCents: number;
 
   @Column({ type: 'jsonb', nullable: true })
   shippingAddress: ShippingAddress | null;

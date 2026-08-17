@@ -14,7 +14,8 @@ import { btnGhostSm, btnOutline, Loading } from "@/components/ui";
 const STATUS_LABEL: Record<OrderStatus, string> = {
   pending: "Pending",
   paid: "Paid",
-  shipped: "Shipped",
+  packed: "Packed",
+  shipped: "Out",
   delivered: "Delivered",
   cancelled: "Cancelled",
 };

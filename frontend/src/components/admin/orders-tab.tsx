@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { adminApi } from "@/lib/api";
 import type { Order, OrderStatus } from "@/lib/api";
+import { PAYMENT_LABELS, SHIPPING_LABELS } from "@/lib/checkout";
 import { formatDate, formatPrice, shortId } from "@/lib/format";
 import { errorMessage } from "@/lib/hooks";
 import { XIcon } from "../icons";
@@ -19,7 +20,8 @@ import {
 const COLUMNS: { status: OrderStatus; label: string }[] = [
   { status: "pending", label: "Created" },
   { status: "paid", label: "Paid" },
-  { status: "shipped", label: "Shipped" },
+  { status: "packed", label: "Packed" },
+  { status: "shipped", label: "Out" },
   { status: "delivered", label: "Delivered" },
   { status: "cancelled", label: "Cancelled" },
 ];
@@ -34,6 +36,7 @@ type Board = Record<OrderStatus, Order[]>;
 const EMPTY_BOARD: Board = {
   pending: [],
   paid: [],
+  packed: [],
   shipped: [],
   delivered: [],
   cancelled: [],
@@ -162,7 +165,7 @@ export function OrdersTab() {
       {loading ? (
         <Loading label="Loading board" />
       ) : (
-        <div className="-mx-4 mt-4 flex snap-x gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0 xl:grid xl:grid-cols-5 xl:overflow-visible">
+        <div className="-mx-4 mt-4 flex snap-x gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0 xl:grid xl:grid-cols-6 xl:overflow-visible">
           {COLUMNS.map(({ status, label }) => {
             const canDropHere =
               dragging !== null && dragging.status !== status;
@@ -344,6 +347,19 @@ function OrderDetails({
             <span>{formatPrice(order.totalCents)}</span>
           </li>
         </ul>
+
+        <p className="mt-3 text-xs leading-6 text-muted">
+          {order.paymentMethod
+            ? (PAYMENT_LABELS[order.paymentMethod] ?? order.paymentMethod)
+            : "Payment —"}
+          {" · "}
+          {order.shippingMethod
+            ? (SHIPPING_LABELS[order.shippingMethod] ?? order.shippingMethod)
+            : "Shipping —"}
+          {(order.shippingCents ?? 0) > 0
+            ? ` (${formatPrice(order.shippingCents ?? 0)})`
+            : ""}
+        </p>
 
         {address && (
           <p className="mt-3 text-xs leading-6 text-muted">

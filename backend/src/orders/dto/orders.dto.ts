@@ -15,6 +15,7 @@ import {
 } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import type { OrderStatus } from '../order.entity';
+import { PAYMENT_METHODS, SHIPPING_METHODS } from '../checkout.constants';
 
 export class ShippingAddressDto {
   @IsString()
@@ -27,30 +28,30 @@ export class ShippingAddressDto {
   @MaxLength(60)
   lastName: string;
 
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(200)
-  line1: string;
+  line1?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(200)
   line2?: string;
 
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(80)
-  city: string;
+  city?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(20)
   postalCode?: string;
 
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(80)
-  country: string;
+  country?: string;
 
   @IsString()
   @MinLength(3)
@@ -63,6 +64,12 @@ export class CheckoutDto {
   @ValidateNested()
   @Type(() => ShippingAddressDto)
   shippingAddress: ShippingAddressDto;
+
+  @IsIn([...SHIPPING_METHODS])
+  shippingMethod: (typeof SHIPPING_METHODS)[number];
+
+  @IsIn([...PAYMENT_METHODS])
+  paymentMethod: (typeof PAYMENT_METHODS)[number];
 }
 
 export class BuyNowDto extends CheckoutDto {
@@ -82,7 +89,7 @@ export class BuyNowDto extends CheckoutDto {
 
 export class ListOrdersQueryDto extends PaginationDto {
   @IsOptional()
-  @IsIn(['pending', 'paid', 'shipped', 'delivered', 'cancelled'])
+  @IsIn(['pending', 'paid', 'packed', 'shipped', 'delivered', 'cancelled'])
   status?: OrderStatus;
 
   @IsOptional()
@@ -101,7 +108,7 @@ export class ListOrdersQueryDto extends PaginationDto {
 }
 
 export class UpdateOrderStatusDto {
-  @IsIn(['pending', 'paid', 'shipped', 'delivered', 'cancelled'])
+  @IsIn(['pending', 'paid', 'packed', 'shipped', 'delivered', 'cancelled'])
   status: OrderStatus;
 }
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cartApi } from "@/lib/api";
+import { stockForSize } from "@/lib/checkout";
 import { formatPrice } from "@/lib/format";
 import type { ProductDetail } from "@/lib/api";
 import { errorMessage } from "@/lib/hooks";
@@ -26,8 +27,13 @@ export function ProductControls({ product }: { product: ProductDetail }) {
   const [showStickyBar, setShowStickyBar] = useState(false);
   const ctaRef = useRef<HTMLDivElement>(null);
 
-  const soldOut = product.stock === 0;
-  const maxQty = Math.min(Math.max(product.stock, 1), 9);
+  const soldOut =
+    product.sizes.length === 0
+      ? product.stock === 0
+      : product.sizes.every((s) => stockForSize(product, s) === 0);
+  const available = stockForSize(product, size);
+  const sizeSoldOut = product.sizes.length > 0 && !!size && available === 0;
+  const maxQty = Math.min(Math.max(available, 1), 9);
 
   useEffect(() => {
     setMounted(true);
@@ -91,22 +97,30 @@ export function ProductControls({ product }: { product: ProductDetail }) {
             aria-label="Size"
             className="mt-3 flex flex-wrap gap-2"
           >
-            {product.sizes.map((s) => (
-              <button
-                key={s}
-                type="button"
-                role="radio"
-                aria-checked={size === s}
-                onClick={() => setSize(s)}
-                className={`flex h-11 min-w-11 items-center justify-center rounded-[2px] border px-4 text-xs font-medium uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted ${
-                  size === s
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-subtle text-muted hover:border-foreground hover:text-foreground"
-                }`}
-              >
-                {s}
-              </button>
-            ))}
+            {product.sizes.map((s) => {
+              const qty = stockForSize(product, s);
+              const out = qty === 0;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  role="radio"
+                  aria-checked={size === s}
+                  disabled={out}
+                  onClick={() => {
+                    setSize(s);
+                    setQuantity((q) => Math.min(q, Math.min(Math.max(qty, 1), 9)));
+                  }}
+                  className={`flex h-11 min-w-11 items-center justify-center rounded-[2px] border px-4 text-xs font-medium uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted disabled:cursor-not-allowed disabled:opacity-40 ${
+                    size === s
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-subtle text-muted hover:border-foreground hover:text-foreground"
+                  }`}
+                >
+                  {s}
+                </button>
+              );
+            })}
           </div>
         </>
       )}
@@ -144,14 +158,18 @@ export function ProductControls({ product }: { product: ProductDetail }) {
         <Magnetic className="inline-block">
           <button
             type="button"
-            disabled={busy || soldOut}
+            disabled={busy || soldOut || sizeSoldOut}
             onClick={() => addToCart(false)}
             className={btnSolid}
           >
-            {soldOut ? "Sold out" : busy ? "Adding…" : "Add to cart"}
+            {soldOut || sizeSoldOut
+              ? "Sold out"
+              : busy
+                ? "Adding…"
+                : "Add to cart"}
           </button>
         </Magnetic>
-        {!soldOut && (
+        {!soldOut && !sizeSoldOut && (
           <button
             type="button"
             disabled={busy}
@@ -164,8 +182,8 @@ export function ProductControls({ product }: { product: ProductDetail }) {
       </div>
       <p aria-live="polite" className="mt-4 min-h-5 text-xs text-muted">
         {message}
-        {!message && product.stock > 0 && product.stock <= 5 && (
-          <>Only {product.stock} left in stock.</>
+        {!message && available > 0 && available <= 5 && (
+          <>Only {available} left in stock.</>
         )}
       </p>
 
