@@ -6,6 +6,7 @@ export type ReactionType = "like" | "dislike";
 export type OrderStatus =
   | "pending"
   | "paid"
+  | "packed"
   | "shipped"
   | "delivered"
   | "cancelled";
@@ -67,6 +68,7 @@ export interface Product {
   category: string | null;
   sizes: string[];
   stock: number;
+  stockBySize?: Record<string, number>;
   isActive: boolean;
   likeCount: number;
   dislikeCount: number;
@@ -166,7 +168,10 @@ export interface Order {
   status: OrderStatus;
   totalCents: number;
   currency: string;
+  paymentMethod?: "cod" | "bank_transfer" | "card";
   paymentIntentId: string | null;
+  shippingMethod?: "pickup" | "tbilisi" | "regions";
+  shippingCents?: number;
   shippingAddress: ShippingAddress | null;
   items: OrderItem[];
   createdAt: string;
@@ -380,6 +385,7 @@ export interface CreateProductInput {
   category?: string;
   sizes?: string[];
   stock?: number;
+  stockBySize?: Record<string, number>;
 }
 
 export interface UpdateProductInput extends Partial<CreateProductInput> {

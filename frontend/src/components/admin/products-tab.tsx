@@ -25,9 +25,17 @@ const EMPTY = {
   price: "",
   stock: "",
   sizes: "S, M, L, XL",
+  stockBySize: {} as Record<string, string>,
   description: "",
   images: [] as string[],
 };
+
+function parseSizes(value: string): string[] {
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 export function ProductsTab() {
   const [page, setPage] = useState(1);
@@ -58,6 +66,15 @@ export function ProductsTab() {
       price: String(product.priceCents / 100),
       stock: String(product.stock),
       sizes: product.sizes.join(", "),
+      stockBySize: Object.fromEntries(
+        product.sizes.map((size) => [
+          size,
+          String(
+            product.stockBySize?.[size] ??
+              (size === product.sizes[0] ? product.stock : 0),
+          ),
+        ]),
+      ),
       description: product.description,
       images: product.images,
     });
@@ -92,15 +109,22 @@ export function ProductsTab() {
     e.preventDefault();
     setBusy(true);
     setNote(null);
+    const sizes = parseSizes(form.sizes);
     const payload = {
       name: form.name,
       category: form.category || undefined,
       priceCents: Math.round(Number(form.price) * 100),
-      stock: Number(form.stock) || 0,
-      sizes: form.sizes
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
+      sizes,
+      stockBySize:
+        sizes.length > 0
+          ? Object.fromEntries(
+              sizes.map((size) => [
+                size,
+                Number(form.stockBySize[size]) || 0,
+              ]),
+            )
+          : undefined,
+      stock: sizes.length > 0 ? undefined : Number(form.stock) || 0,
       description: form.description || undefined,
       images: form.images,
     };
@@ -185,17 +209,19 @@ export function ProductsTab() {
                 className={inputCls}
               />
             </Field>
-            <Field id="p-stock" label="Stock">
-              <input
-                id="p-stock"
-                required
-                type="number"
-                min="0"
-                value={form.stock}
-                onChange={(e) => setForm({ ...form, stock: e.target.value })}
-                className={inputCls}
-              />
-            </Field>
+            {parseSizes(form.sizes).length === 0 && (
+              <Field id="p-stock" label="Stock">
+                <input
+                  id="p-stock"
+                  required
+                  type="number"
+                  min="0"
+                  value={form.stock}
+                  onChange={(e) => setForm({ ...form, stock: e.target.value })}
+                  className={inputCls}
+                />
+              </Field>
+            )}
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <Field id="p-sizes" label="Sizes (comma separated)">
@@ -218,6 +244,34 @@ export function ProductsTab() {
               />
             </Field>
           </div>
+
+          {parseSizes(form.sizes).length > 0 && (
+            <div>
+              <p className={labelCls}>Qty per size</p>
+              <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {parseSizes(form.sizes).map((size) => (
+                  <Field key={size} id={`p-stock-${size}`} label={size}>
+                    <input
+                      id={`p-stock-${size}`}
+                      type="number"
+                      min="0"
+                      value={form.stockBySize[size] ?? "0"}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          stockBySize: {
+                            ...form.stockBySize,
+                            [size]: e.target.value,
+                          },
+                        })
+                      }
+                      className={inputCls}
+                    />
+                  </Field>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <p className={labelCls}>Images</p>
@@ -326,8 +380,15 @@ export function ProductsTab() {
                 {product.category ?? "—"} · {formatPrice(product.priceCents)}
               </p>
               <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted">
-                Stock {product.stock} · ♥ {product.likeCount} · 💬{" "}
-                {product.commentCount}
+                {product.sizes.length > 0
+                  ? product.sizes
+                      .map(
+                        (size) =>
+                          `${size} ${product.stockBySize?.[size] ?? 0}`,
+                      )
+                      .join(" · ")
+                  : `Stock ${product.stock}`}{" "}
+                · ♥ {product.likeCount} · 💬 {product.commentCount}
               </p>
               <div className="mt-auto flex gap-3 pt-1.5">
                 <button

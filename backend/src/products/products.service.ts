@@ -16,6 +16,12 @@ import {
   UpdateProductDto,
 } from './dto/products.dto';
 import { Product } from './product.entity';
+import {
+  mapFromTotal,
+  normalizeStockMap,
+  sumStock,
+  type StockBySize,
+} from './stock';
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -125,8 +131,10 @@ export class ProductsService {
       images: dto.images ?? [],
       category: dto.category ?? null,
       sizes: dto.sizes ?? [],
-      stock: dto.stock ?? 0,
+      stock: 0,
+      stockBySize: {},
     });
+    this.applyStock(product, dto);
     return this.productRepo.save(product);
   }
 
@@ -142,9 +150,8 @@ export class ProductsService {
     if (dto.priceCents !== undefined) product.priceCents = dto.priceCents;
     if (dto.images !== undefined) product.images = dto.images;
     if (dto.category !== undefined) product.category = dto.category;
-    if (dto.sizes !== undefined) product.sizes = dto.sizes;
-    if (dto.stock !== undefined) product.stock = dto.stock;
     if (dto.isActive !== undefined) product.isActive = dto.isActive;
+    this.applyStock(product, dto);
 
     return this.productRepo.save(product);
   }
@@ -167,6 +174,50 @@ export class ProductsService {
     await this.reactionRepo.delete({ targetType: 'product', targetId: id });
     await this.productRepo.delete({ id });
     return { success: true, soft: false };
+  }
+
+  private applyStock(
+    product: Product,
+    dto: {
+      sizes?: string[];
+      stock?: number;
+      stockBySize?: Record<string, number>;
+    },
+  ): void {
+    if (dto.sizes !== undefined) product.sizes = dto.sizes;
+
+    if (dto.stockBySize !== undefined) {
+      const map = normalizeStockMap(dto.stockBySize);
+      if (product.sizes.length === 0) {
+        product.stockBySize = {};
+        product.stock = dto.stock ?? sumStock(map);
+      } else {
+        product.stockBySize = map;
+        product.stock = sumStock(map);
+      }
+      return;
+    }
+
+    if (dto.stock !== undefined) {
+      if (product.sizes.length === 0) {
+        product.stock = dto.stock;
+        product.stockBySize = {};
+      } else {
+        product.stockBySize = mapFromTotal(product.sizes, dto.stock);
+        product.stock = dto.stock;
+      }
+      return;
+    }
+
+    if (dto.sizes !== undefined) {
+      const next: StockBySize = {};
+      for (const size of product.sizes) {
+        next[size] = product.stockBySize[size] ?? 0;
+      }
+      product.stockBySize = next;
+      product.stock =
+        product.sizes.length === 0 ? product.stock : sumStock(next);
+    }
   }
 
   private async uniqueSlug(name: string, excludeId?: string): Promise<string> {

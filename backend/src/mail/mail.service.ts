@@ -114,6 +114,7 @@ export class MailService {
       id: string;
       createdAt: Date;
       totalCents: number;
+      paymentMethod?: string;
       items: {
         productName: string;
         size: string;
@@ -130,6 +131,12 @@ export class MailService {
       } | null;
     },
   ): Promise<void> {
+    const payNote =
+      order.paymentMethod === 'bank_transfer'
+        ? 'Pay by bank transfer — we will follow up with the account details. The order stays pending until we confirm it.'
+        : order.paymentMethod === 'cod'
+          ? 'Pay on delivery, or when you pick it up.'
+          : '';
     const money = (cents: number) => `${(cents / 100).toFixed(2)} GEL`;
     const shortId = order.id.slice(0, 8).toUpperCase();
     const cell =
@@ -165,7 +172,7 @@ export class MailService {
   <p style="font-size:28px;font-weight:900;letter-spacing:-1px;margin:0;">* STIFF</p>
   <p style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#52525b;margin:6px 0 28px;">Order confirmation</p>
   <p style="font-size:14px;line-height:1.6;margin:0 0 20px;">
-    Thanks for your order. It's confirmed and paid — we'll notify you at every step until it's at your door.
+    Thanks for your order. We have it — you'll get another email whenever the status changes.
   </p>
   <table style="width:100%;border-collapse:collapse;margin:0 0 4px;">
     <tr>
@@ -182,6 +189,7 @@ export class MailService {
       <td style="padding:14px 0;font-size:16px;font-weight:900;text-align:right;">${money(order.totalCents)}</td>
     </tr>
   </table>
+  ${payNote ? `<p style="font-size:12px;line-height:1.6;color:#52525b;margin:16px 0 0;">${payNote}</p>` : ''}
   ${address ? `<p style="font-size:12px;line-height:1.6;color:#52525b;margin:16px 0 0;">Ship to: ${address}</p>` : ''}
   <a href="${this.frontendUrl}/account" style="display:inline-block;margin-top:28px;padding:14px 28px;background:#000;color:#fff;font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;text-decoration:none;">Track my order</a>
   <p style="font-size:11px;color:#a1a1aa;margin-top:32px;">STIFF — essential clothing, Tbilisi. Questions? Just reply to this email.</p>
@@ -189,10 +197,57 @@ export class MailService {
 
     await this.send(
       email,
-      `Order #${shortId} confirmed — STIFF`,
+      `Order #${shortId} received — STIFF`,
       html,
       `${this.frontendUrl}/account`,
     );
+  }
+
+  async sendOrderStatus(
+    email: string,
+    order: { id: string; status: string; totalCents: number },
+  ): Promise<void> {
+    const shortId = order.id.slice(0, 8).toUpperCase();
+    const copy: Record<string, { subject: string; body: string }> = {
+      pending: {
+        subject: `Order #${shortId} received — STIFF`,
+        body: 'We have your order and will update you as it moves.',
+      },
+      paid: {
+        subject: `Order #${shortId} paid — STIFF`,
+        body: 'Payment received. We are getting it ready.',
+      },
+      packed: {
+        subject: `Order #${shortId} packed — STIFF`,
+        body: 'Your order is packed and waiting to go out.',
+      },
+      shipped: {
+        subject: `Order #${shortId} is out — STIFF`,
+        body: 'Your order is out for delivery.',
+      },
+      delivered: {
+        subject: `Order #${shortId} delivered — STIFF`,
+        body: 'Your order was delivered. Thank you for buying from STIFF.',
+      },
+      cancelled: {
+        subject: `Order #${shortId} cancelled — STIFF`,
+        body: 'Your order was cancelled. If that was a surprise, reply to this email.',
+      },
+    };
+    const msg = copy[order.status] ?? {
+      subject: `Order #${shortId} update — STIFF`,
+      body: `Your order is now ${order.status}.`,
+    };
+    const html = `
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#000;">
+  <p style="font-size:28px;font-weight:900;letter-spacing:-1px;margin:0;">* STIFF</p>
+  <p style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#52525b;margin:6px 0 28px;">Order update</p>
+  <p style="font-size:16px;font-weight:bold;margin:0 0 8px;">#${shortId}</p>
+  <p style="font-size:14px;line-height:1.7;margin:0 0 24px;">${msg.body}</p>
+  <a href="${this.frontendUrl}/account" style="display:inline-block;padding:14px 28px;background:#000;color:#fff;font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;text-decoration:none;">Track my order</a>
+  <p style="font-size:11px;color:#a1a1aa;margin-top:32px;">STIFF — essential clothing, Tbilisi. Questions? Just reply to this email.</p>
+</div>`;
+    await this.send(email, msg.subject, html, `${this.frontendUrl}/account`);
   }
 
   private async send(

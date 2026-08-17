@@ -10,7 +10,7 @@ import { User } from '../users/user.entity';
 import { AnalyticsSnapshot } from './analytics-snapshot.entity';
 import { PageView } from './page-view.entity';
 
-const REVENUE_STATUSES = ['paid', 'shipped', 'delivered'];
+const REVENUE_STATUSES = ['paid', 'packed', 'shipped', 'delivered'];
 
 export interface TrafficDay {
   date: string;

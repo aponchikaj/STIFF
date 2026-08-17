@@ -32,8 +32,13 @@ export class Product {
   @Column({ type: 'text', array: true, default: '{}' })
   sizes: string[];
 
+  /** Total units. Kept in sync with stockBySize when the product has sizes. */
   @Column({ type: 'int', default: 0 })
   stock: number;
+
+  /** Units remaining per size label. Empty object means one-size (use `stock`). */
+  @Column({ type: 'jsonb', default: {} })
+  stockBySize: Record<string, number>;
 
   @Column({ default: true })
   isActive: boolean;

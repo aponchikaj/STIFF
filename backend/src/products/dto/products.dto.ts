@@ -3,6 +3,7 @@ import {
   IsArray,
   IsIn,
   IsInt,
+  IsObject,
   IsOptional,
   IsString,
   MaxLength,
@@ -45,6 +46,10 @@ export class CreateProductDto {
   @IsInt()
   @Min(0)
   stock?: number;
+
+  @IsOptional()
+  @IsObject()
+  stockBySize?: Record<string, number>;
 }
 
 export class UpdateProductDto {
@@ -83,6 +88,10 @@ export class UpdateProductDto {
   @IsInt()
   @Min(0)
   stock?: number;
+
+  @IsOptional()
+  @IsObject()
+  stockBySize?: Record<string, number>;
 
   @IsOptional()
   isActive?: boolean;

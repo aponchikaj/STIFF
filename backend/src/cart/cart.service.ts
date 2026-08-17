@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from '../products/product.entity';
+import { stockForSize } from '../products/stock';
 import { CartItem } from './cart-item.entity';
 import { AddCartItemDto, UpdateCartItemDto } from './dto/cart.dto';
 
@@ -44,16 +45,19 @@ export class CartService {
       throw new NotFoundException('Product not found');
     }
     const size = dto.size ?? '';
-    if (size && product.sizes.length > 0 && !product.sizes.includes(size)) {
-      throw new BadRequestException('Size not available for this product');
+    if (product.sizes.length > 0) {
+      if (!size || !product.sizes.includes(size)) {
+        throw new BadRequestException('Size not available for this product');
+      }
     }
 
     const existing = await this.cartRepo.findOne({
       where: { userId, productId: dto.productId, size },
     });
     const newQuantity = (existing?.quantity ?? 0) + dto.quantity;
-    if (product.stock < newQuantity) {
-      throw new BadRequestException(`Only ${product.stock} left in stock`);
+    const available = stockForSize(product, size);
+    if (available < newQuantity) {
+      throw new BadRequestException(`Only ${available} left in stock`);
     }
 
     if (existing) {
@@ -82,8 +86,9 @@ export class CartService {
       relations: { product: true },
     });
     if (!item) throw new NotFoundException('Cart item not found');
-    if (item.product.stock < dto.quantity) {
-      throw new BadRequestException(`Only ${item.product.stock} left in stock`);
+    const available = stockForSize(item.product, item.size);
+    if (available < dto.quantity) {
+      throw new BadRequestException(`Only ${available} left in stock`);
     }
     item.quantity = dto.quantity;
     await this.cartRepo.save(item);

@@ -29,7 +29,7 @@ const rules = [
 const practical = [
   {
     title: "Shipping",
-    body: "Georgia: 1–3 working days. Worldwide: 5–10 working days, tracked. Exact rates show at checkout when the shop opens.",
+    body: "Pickup in Tbilisi is free. City courier and region delivery rates show at checkout. Card checkout is not live yet — pay on delivery or by bank transfer.",
   },
   {
     title: "Returns",

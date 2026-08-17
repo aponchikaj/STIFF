@@ -1,3 +1,4 @@
+import type { PaymentMethod, ShippingMethod } from "../checkout";
 import { apiFetch } from "./client";
 import type { CartView, Order, ShippingAddress } from "./types";
 
@@ -34,17 +35,21 @@ export function clearCart(): Promise<{ success: boolean }> {
   return apiFetch("/cart", { method: "DELETE" });
 }
 
-export function checkout(data?: {
-  shippingAddress?: ShippingAddress;
+export function checkout(data: {
+  shippingAddress: ShippingAddress;
+  shippingMethod: ShippingMethod;
+  paymentMethod: PaymentMethod;
 }): Promise<Order> {
-  return apiFetch("/orders/checkout", { method: "POST", body: data ?? {} });
+  return apiFetch("/orders/checkout", { method: "POST", body: data });
 }
 
 export function buyNow(data: {
   productId: string;
   quantity: number;
   size?: string;
-  shippingAddress?: ShippingAddress;
+  shippingAddress: ShippingAddress;
+  shippingMethod: ShippingMethod;
+  paymentMethod: PaymentMethod;
 }): Promise<Order> {
   return apiFetch("/orders/buy-now", { method: "POST", body: data });
 }
