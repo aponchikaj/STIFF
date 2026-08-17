@@ -1,15 +1,14 @@
 import { Body, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { CurrentStaff } from './current-staff.decorator';
+import { BlockStaffUserDto, ChangeStaffRoleDto } from './dto/staff-roles.dto';
 import {
-  BlockStaffUserDto,
   ChangeStaffPasswordDto,
-  ChangeStaffRoleDto,
   CreateStaffUserDto,
   UpdateStaffProfileDto,
 } from './dto/staff-users.dto';
 import { toSafeStaffUser, StaffUser } from './entities/staff-user.entity';
 import { StaffController } from './staff-area.decorator';
-import { StaffRoles } from './staff-roles.decorator';
+import { StaffPermissions } from './staff-permissions.decorator';
 import { StaffUsersService } from './staff-users.service';
 
 @StaffController('people')
@@ -22,7 +21,7 @@ export class StaffUsersController {
   }
 
   @Post()
-  @StaffRoles('owner', 'admin')
+  @StaffPermissions('people.create')
   async create(
     @CurrentStaff() actor: StaffUser,
     @Body() dto: CreateStaffUserDto,
@@ -49,17 +48,17 @@ export class StaffUsersController {
   }
 
   @Patch(':id/role')
-  @StaffRoles('owner')
+  @StaffPermissions('people.assign_role')
   changeRole(
     @CurrentStaff() actor: StaffUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ChangeStaffRoleDto,
   ) {
-    return this.staffUsersService.changeRole(actor, id, dto.role);
+    return this.staffUsersService.changeRole(actor, id, dto.roleId);
   }
 
   @Patch(':id/block')
-  @StaffRoles('owner', 'admin')
+  @StaffPermissions('people.block')
   setBlocked(
     @CurrentStaff() actor: StaffUser,
     @Param('id', ParseUUIDPipe) id: string,

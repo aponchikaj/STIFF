@@ -40,6 +40,10 @@ export function LoginForm() {
           type="text"
           required
           autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          inputMode="email"
           className={inputCls}
         />
       </Field>
@@ -53,10 +57,10 @@ export function LoginForm() {
           className={inputCls}
         />
       </Field>
-      <button type="submit" disabled={busy} className={btnSolid}>
+      <button type="submit" disabled={busy} className={`${btnSolid} w-full`}>
         {busy ? "Logging in…" : "Log in"}
       </button>
-      <p aria-live="polite" role="alert" className="min-h-5 text-xs text-muted">
+      <p aria-live="polite" role="alert" className="min-h-5 text-sm text-muted">
         {error}
       </p>
     </form>

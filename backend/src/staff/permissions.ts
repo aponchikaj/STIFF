@@ -1,58 +1,64 @@
-import type { StaffRole } from './staff.constants';
+import type { StaffPermission } from './staff.constants';
+import { STAFF_PERMISSION_KEYS } from './staff.constants';
+import type { StaffUser } from './entities/staff-user.entity';
 
-export function isManager(role: StaffRole): boolean {
-  return role === 'owner' || role === 'admin';
+export function permissionSet(user: StaffUser): Set<StaffPermission> {
+  if (user.assignedRole?.isOwner) return new Set(STAFF_PERMISSION_KEYS);
+  return new Set(user.assignedRole?.permissions ?? []);
 }
 
-/** Who may mint a new staff account with this role. */
-export function canCreateRole(actor: StaffRole, newRole: StaffRole): boolean {
-  if (actor === 'owner') return true;
-  if (actor === 'admin') return newRole === 'member';
-  return false;
-}
-
-/** Only owners change roles. They may promote to owner. */
-export function canAssignRole(actor: StaffRole): boolean {
-  return actor === 'owner';
-}
-
-export function canBlockUser(
-  actor: StaffRole,
-  targetRole: StaffRole,
-  actorId: string,
-  targetId: string,
+export function hasPermission(
+  user: StaffUser,
+  permission: StaffPermission,
 ): boolean {
-  if (actorId === targetId) return false;
-  if (actor === 'owner') return true;
-  if (actor === 'admin') return targetRole === 'member';
-  return false;
+  return permissionSet(user).has(permission);
 }
 
-export function canAssignTaskTo(
-  actor: StaffRole,
-  actorId: string,
-  assigneeId: string,
-): boolean {
-  if (isManager(actor)) return true;
-  return actorId === assigneeId;
+export function isOwner(user: StaffUser): boolean {
+  return user.assignedRole?.isOwner === true;
+}
+
+export function canViewOthersBoards(user: StaffUser): boolean {
+  return hasPermission(user, 'tasks.view_others');
+}
+
+export function canAssignTaskTo(actor: StaffUser, assigneeId: string): boolean {
+  if (actor.id === assigneeId) return true;
+  return hasPermission(actor, 'tasks.assign');
 }
 
 export function canEditTask(
-  actor: StaffRole,
-  actorId: string,
+  actor: StaffUser,
   task: { assigneeId: string; createdById: string | null },
 ): boolean {
-  if (isManager(actor)) return true;
-  return task.assigneeId === actorId || task.createdById === actorId;
+  if (task.assigneeId === actor.id || task.createdById === actor.id)
+    return true;
+  return hasPermission(actor, 'tasks.edit_others');
 }
 
 export function canDeleteTask(
-  actor: StaffRole,
-  actorId: string,
+  actor: StaffUser,
   task: { assigneeId: string; createdById: string | null },
 ): boolean {
-  if (isManager(actor)) return true;
-  return task.createdById === actorId && task.assigneeId === actorId;
+  if (task.createdById === actor.id && task.assigneeId === actor.id)
+    return true;
+  return hasPermission(actor, 'tasks.delete_others');
+}
+
+export function canBlockUser(actor: StaffUser, target: StaffUser): boolean {
+  if (actor.id === target.id) return false;
+  if (!hasPermission(actor, 'people.block')) return false;
+  if (isOwner(target) && !isOwner(actor)) return false;
+  return true;
+}
+
+export function slugifyRoleName(name: string): string {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return slug || 'role';
 }
 
 export function normalizeInstagram(raw: string): string {

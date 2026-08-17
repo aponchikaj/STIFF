@@ -46,7 +46,7 @@ export class StaffTokenService {
       this.configService.get<string>('JWT_REFRESH_SECRET');
 
     const accessToken = await this.jwtService.signAsync(
-      { sub: user.id, role: user.role },
+      { sub: user.id, role: user.assignedRole?.slug ?? 'member' },
       {
         secret: accessSecret,
         expiresIn: (this.configService.get<string>('JWT_ACCESS_TTL') ??

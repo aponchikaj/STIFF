@@ -1,5 +1,31 @@
-export type StaffRole = "owner" | "admin" | "member";
+export type StaffPermission =
+  | "people.view"
+  | "people.create"
+  | "people.create_owner"
+  | "people.assign_role"
+  | "people.block"
+  | "roles.manage"
+  | "tasks.view_others"
+  | "tasks.assign"
+  | "tasks.edit_others"
+  | "tasks.delete_others";
+
 export type StaffTaskStatus = "todo" | "in_progress" | "done";
+
+export interface StaffPermissionMeta {
+  key: StaffPermission;
+  label: string;
+  group: string;
+}
+
+export interface StaffRole {
+  id: string;
+  name: string;
+  slug: string;
+  isOwner: boolean;
+  isSystem: boolean;
+  permissions: StaffPermission[];
+}
 
 export interface Paginated<T> {
   items: T[];
@@ -13,9 +39,21 @@ export interface SafeStaffUser {
   username: string;
   email: string;
   instagramUsername: string;
-  role: StaffRole;
+  role: string;
+  roleName: string;
+  roleId: string;
+  isOwner: boolean;
+  permissions: StaffPermission[];
   isBlocked: boolean;
   createdAt: string;
+}
+
+export function hasPerm(
+  user: SafeStaffUser | null | undefined,
+  permission: StaffPermission,
+): boolean {
+  if (!user) return false;
+  return user.isOwner || user.permissions.includes(permission);
 }
 
 export interface StaffMessage {

@@ -9,9 +9,10 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
   return (
-    <AuthShell title="Staff">
-      <p className="mb-8 text-sm leading-6 text-muted">
-        Accounts are created by an owner. There is no public registration.
+    <AuthShell title="Log in">
+      <p className="mb-8 max-w-sm text-sm leading-6 text-muted">
+        Invite only. An owner creates your account — there is no public
+        registration.
       </p>
       <LoginForm />
     </AuthShell>

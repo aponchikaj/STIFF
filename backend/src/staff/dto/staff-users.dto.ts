@@ -1,14 +1,12 @@
 import {
-  IsBoolean,
   IsEmail,
-  IsIn,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { STAFF_ROLES, type StaffRole } from '../staff.constants';
 
 export class StaffLoginDto {
   @IsString()
@@ -47,19 +45,19 @@ export class CreateStaffUserDto {
   instagramUsername: string;
 
   @IsOptional()
-  @IsIn(STAFF_ROLES)
-  role?: StaffRole;
+  @IsUUID()
+  roleId?: string;
 }
 
-export class ChangeStaffRoleDto {
-  @IsIn(STAFF_ROLES)
-  role: StaffRole;
-}
+export class ChangeStaffPasswordDto {
+  @IsString()
+  @MinLength(1)
+  currentPassword: string;
 
-export class BlockStaffUserDto {
-  @IsOptional()
-  @IsBoolean()
-  blocked?: boolean;
+  @IsString()
+  @MinLength(8)
+  @MaxLength(72)
+  newPassword: string;
 }
 
 export class UpdateStaffProfileDto {
@@ -81,15 +79,4 @@ export class UpdateStaffProfileDto {
       'instagram username can only contain letters, numbers, periods and underscores',
   })
   instagramUsername?: string;
-}
-
-export class ChangeStaffPasswordDto {
-  @IsString()
-  @MinLength(1)
-  currentPassword: string;
-
-  @IsString()
-  @MinLength(8)
-  @MaxLength(72)
-  newPassword: string;
 }

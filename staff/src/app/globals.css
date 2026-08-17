@@ -51,11 +51,41 @@
   --font-display: var(--font-archivo-black);
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   /* Archivo for body/UI; Archivo Black is reserved for display type. */
   font-family: var(--font-archivo), Arial, Helvetica, sans-serif;
+}
+
+button,
+a,
+input,
+select,
+textarea,
+summary {
+  touch-action: manipulation;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  z-index: 70;
+  background: var(--foreground);
+  color: var(--background);
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.skip-link:focus {
+  top: calc(0.75rem + env(safe-area-inset-top));
 }
 
 h1,

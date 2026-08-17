@@ -15,13 +15,14 @@ import {
   toSafeStaffUser,
 } from './entities/staff-user.entity';
 import {
-  canAssignRole,
   canBlockUser,
-  canCreateRole,
+  hasPermission,
+  isOwner,
   normalizeInstagram,
 } from './permissions';
-import type { StaffRole } from './staff.constants';
+import { STAFF_MEMBER_SLUG } from './staff.constants';
 import { StaffSeedService } from './staff-seed.service';
+import { StaffRolesService } from './staff-roles.service';
 import {
   ChangeStaffPasswordDto,
   CreateStaffUserDto,
@@ -36,10 +37,14 @@ export class StaffUsersService {
     @InjectRepository(StaffRefreshToken)
     private readonly refreshTokenRepo: Repository<StaffRefreshToken>,
     private readonly staffSeedService: StaffSeedService,
+    private readonly staffRolesService: StaffRolesService,
   ) {}
 
   findById(id: string): Promise<StaffUser | null> {
-    return this.userRepo.findOne({ where: { id } });
+    return this.userRepo.findOne({
+      where: { id },
+      relations: { assignedRole: true },
+    });
   }
 
   findWithHashByEmailOrUsername(
@@ -49,6 +54,7 @@ export class StaffUsersService {
     return this.userRepo
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
+      .leftJoinAndSelect('user.assignedRole', 'assignedRole')
       .where('LOWER(user.email) = LOWER(:value)', { value })
       .orWhere('LOWER(user.username) = LOWER(:value)', { value })
       .getOne();
@@ -58,13 +64,17 @@ export class StaffUsersService {
     return this.userRepo
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
+      .leftJoinAndSelect('user.assignedRole', 'assignedRole')
       .where('user.id = :id', { id })
       .getOne();
   }
 
   listDirectory(): Promise<SafeStaffUser[]> {
     return this.userRepo
-      .find({ order: { username: 'ASC' } })
+      .find({
+        relations: { assignedRole: true },
+        order: { username: 'ASC' },
+      })
       .then((rows) => rows.map(toSafeStaffUser));
   }
 
@@ -72,20 +82,25 @@ export class StaffUsersService {
     actor: StaffUser,
     dto: CreateStaffUserDto,
   ): Promise<StaffUser> {
-    const role: StaffRole = dto.role ?? 'member';
-    if (!canCreateRole(actor.role, role)) {
-      throw new ForbiddenException('You cannot create this role');
+    if (!hasPermission(actor, 'people.create')) {
+      throw new ForbiddenException('You cannot create staff accounts');
+    }
+    const role = dto.roleId
+      ? await this.staffRolesService.requireById(dto.roleId)
+      : await this.staffRolesService.requireBySlug(STAFF_MEMBER_SLUG);
+    if (role.isOwner && !hasPermission(actor, 'people.create_owner')) {
+      throw new ForbiddenException('You cannot create owner accounts');
     }
     const user = await this.insertUser({
       username: dto.username,
       email: dto.email,
       password: dto.password,
       instagramUsername: dto.instagramUsername,
-      role,
+      roleId: role.id,
       createdById: actor.id,
     });
     await this.staffSeedService.addToMain(user.id);
-    return user;
+    return (await this.findById(user.id)) ?? user;
   }
 
   async insertUser(data: {
@@ -93,7 +108,7 @@ export class StaffUsersService {
     email: string;
     password: string;
     instagramUsername: string;
-    role: StaffRole;
+    roleId: string;
     createdById: string | null;
   }): Promise<StaffUser> {
     const email = data.email.toLowerCase().trim();
@@ -126,7 +141,7 @@ export class StaffUsersService {
       email,
       instagramUsername,
       passwordHash,
-      role: data.role,
+      roleId: data.roleId,
       createdById: data.createdById,
       isBlocked: false,
     });
@@ -136,19 +151,21 @@ export class StaffUsersService {
   async changeRole(
     actor: StaffUser,
     targetId: string,
-    role: StaffRole,
+    roleId: string,
   ): Promise<SafeStaffUser> {
-    if (!canAssignRole(actor.role)) {
-      throw new ForbiddenException('Only an owner can assign roles');
+    if (!hasPermission(actor, 'people.assign_role')) {
+      throw new ForbiddenException('You cannot assign roles');
     }
-    if (actor.id === targetId && role !== 'owner') {
-      const owners = await this.userRepo.count({ where: { role: 'owner' } });
-      if (owners <= 1) {
-        throw new ForbiddenException('Cannot demote the last owner');
-      }
+    const role = await this.staffRolesService.requireById(roleId);
+    if (role.isOwner && !hasPermission(actor, 'people.create_owner')) {
+      throw new ForbiddenException('You cannot assign the owner role');
     }
     const target = await this.requireUser(targetId);
-    target.role = role;
+    if (isOwner(target) && !role.isOwner && (await this.ownerCount()) <= 1) {
+      throw new ForbiddenException('Cannot demote the last owner');
+    }
+    target.roleId = role.id;
+    target.assignedRole = role;
     await this.userRepo.save(target);
     return toSafeStaffUser(target);
   }
@@ -159,14 +176,11 @@ export class StaffUsersService {
     blocked: boolean,
   ): Promise<SafeStaffUser> {
     const target = await this.requireUser(targetId);
-    if (!canBlockUser(actor.role, target.role, actor.id, target.id)) {
+    if (!canBlockUser(actor, target)) {
       throw new ForbiddenException('You cannot change this account');
     }
-    if (blocked && target.role === 'owner') {
-      const owners = await this.userRepo.count({ where: { role: 'owner' } });
-      if (owners <= 1) {
-        throw new ForbiddenException('Cannot block the last owner');
-      }
+    if (blocked && isOwner(target) && (await this.ownerCount()) <= 1) {
+      throw new ForbiddenException('Cannot block the last owner');
     }
     target.isBlocked = blocked;
     await this.userRepo.save(target);
@@ -209,7 +223,7 @@ export class StaffUsersService {
       user.instagramUsername = ig;
     }
     await this.userRepo.save(user);
-    return toSafeStaffUser(user);
+    return toSafeStaffUser((await this.findById(user.id)) ?? user);
   }
 
   async changePassword(
@@ -228,6 +242,14 @@ export class StaffUsersService {
       .set({ revokedAt: new Date() })
       .where('userId = :userId AND revokedAt IS NULL', { userId: user.id })
       .execute();
+  }
+
+  private ownerCount(): Promise<number> {
+    return this.userRepo
+      .createQueryBuilder('user')
+      .innerJoin('user.assignedRole', 'role')
+      .where('role.isOwner = true')
+      .getCount();
   }
 
   private async requireUser(id: string): Promise<StaffUser> {

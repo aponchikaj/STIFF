@@ -16,7 +16,7 @@ import {
   canAssignTaskTo,
   canDeleteTask,
   canEditTask,
-  isManager,
+  canViewOthersBoards,
 } from './permissions';
 import type { StaffTaskStatus } from './staff.constants';
 import { StaffUsersService } from './staff-users.service';
@@ -47,7 +47,7 @@ export class StaffTasksService {
     actor: StaffUser,
     query: ListStaffTasksQueryDto,
   ): Promise<StaffTaskView[]> {
-    const assigneeId = isManager(actor.role)
+    const assigneeId = canViewOthersBoards(actor)
       ? (query.assigneeId ?? actor.id)
       : actor.id;
 
@@ -69,7 +69,7 @@ export class StaffTasksService {
     dto: CreateStaffTaskDto,
   ): Promise<StaffTaskView> {
     const assigneeId = dto.assigneeId ?? actor.id;
-    if (!canAssignTaskTo(actor.role, actor.id, assigneeId)) {
+    if (!canAssignTaskTo(actor, assigneeId)) {
       throw new ForbiddenException('You can only create tasks for yourself');
     }
     const assignee = await this.staffUsersService.findById(assigneeId);
@@ -98,12 +98,12 @@ export class StaffTasksService {
     dto: UpdateStaffTaskDto,
   ): Promise<StaffTaskView> {
     const task = await this.requireTask(id);
-    if (!canEditTask(actor.role, actor.id, task)) {
+    if (!canEditTask(actor, task)) {
       throw new ForbiddenException('You cannot edit this task');
     }
 
     if (dto.assigneeId && dto.assigneeId !== task.assigneeId) {
-      if (!canAssignTaskTo(actor.role, actor.id, dto.assigneeId)) {
+      if (!canAssignTaskTo(actor, dto.assigneeId)) {
         throw new ForbiddenException('You cannot reassign this task');
       }
       const assignee = await this.staffUsersService.findById(dto.assigneeId);
@@ -127,7 +127,7 @@ export class StaffTasksService {
 
   async remove(actor: StaffUser, id: string): Promise<void> {
     const task = await this.requireTask(id);
-    if (!canDeleteTask(actor.role, actor.id, task)) {
+    if (!canDeleteTask(actor, task)) {
       throw new ForbiddenException('You cannot delete this task');
     }
     await this.taskRepo.delete({ id });

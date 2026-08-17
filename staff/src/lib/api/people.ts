@@ -1,5 +1,5 @@
 import { apiFetch } from "./client";
-import type { SafeStaffUser, StaffRole } from "./types";
+import type { SafeStaffUser } from "./types";
 
 export const staffPeopleApi = {
   list() {
@@ -11,7 +11,7 @@ export const staffPeopleApi = {
     email: string;
     password: string;
     instagramUsername: string;
-    role?: StaffRole;
+    roleId?: string;
   }) {
     return apiFetch<SafeStaffUser>("/staff/people", {
       method: "POST",
@@ -19,10 +19,10 @@ export const staffPeopleApi = {
     });
   },
 
-  changeRole(id: string, role: StaffRole) {
+  changeRole(id: string, roleId: string) {
     return apiFetch<SafeStaffUser>(`/staff/people/${id}/role`, {
       method: "PATCH",
-      body: { role },
+      body: { roleId },
     });
   },
 

@@ -12,8 +12,11 @@ import { StaffMessage } from './entities/staff-message.entity';
 import { StaffNote } from './entities/staff-note.entity';
 import { StaffNotesController } from './staff-notes.controller';
 import { StaffNotesService } from './staff-notes.service';
+import { StaffPermissionsGuard } from './staff-permissions.guard';
 import { StaffRefreshToken } from './entities/staff-refresh-token.entity';
-import { StaffRolesGuard } from './staff-roles.guard';
+import { StaffRole } from './entities/staff-role.entity';
+import { StaffRolesController } from './staff-roles.controller';
+import { StaffRolesService } from './staff-roles.service';
 import { StaffSeedService } from './staff-seed.service';
 import { StaffTask } from './entities/staff-task.entity';
 import { StaffTasksController } from './staff-tasks.controller';
@@ -27,6 +30,7 @@ import { StaffUsersService } from './staff-users.service';
   imports: [
     TypeOrmModule.forFeature([
       StaffUser,
+      StaffRole,
       StaffRefreshToken,
       StaffConversation,
       StaffConversationMember,
@@ -38,12 +42,14 @@ import { StaffUsersService } from './staff-users.service';
   controllers: [
     StaffAuthController,
     StaffUsersController,
+    StaffRolesController,
     StaffChatController,
     StaffTasksController,
     StaffNotesController,
   ],
   providers: [
     StaffUsersService,
+    StaffRolesService,
     StaffAuthService,
     StaffTokenService,
     StaffSeedService,
@@ -52,7 +58,7 @@ import { StaffUsersService } from './staff-users.service';
     StaffTasksService,
     StaffNotesService,
     StaffJwtGuard,
-    StaffRolesGuard,
+    StaffPermissionsGuard,
   ],
   exports: [StaffUsersService, StaffTokenService],
 })

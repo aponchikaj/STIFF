@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { IS_STAFF_AREA_KEY } from './staff.constants';
 import { StaffJwtGuard } from './staff-jwt.guard';
-import { StaffRolesGuard } from './staff-roles.guard';
+import { StaffPermissionsGuard } from './staff-permissions.guard';
 
 export const StaffArea = () => SetMetadata(IS_STAFF_AREA_KEY, true);
 
@@ -15,6 +15,6 @@ export function StaffController(prefix: string) {
   return applyDecorators(
     StaffArea(),
     Controller(`staff/${prefix}`),
-    UseGuards(StaffJwtGuard, StaffRolesGuard),
+    UseGuards(StaffJwtGuard, StaffPermissionsGuard),
   );
 }

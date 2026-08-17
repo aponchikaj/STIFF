@@ -22,6 +22,10 @@ export const staffChatApi = {
     });
   },
 
+  get(id: string) {
+    return apiFetch<StaffConversation>(`/staff/chat/${id}`);
+  },
+
   messages(conversationId: string, page = 1, pageSize = 40) {
     return apiFetch<Paginated<StaffMessage>>(
       `/staff/chat/${conversationId}/messages`,

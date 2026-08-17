@@ -32,6 +32,11 @@ export class StaffChatController {
     return this.staffChatService.openDm(user, dto.userId);
   }
 
+  @Get(':id')
+  get(@CurrentStaff() user: StaffUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.staffChatService.getConversation(user, id);
+  }
+
   @Get(':id/messages')
   messages(
     @CurrentStaff() user: StaffUser,

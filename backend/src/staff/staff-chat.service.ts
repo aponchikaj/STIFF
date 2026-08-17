@@ -116,6 +116,14 @@ export class StaffChatService {
     return this.toConversationView(membership, user.id);
   }
 
+  async getConversation(
+    user: StaffUser,
+    conversationId: string,
+  ): Promise<StaffConversationView> {
+    const membership = await this.requireMembership(conversationId, user.id);
+    return this.toConversationView(membership, user.id);
+  }
+
   async listMessages(
     user: StaffUser,
     conversationId: string,
@@ -124,7 +132,7 @@ export class StaffChatService {
     await this.requireMembership(conversationId, user.id);
     const [rows, total] = await this.messageRepo.findAndCount({
       where: { conversationId },
-      relations: { sender: true },
+      relations: { sender: { assignedRole: true } },
       order: { createdAt: 'DESC' },
       skip: query.skip,
       take: query.pageSize,
@@ -221,7 +229,7 @@ export class StaffChatService {
 
     const last = await this.messageRepo.findOne({
       where: { conversationId: conversation.id },
-      relations: { sender: true },
+      relations: { sender: { assignedRole: true } },
       order: { createdAt: 'DESC' },
     });
 
