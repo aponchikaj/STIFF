@@ -1,11 +1,12 @@
 # STIFF
 
-Monorepo for the STIFF brand project. Two independent apps, each with its own
+Monorepo for the STIFF brand project. Independent apps, each with its own
 `package.json` — always `cd` into the right one before running npm commands.
 
 ## Structure
 
 - `frontend/` — Next.js 15 (App Router, `src/` dir, `@/*` alias) + TypeScript + Tailwind CSS v4
+- `staff/` — Next.js staff workspace for staff.stiff.ge (invite-only, separate people)
 - `backend/` — NestJS 11 + TypeORM + PostgreSQL
 
 ## Commands
@@ -13,6 +14,12 @@ Monorepo for the STIFF brand project. Two independent apps, each with its own
 ### Frontend (`frontend/`)
 
 - `npm run dev` — dev server on http://localhost:3000 (Turbopack)
+- `npm run build` — production build
+- `npm run lint` — ESLint
+
+### Staff (`staff/`)
+
+- `npm run dev` — staff UI on http://localhost:3001
 - `npm run build` — production build
 - `npm run lint` — ESLint
 

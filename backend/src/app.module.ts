@@ -23,6 +23,7 @@ import { OrdersModule } from './orders/orders.module';
 import { ProductsModule } from './products/products.module';
 import { ReactionsModule } from './reactions/reactions.module';
 import { SearchModule } from './search/search.module';
+import { StaffModule } from './staff/staff.module';
 import { TasksModule } from './tasks/tasks.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { UsersModule } from './users/users.module';
@@ -78,6 +79,7 @@ import { UsersModule } from './users/users.module';
     UploadsModule,
     SearchModule,
     TasksModule,
+    StaffModule,
   ],
   controllers: [AppController],
   providers: [
