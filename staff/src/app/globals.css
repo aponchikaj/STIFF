@@ -2,8 +2,6 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Light mode: binary and bold — pure black on white, hard visible borders,
-   one neutral gray for image backdrops (Balenciaga/reckless language). */
 :root {
   --background: #ffffff;
   --foreground: #000000;
@@ -12,33 +10,12 @@
   --surface: #f4f4f4;
 }
 
-/* Dark mode: lifted — near-black base so photography doesn't sink,
-   near-white text, ~15%-white hairlines, elevated surface cards. */
 .dark {
   --background: #0a0a0a;
   --foreground: #f5f5f5;
   --muted: #d4d4d8;
   --subtle: #2e2e2e;
   --surface: #141414;
-}
-
-/* Inverted band: flips the token set relative to the active theme, so a
-   section can sit on a black background in light mode (and white in dark)
-   while every child component keeps using the same semantic colors. */
-.theme-invert {
-  --background: #0a0a0a;
-  --foreground: #f5f5f5;
-  --muted: #d4d4d8;
-  --subtle: #2e2e2e;
-  --surface: #141414;
-}
-
-.dark .theme-invert {
-  --background: #ffffff;
-  --foreground: #000000;
-  --muted: #3f3f46;
-  --subtle: #d4d4d8;
-  --surface: #f4f4f4;
 }
 
 @theme inline {
@@ -58,7 +35,6 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  /* Archivo for body/UI; Archivo Black is reserved for display type. */
   font-family: var(--font-archivo), Arial, Helvetica, sans-serif;
 }
 
@@ -75,7 +51,7 @@ summary {
   position: absolute;
   left: 1rem;
   top: -4rem;
-  z-index: 70;
+  z-index: 50;
   background: var(--foreground);
   color: var(--background);
   padding: 0.75rem 1rem;
@@ -93,47 +69,14 @@ h2 {
   font-family: var(--font-archivo-black), var(--font-archivo), sans-serif;
 }
 
-/* Hero backdrop. Filter is applied once onto its own compositor layer so
-   scrolling composites the texture instead of re-filtering every frame.
-   Light theme takes the photo as shot; dark inverts it so the cat reads
-   white against the near-black page instead of sinking into it. */
-.hero-photo {
-  opacity: 0.55;
-  filter: grayscale(1) contrast(1.08);
-  transform: translateZ(0);
-  contain: paint;
-  backface-visibility: hidden;
+.scrollbar-none {
+  scrollbar-width: none;
 }
 
-.dark .hero-photo {
-  opacity: 0.45;
-  filter: invert(1) grayscale(1) contrast(1.08);
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
 
-/* Holds the centred hero column legible over the photo: near-solid through
-   the middle, open at the sides so the frame still reads as a photograph,
-   solid at the top and bottom so it melts into the navbar and marquee. */
-.hero-scrim {
-  background:
-    radial-gradient(
-      46% 54% at 50% 47%,
-      color-mix(in srgb, var(--background) 90%, transparent) 0%,
-      color-mix(in srgb, var(--background) 86%, transparent) 48%,
-      color-mix(in srgb, var(--background) 42%, transparent) 78%,
-      transparent 100%
-    ),
-    linear-gradient(
-      to bottom,
-      var(--background) 0%,
-      color-mix(in srgb, var(--background) 18%, transparent) 24%,
-      color-mix(in srgb, var(--background) 22%, transparent) 76%,
-      color-mix(in srgb, var(--background) 88%, transparent) 100%
-    );
-}
-
-/* The asterisk has six arms, so it ticks one arm per beat instead of sliding
-   round continuously — mechanical rather than generic, and because the glyph
-   is six-fold symmetric every hold lands on a pose identical to rest. */
 @keyframes asterisk-tick {
   0%,
   10% {
@@ -164,53 +107,27 @@ h2 {
   }
 }
 
-/* Paired with the tick on the intro loader: the mark breathes while the page
-   boots. Kept on a wrapper so it doesn't fight the rotation transform. */
-@keyframes asterisk-breathe {
-  0%,
-  100% {
-    transform: scale(1);
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
     opacity: 1;
   }
-  50% {
-    transform: scale(0.9);
-    opacity: 0.6;
-  }
 }
 
-@keyframes marquee {
-  to {
-    transform: translateX(-50%);
-  }
-}
-
-/* Intro: group starts shifted right by 40% (≈ half the wordmark) so the
-   asterisk reads as centered, then settles left while STIFF slides out. */
-@keyframes intro-shift {
-  from {
-    transform: translateX(40%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes intro-slide {
-  from {
-    transform: translateX(-108%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-/* Ambient motion is decorative — skipped under reduced motion. */
 @media (prefers-reduced-motion: no-preference) {
   .animate-asterisk-tick {
     animation: asterisk-tick 1.9s cubic-bezier(0.16, 1, 0.3, 1) infinite;
-  }
-  .animate-asterisk-breathe {
-    animation: asterisk-breathe 1.9s ease-in-out infinite;
   }
   .spin-on-hover {
     transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
@@ -218,173 +135,10 @@ h2 {
   .spin-on-hover:hover {
     transform: rotate(360deg);
   }
-  .marquee-track {
-    animation: marquee 22s linear infinite;
+  .animate-sheet-up {
+    animation: sheet-up 0.22s ease-out;
   }
-  .intro-hold {
-    transform: translateX(40%);
-  }
-  .intro-shift-run {
-    animation: intro-shift 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-  .intro-slide-run {
-    animation: intro-slide 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-  /* Navbar stays parked above the viewport while the intro plays,
-     then drops in once the overlay starts fading. */
-  html.intro-nav-wait .site-header {
-    transform: translateY(-100%);
-  }
-  html.intro-nav-drop .site-header {
-    transform: translateY(0);
-    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-}
-
-/* Hairline scroll progress — compositor-only, no JS. Hidden when the
-   browser can't drive it off the main thread, or when motion is reduced. */
-.scroll-progress {
-  display: none;
-}
-
-@keyframes scroll-progress {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-
-@keyframes hero-exit {
-  to {
-    opacity: 0;
-    transform: translateY(8rem) scale(0.94);
-  }
-}
-
-@keyframes hero-spin {
-  to {
-    transform: rotate(270deg);
-  }
-}
-
-@keyframes parallax-y {
-  from {
-    transform: translateY(1.75rem);
-  }
-  to {
-    transform: translateY(-1.75rem);
-  }
-}
-
-@keyframes scroll-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@supports (animation-timeline: scroll()) {
-  @media (prefers-reduced-motion: no-preference) {
-    .scroll-progress {
-      display: block;
-      transform: scaleX(0);
-      transform-origin: left center;
-      animation: scroll-progress linear;
-      animation-timeline: scroll();
-    }
-
-    /* First viewport of scroll = the hero leaving. Pointer-fine only:
-       trackpads expose 120Hz stutter that phones hide, and parallax on
-       touch fights momentum scrolling. */
-    @media (pointer: fine) {
-      .hero-copy {
-        animation: hero-exit linear both;
-        animation-timeline: scroll();
-        animation-range: 0 100vh;
-      }
-      .hero-asterisk {
-        animation: hero-spin linear both;
-        animation-timeline: scroll();
-        animation-range: 0 100vh;
-      }
-    }
-  }
-}
-
-@supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) and (pointer: fine) {
-    .parallax {
-      animation: parallax-y linear both;
-      animation-timeline: view();
-      animation-range: cover;
-    }
-    .scroll-spin {
-      animation: scroll-spin linear both;
-      animation-timeline: view();
-      animation-range: cover;
-    }
-  }
-}
-
-/* Skip paint for off-screen cards and the footer marquee. Intrinsic size
-   keeps the scrollbar stable while the browser hasn't laid them out yet. */
-.cv-auto {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 20rem;
-}
-
-.marquee-band {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 12dvh;
-}
-
-/* Sealed collab room: no selection, no callout sheet, no long-press save. */
-.collab-room {
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-}
-
-.collab-watermark-a,
-.collab-watermark-b {
-  position: absolute;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.28);
-  mix-blend-mode: overlay;
-  white-space: nowrap;
-}
-
-.collab-watermark-a {
-  top: 18%;
-  left: 12%;
-  animation: collab-drift 11s ease-in-out infinite;
-}
-
-.collab-watermark-b {
-  bottom: 22%;
-  right: 10%;
-  animation: collab-drift 13s ease-in-out infinite reverse;
-}
-
-@keyframes collab-drift {
-  0% {
-    transform: translate(0, 0);
-  }
-  50% {
-    transform: translate(18px, 12px);
-  }
-  100% {
-    transform: translate(0, 0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .collab-watermark-a,
-  .collab-watermark-b {
-    animation: none;
+  .animate-fade-in {
+    animation: fade-in 0.18s ease-out;
   }
 }

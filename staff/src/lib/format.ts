@@ -19,3 +19,13 @@ export function formatRelative(iso: string): string {
   if (diff < 7 * day) return `${Math.floor(diff / day)}d`;
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
+
+export function formatDue(iso: string | null): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}

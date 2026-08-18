@@ -72,3 +72,37 @@ export function IconRoles({ className = "size-5" }: { className?: string }) {
     </Icon>
   );
 }
+
+export function IconPlus({ className = "size-5" }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d="M12 5v14M5 12h14" />
+    </Icon>
+  );
+}
+
+export function IconClose({ className = "size-5" }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d="M6 6l12 12M18 6 6 18" />
+    </Icon>
+  );
+}
+
+export function IconPin({ className = "size-5" }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d="M12 21v-6M8 4h8l-1.5 7H9.5L8 4Z" />
+      <path d="M7 11h10" />
+    </Icon>
+  );
+}
+
+export function IconSearch({ className = "size-5" }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <circle cx="11" cy="11" r="6" />
+      <path d="m16 16 4 4" />
+    </Icon>
+  );
+}

@@ -1,4 +1,8 @@
+"use client";
+
+import { useEffect } from "react";
 import { AsteriskMark } from "./asterisk-mark";
+import { IconClose } from "./icons";
 
 /* Shared class recipes — STIFF brutalist system, 8px grid, 5 interaction states. */
 
@@ -25,6 +29,15 @@ export const textareaCls =
 
 export const selectCls =
   `h-11 w-full min-w-0 rounded-[2px] border border-subtle bg-background px-3 text-[11px] font-medium uppercase tracking-[0.15em] text-foreground transition-colors duration-150 focus:border-foreground ${focusRing}`;
+
+export const selectPlain =
+  `h-12 w-full min-w-0 rounded-[2px] border border-subtle bg-background px-3 text-base text-foreground transition-colors duration-150 focus:border-foreground md:h-11 md:text-sm ${focusRing}`;
+
+export const iconBtn =
+  `inline-flex size-11 shrink-0 items-center justify-center rounded-[2px] text-muted transition-colors duration-150 hover:bg-surface hover:text-foreground active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 ${focusRing}`;
+
+export const chipSm =
+  `inline-flex min-h-9 items-center rounded-[2px] border border-subtle px-3 text-[11px] font-medium uppercase tracking-[0.12em] text-muted transition-colors duration-150 hover:border-foreground hover:text-foreground active:bg-surface disabled:opacity-40 ${focusRing}`;
 
 export const labelCls =
   "text-[11px] font-medium uppercase tracking-[0.2em] text-muted";
@@ -245,5 +258,117 @@ export function SearchInput({
         className={inputCls}
       />
     </div>
+  );
+}
+
+export function Segmented<T extends string>({
+  value,
+  onChange,
+  options,
+  ariaLabel,
+}: {
+  value: T;
+  onChange: (value: T) => void;
+  options: { value: T; label: string; count?: number }[];
+  ariaLabel: string;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label={ariaLabel}
+      className="grid grid-cols-3 gap-1 rounded-[2px] border border-subtle p-1"
+    >
+      {options.map((option) => {
+        const active = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(option.value)}
+            className={`flex min-h-11 items-center justify-center gap-1.5 rounded-[2px] px-2 text-[11px] font-medium uppercase tracking-[0.12em] transition-colors duration-150 ${focusRing} ${
+              active
+                ? "bg-foreground text-background"
+                : "text-muted hover:text-foreground"
+            }`}
+          >
+            <span className="truncate">{option.label}</span>
+            {option.count !== undefined && (
+              <span className={active ? "opacity-80" : "text-foreground"}>
+                {option.count}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export function BottomSheet({
+  open,
+  title,
+  onClose,
+  children,
+}: {
+  open: boolean;
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal aria-labelledby="sheet-title">
+      <button
+        type="button"
+        aria-label="Close"
+        className="absolute inset-0 animate-fade-in bg-foreground/40"
+        onClick={onClose}
+      />
+      <div className="absolute inset-x-0 bottom-0 animate-sheet-up max-h-[88dvh] overflow-y-auto border-t border-subtle bg-background px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <h2 id="sheet-title" className="text-lg uppercase tracking-tight">
+            {title}
+          </h2>
+          <button type="button" className={iconBtn} onClick={onClose} aria-label="Close">
+            <IconClose className="size-4" />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function SaveStatus({
+  state,
+}: {
+  state: "idle" | "saving" | "saved" | "error";
+}) {
+  if (state === "idle") return null;
+  const copy =
+    state === "saving"
+      ? "Saving"
+      : state === "saved"
+        ? "Saved"
+        : "Couldn’t save";
+  return (
+    <p
+      aria-live="polite"
+      className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted"
+    >
+      {copy}
+    </p>
   );
 }
