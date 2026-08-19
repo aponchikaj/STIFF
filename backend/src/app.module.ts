@@ -20,6 +20,7 @@ import { GalleryModule } from './gallery/gallery.module';
 import { MailModule } from './mail/mail.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { OrdersModule } from './orders/orders.module';
+import { PaymentsModule } from './payments/payments.module';
 import { ProductsModule } from './products/products.module';
 import { ReactionsModule } from './reactions/reactions.module';
 import { SearchModule } from './search/search.module';
@@ -71,6 +72,7 @@ import { UsersModule } from './users/users.module';
     CommentsModule,
     CartModule,
     OrdersModule,
+    PaymentsModule,
     NotificationsModule,
     ContactModule,
     ContentModule,

@@ -1,4 +1,7 @@
-# Database dumps taken before schema changes — real gallery content, not source
+# Database dumps taken before schema changes — real content, not source.
+# These contain the users table; keep them off the laptop long-term.
+# Take one with ./scripts/db-backup.sh
+backups/
 pg_dump_backup_*.sql
 *.dump
 

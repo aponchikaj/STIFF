@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { authApi, cartApi, ApiError } from "@/lib/api";
-import type { Order, ShippingAddress } from "@/lib/api";
+import { authApi, cartApi, paymentsApi, ApiError } from "@/lib/api";
+import type {
+  Order,
+  PaymentAvailability,
+  PaymentStart,
+  ShippingAddress,
+} from "@/lib/api";
 import {
-  LIVE_PAYMENT_METHODS,
-  PAYMENT_LABELS,
-  PAYMENT_METHODS,
-  PAYMENT_NOTES,
   SHIPPING_FEES_CENTS,
   SHIPPING_LABELS,
   SHIPPING_METHODS,
@@ -49,20 +50,21 @@ export function CartView() {
   const [shippingMethod, setShippingMethod] =
     useState<ShippingMethod>("tbilisi");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cod");
+  const [payment, setPayment] = useState<PaymentStart | null>(null);
+
+  // Which methods exist and which are usable is the server's call — see
+  // `payments/payment.types.ts`. Hardcoding it here is what previously let the
+  // page offer a card option nothing could take.
+  const { data: paymentData } = useAsync(
+    () => paymentsApi.getPaymentMethods(),
+    [],
+  );
+  const paymentOptions: PaymentAvailability[] = paymentData?.methods ?? [];
+  const selectedPayment =
+    paymentOptions.find((option) => option.method === paymentMethod) ?? null;
 
   if (!shopEnabled) return <ShopClosed />;
   if (sessionLoading) return <Loading label="Loading cart" />;
-  if (!user) {
-    return (
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 py-24 text-center">
-        <h1 className="text-4xl uppercase tracking-tight sm:text-6xl">Cart</h1>
-        <p className="text-sm text-muted">Log in to see your cart.</p>
-        <Link href="/login?next=/cart" className={btnSolid}>
-          Log in
-        </Link>
-      </div>
-    );
-  }
 
   if (order) {
     return (
@@ -76,13 +78,55 @@ export function CartView() {
             #{shortId(order.id)}
           </span>{" "}
           is in — {formatPrice(order.totalCents)}, {order.items.length}{" "}
-          {order.items.length === 1 ? "item" : "items"}. It stays pending until
-          we confirm payment. You&apos;ll get an email at every step.
+          {order.items.length === 1 ? "item" : "items"}. You&apos;ll get an
+          email at every step.
         </p>
+
+        {payment?.kind === "instructions" && (
+          <div className="w-full border border-subtle p-4 text-left">
+            <p className={labelCls}>{payment.heading}</p>
+            <ul className="mt-3 flex flex-col gap-1.5 text-sm text-muted">
+              {payment.lines.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+            <p className="mt-3 text-xs leading-6 text-muted">
+              Your order ships once the transfer lands.
+            </p>
+          </div>
+        )}
+        {payment?.kind === "on_delivery" && (
+          <p className="text-sm leading-7 text-muted">
+            Pay when it arrives — nothing to do now.
+          </p>
+        )}
+        {payment?.kind === "simulated" && (
+          <p className="border border-foreground p-3 text-xs uppercase tracking-[0.15em]">
+            Test mode — no payment was taken
+          </p>
+        )}
+
+        {!user && (
+          <p className="text-xs leading-6 text-muted">
+            Keep this page — order{" "}
+            <span className="font-bold text-foreground">
+              #{shortId(order.id)}
+            </span>{" "}
+            is your only reference. Make an account with the same email to see
+            it in your order history.
+          </p>
+        )}
+
         <div className="flex flex-wrap justify-center gap-3">
-          <Link href="/account" className={btnSolid}>
-            View my orders
-          </Link>
+          {user ? (
+            <Link href="/account" className={btnSolid}>
+              View my orders
+            </Link>
+          ) : (
+            <Link href="/register" className={btnSolid}>
+              Create an account
+            </Link>
+          )}
           <Link href="/clothing" className={`${btnOutline} h-12 px-6`}>
             Keep shopping
           </Link>
@@ -139,8 +183,15 @@ export function CartView() {
         shippingAddress: address,
         shippingMethod,
         paymentMethod,
+        // Ignored for signed-in buyers; the only way to reach a guest.
+        email: user ? undefined : String(data.get("email") ?? ""),
       });
-      setOrder(placed);
+      setOrder(placed.order);
+      setPayment(placed.payment);
+      if (placed.payment.kind === "redirect") {
+        window.location.href = placed.payment.url;
+        return;
+      }
       await refreshBadges();
     } catch (err) {
       if (
@@ -342,16 +393,15 @@ export function CartView() {
               <fieldset>
                 <legend className={labelCls}>Payment</legend>
                 <div className="mt-3 flex flex-col gap-2">
-                  {PAYMENT_METHODS.map((method) => {
-                    const live = LIVE_PAYMENT_METHODS.includes(method);
-                    const selected = paymentMethod === method;
+                  {paymentOptions.map((option) => {
+                    const selected = paymentMethod === option.method;
                     return (
                       <button
-                        key={method}
+                        key={option.method}
                         type="button"
-                        disabled={!live}
+                        disabled={!option.available}
                         onClick={() => {
-                          if (live) setPaymentMethod(method);
+                          if (option.available) setPaymentMethod(option.method);
                         }}
                         className={`flex h-11 items-center justify-between rounded-[2px] border px-3 text-left text-xs font-medium uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted disabled:cursor-not-allowed disabled:opacity-40 ${
                           selected
@@ -359,21 +409,39 @@ export function CartView() {
                             : "border-subtle text-muted hover:border-foreground hover:text-foreground"
                         }`}
                       >
-                        <span>{PAYMENT_LABELS[method]}</span>
-                        {!live && <span>Coming soon</span>}
+                        <span>{option.label}</span>
+                        {!option.available && <span>Coming soon</span>}
+                        {option.available && option.testMode && (
+                          <span>Test mode</span>
+                        )}
                       </button>
                     );
                   })}
                 </div>
-                <p className="mt-2 text-xs leading-6 text-muted">
-                  {PAYMENT_NOTES[paymentMethod]}
-                </p>
+                {selectedPayment && (
+                  <p className="mt-2 text-xs leading-6 text-muted">
+                    {selectedPayment.note}
+                  </p>
+                )}
               </fieldset>
 
               <p className={labelCls}>
                 {pickup ? "Your details" : "Delivery details"}
               </p>
               <div className="grid gap-4">
+                {!user && (
+                  <Field id="ship-email" label="Email">
+                    <input
+                      id="ship-email"
+                      name="email"
+                      type="email"
+                      required
+                      autoComplete="email"
+                      placeholder="you@example.com"
+                      className={inputCls}
+                    />
+                  </Field>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <Field id="ship-first" label="Name">
                     <input

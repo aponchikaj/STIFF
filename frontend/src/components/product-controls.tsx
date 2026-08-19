@@ -16,7 +16,7 @@ import { btnOutline, btnSolid, labelCls } from "./ui";
 
 export function ProductControls({ product }: { product: ProductDetail }) {
   const router = useRouter();
-  const { user, refreshBadges } = useSession();
+  const { refreshBadges } = useSession();
   const [size, setSize] = useState<string | null>(
     product.sizes.length === 1 ? product.sizes[0] : null,
   );
@@ -52,10 +52,8 @@ export function ProductControls({ product }: { product: ProductDetail }) {
   }, [soldOut]);
 
   async function addToCart(goToCart: boolean) {
-    if (!user) {
-      router.push(`/login?next=${encodeURIComponent(`/clothing/${product.slug}`)}`);
-      return;
-    }
+    // No login wall. Guests get a cart keyed to the `stiff_cart` cookie, and
+    // signing in later folds it into the account.
     if (product.sizes.length > 0 && !size) {
       setMessage("Pick a size first.");
       return;

@@ -8,6 +8,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { CartItem } from '../cart/cart-item.entity';
 import { CartOwner, ownerWhere } from '../cart/cart-owner';
+import type { PaymentStart } from '../payments/payment.types';
+import { PaymentsService } from '../payments/payments.service';
 import { Paginated, paginate } from '../common/types/paginated';
 import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -60,6 +62,12 @@ function buyerLabel(buyer: Buyer): string {
   return buyer.kind === 'user' ? buyer.user.username : 'Guest';
 }
 
+/** An order plus what the buyer has to do next to pay for it. */
+export interface PlacedOrder {
+  order: Order;
+  payment: PaymentStart;
+}
+
 function buyerCartOwner(buyer: Buyer): CartOwner {
   return buyer.kind === 'user'
     ? { kind: 'user', userId: buyer.user.id }
@@ -73,9 +81,10 @@ export class OrdersService {
     private readonly dataSource: DataSource,
     private readonly notificationsService: NotificationsService,
     private readonly mailService: MailService,
+    private readonly paymentsService: PaymentsService,
   ) {}
 
-  async checkout(buyer: Buyer, dto: CheckoutDto): Promise<Order> {
+  async checkout(buyer: Buyer, dto: CheckoutDto): Promise<PlacedOrder> {
     const cartItems = await this.dataSource.getRepository(CartItem).find({
       where: ownerWhere(buyerCartOwner(buyer)),
       relations: { product: true },
@@ -90,12 +99,12 @@ export class OrdersService {
       size: item.size,
     }));
 
-    const order = await this.placeOrder(buyer, lines, dto, true);
-    await this.announce(buyer, order);
-    return order;
+    const placed = await this.placeOrder(buyer, lines, dto, true);
+    await this.announce(buyer, placed.order);
+    return placed;
   }
 
-  async buyNow(buyer: Buyer, dto: BuyNowDto): Promise<Order> {
+  async buyNow(buyer: Buyer, dto: BuyNowDto): Promise<PlacedOrder> {
     const product = await this.dataSource.getRepository(Product).findOne({
       where: { id: dto.productId },
     });
@@ -109,14 +118,14 @@ export class OrdersService {
       }
     }
 
-    const order = await this.placeOrder(
+    const placed = await this.placeOrder(
       buyer,
       [{ product, quantity: dto.quantity, size }],
       dto,
       false,
     );
-    await this.announce(buyer, order);
-    return order;
+    await this.announce(buyer, placed.order);
+    return placed;
   }
 
   /**
@@ -139,12 +148,7 @@ export class OrdersService {
     lines: LineToOrder[],
     dto: CheckoutDto,
     clearCart: boolean,
-  ): Promise<Order> {
-    if (dto.paymentMethod === 'card') {
-      throw new BadRequestException(
-        'Card checkout is not live yet. Pay on delivery or by bank transfer.',
-      );
-    }
+  ): Promise<PlacedOrder> {
     const shippingMethod = dto.shippingMethod;
     const paymentMethod = dto.paymentMethod;
     if (!SHIPPING_METHODS.includes(shippingMethod)) {
@@ -152,6 +156,13 @@ export class OrdersService {
     }
     if (!PAYMENT_METHODS.includes(paymentMethod)) {
       throw new BadRequestException('Unknown payment method');
+    }
+    // Checked before any stock moves, so an unavailable acquirer fails fast
+    // rather than after the transaction has taken units off the shelf.
+    if (!this.paymentsService.isAvailable(paymentMethod)) {
+      throw new BadRequestException(
+        'That payment method is not available right now. Pick another one.',
+      );
     }
 
     const address = this.normalizeAddress(shippingMethod, dto.shippingAddress);
@@ -210,11 +221,25 @@ export class OrdersService {
         await manager.delete(CartItem, ownerWhere(buyerCartOwner(buyer)));
       }
 
+      // Inside the transaction on purpose: if the provider refuses, the stock
+      // decrement above rolls back with it. An order nobody can pay for is a
+      // worse outcome than a failed checkout.
+      const payment = await this.paymentsService.start(order);
+      if (this.paymentsService.settlesImmediately(payment)) {
+        order.status = 'paid';
+        order.paymentIntentId =
+          'reference' in payment ? payment.reference : null;
+        await manager.save(order);
+      } else if ('reference' in payment) {
+        order.paymentIntentId = payment.reference;
+        await manager.save(order);
+      }
+
       const withItems = await manager.findOne(Order, {
         where: { id: order.id },
         relations: { items: true },
       });
-      return withItems ?? order;
+      return { order: withItems ?? order, payment };
     });
   }
 

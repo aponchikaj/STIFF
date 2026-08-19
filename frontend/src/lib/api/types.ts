@@ -176,7 +176,8 @@ export interface Order {
   status: OrderStatus;
   totalCents: number;
   currency: string;
-  paymentMethod?: "cod" | "bank_transfer" | "card";
+  paymentMethod?: PaymentMethodKey;
+  guestEmail?: string | null;
   paymentIntentId: string | null;
   shippingMethod?: "pickup" | "tbilisi" | "regions";
   shippingCents?: number;
@@ -462,4 +463,34 @@ export interface ContactInput {
   email: string;
   subject?: string;
   message: string;
+}
+
+// ---------- payments ----------
+
+export type PaymentMethodKey =
+  | "cod"
+  | "bank_transfer"
+  | "card_tbc"
+  | "card_bog";
+
+export interface PaymentAvailability {
+  method: PaymentMethodKey;
+  label: string;
+  note: string;
+  /** False renders the option disabled rather than hiding it. */
+  available: boolean;
+  /** True when choosing this will not really move money. */
+  testMode: boolean;
+}
+
+/** What the buyer has to do next, returned alongside a placed order. */
+export type PaymentStart =
+  | { kind: "on_delivery" }
+  | { kind: "instructions"; heading: string; lines: string[] }
+  | { kind: "redirect"; url: string; reference: string }
+  | { kind: "simulated"; reference: string };
+
+export interface PlacedOrder {
+  order: Order;
+  payment: PaymentStart;
 }

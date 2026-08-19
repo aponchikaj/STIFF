@@ -15,23 +15,44 @@ export const SHIPPING_LABELS: Record<ShippingMethod, string> = {
   regions: "Georgia regions",
 };
 
-export const PAYMENT_METHODS = ["cod", "bank_transfer", "card"] as const;
-export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+/**
+ * Payment options are NOT listed here.
+ *
+ * Which methods exist, what they are called and whether each is usable depends
+ * on which merchant contracts are configured on the server, so checkout asks
+ * `GET /payments/methods` instead. Duplicating that list here is what let the
+ * frontend claim card payments were available when nothing could take one.
+ */
+export type PaymentMethod =
+  | "cod"
+  | "bank_transfer"
+  | "card_tbc"
+  | "card_bog";
 
-export const PAYMENT_LABELS: Record<PaymentMethod, string> = {
-  cod: "Pay on delivery",
-  bank_transfer: "Bank transfer",
-  card: "Card",
-};
-
-export const LIVE_PAYMENT_METHODS: PaymentMethod[] = ["cod", "bank_transfer"];
-
-export const PAYMENT_NOTES: Record<PaymentMethod, string> = {
-  cod: "Pay when it arrives, or when you pick it up.",
-  bank_transfer:
-    "Place the order and we'll follow up with transfer details. It stays pending until we confirm payment.",
-  card: "Card checkout is not live yet.",
-};
+/**
+ * Display-only label for a method already stored on an order.
+ *
+ * Separate from what checkout offers: this has to render historical values —
+ * including `card`, used before the acquirers were split — long after those
+ * options stop being selectable. Unknown values fall through to the raw key
+ * rather than rendering blank.
+ */
+export function paymentLabel(method: string | undefined | null): string {
+  switch (method) {
+    case "cod":
+      return "Pay on delivery";
+    case "bank_transfer":
+      return "Bank transfer";
+    case "card_tbc":
+      return "Card — TBC Bank";
+    case "card_bog":
+      return "Card — Bank of Georgia";
+    case "card":
+      return "Card";
+    default:
+      return method ?? "—";
+  }
+}
 
 export function stockForSize(
   product: {

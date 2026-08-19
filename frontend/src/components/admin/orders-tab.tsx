@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { adminApi } from "@/lib/api";
 import type { Order, OrderStatus } from "@/lib/api";
-import { PAYMENT_LABELS, SHIPPING_LABELS } from "@/lib/checkout";
+import { paymentLabel, SHIPPING_LABELS } from "@/lib/checkout";
 import { formatDate, formatPrice, shortId } from "@/lib/format";
 import { errorMessage } from "@/lib/hooks";
 import { XIcon } from "../icons";
@@ -350,7 +350,7 @@ function OrderDetails({
 
         <p className="mt-3 text-xs leading-6 text-muted">
           {order.paymentMethod
-            ? (PAYMENT_LABELS[order.paymentMethod] ?? order.paymentMethod)
+            ? paymentLabel(order.paymentMethod)
             : "Payment —"}
           {" · "}
           {order.shippingMethod
