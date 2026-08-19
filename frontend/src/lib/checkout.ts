@@ -54,15 +54,45 @@ export function paymentLabel(method: string | undefined | null): string {
   }
 }
 
+export interface VariantLike {
+  size: string;
+  stock: number;
+  isActive?: boolean;
+  priceDeltaCents?: number;
+}
+
+/**
+ * Mirrors `backend/src/products/stock.ts`.
+ *
+ * A product with no sizes still has one variant, with an empty size label, so
+ * both cases read the same way.
+ */
 export function stockForSize(
-  product: {
-    stock: number;
-    stockBySize?: Record<string, number> | null;
-    sizes: string[];
-  },
+  product: { variants?: VariantLike[] | null },
   size: string | null,
 ): number {
-  if (product.sizes.length === 0) return product.stock;
-  if (!size) return 0;
-  return product.stockBySize?.[size] ?? 0;
+  const variant = (product.variants ?? []).find((v) => v.size === (size ?? ""));
+  if (!variant || variant.isActive === false) return 0;
+  return Math.max(variant.stock, 0);
+}
+
+/** The sizes to render in the picker — retired ones are omitted entirely. */
+export function pickableVariants(product: {
+  variants?: VariantLike[] | null;
+}): VariantLike[] {
+  return (product.variants ?? []).filter((v) => v.isActive !== false);
+}
+
+/** Nothing at all can be bought. */
+export function isSoldOut(product: { variants?: VariantLike[] | null }): boolean {
+  return !pickableVariants(product).some((v) => v.stock > 0);
+}
+
+/** Unit price for a size, including any per-size delta. */
+export function priceForSize(
+  product: { priceCents: number; variants?: VariantLike[] | null },
+  size: string | null,
+): number {
+  const variant = (product.variants ?? []).find((v) => v.size === (size ?? ""));
+  return product.priceCents + (variant?.priceDeltaCents ?? 0);
 }

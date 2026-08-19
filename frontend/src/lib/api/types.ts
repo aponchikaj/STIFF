@@ -18,6 +18,7 @@ export type NotificationType =
 /** Keys declared by the backend content registry (`content.registry.ts`). */
 export type ContentKey =
   | "features"
+  | "storefront"
   | "home-hero"
   | "home-values"
   | "home-join"
@@ -66,6 +67,17 @@ export interface UserStats {
   memberSince: string;
 }
 
+export interface ProductVariant {
+  id: string;
+  size: string;
+  sku: string | null;
+  stock: number;
+  /** Added to the product price for this size. */
+  priceDeltaCents: number;
+  position: number;
+  isActive: boolean;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -74,9 +86,11 @@ export interface Product {
   priceCents: number;
   images: string[];
   category: string | null;
+  /** Denormalised labels for browsing; `variants` is the source of truth. */
   sizes: string[];
+  /** Sum of every variant's stock. */
   stock: number;
-  stockBySize?: Record<string, number>;
+  variants: ProductVariant[];
   isActive: boolean;
   likeCount: number;
   dislikeCount: number;

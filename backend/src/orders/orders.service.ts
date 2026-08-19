@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { CartItem } from '../cart/cart-item.entity';
 import { CartOwner, ownerWhere } from '../cart/cart-owner';
 import type { PaymentStart } from '../payments/payment.types';
@@ -13,7 +13,10 @@ import { PaymentsService } from '../payments/payments.service';
 import { Paginated, paginate } from '../common/types/paginated';
 import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ProductVariant } from '../products/product-variant.entity';
 import { Product } from '../products/product.entity';
+import { ONE_SIZE, priceForSize } from '../products/stock';
+import { VariantsService } from '../products/variants.service';
 import { User } from '../users/user.entity';
 import {
   PAYMENT_METHODS,
@@ -41,6 +44,7 @@ const STATUS_MESSAGES: Record<OrderStatus, string> = {
 
 interface LineToOrder {
   product: Product;
+  variant: ProductVariant;
   quantity: number;
   size: string;
 }
@@ -68,6 +72,14 @@ export interface PlacedOrder {
   payment: PaymentStart;
 }
 
+/** Product price plus this size's delta — e.g. XXL costing more. */
+function unitPrice(line: LineToOrder): number {
+  return priceForSize(
+    { priceCents: line.product.priceCents, variants: [line.variant] },
+    line.size,
+  );
+}
+
 function buyerCartOwner(buyer: Buyer): CartOwner {
   return buyer.kind === 'user'
     ? { kind: 'user', userId: buyer.user.id }
@@ -82,22 +94,33 @@ export class OrdersService {
     private readonly notificationsService: NotificationsService,
     private readonly mailService: MailService,
     private readonly paymentsService: PaymentsService,
+    private readonly variantsService: VariantsService,
   ) {}
 
   async checkout(buyer: Buyer, dto: CheckoutDto): Promise<PlacedOrder> {
     const cartItems = await this.dataSource.getRepository(CartItem).find({
       where: ownerWhere(buyerCartOwner(buyer)),
-      relations: { product: true },
+      relations: { product: true, variant: true },
     });
     if (cartItems.length === 0) {
       throw new BadRequestException('Your cart is empty');
     }
 
-    const lines: LineToOrder[] = cartItems.map((item) => ({
-      product: item.product,
-      quantity: item.quantity,
-      size: item.size,
-    }));
+    const lines: LineToOrder[] = cartItems.map((item) => {
+      if (!item.variant) {
+        // Only reachable if the variant was deleted between adding and
+        // checking out; the cart FK cascades, so this is belt and braces.
+        throw new BadRequestException(
+          `${item.product.name} is no longer available in ${item.size || 'that size'}`,
+        );
+      }
+      return {
+        product: item.product,
+        variant: item.variant,
+        quantity: item.quantity,
+        size: item.size,
+      };
+    });
 
     const placed = await this.placeOrder(buyer, lines, dto, true);
     await this.announce(buyer, placed.order);
@@ -111,16 +134,17 @@ export class OrdersService {
     if (!product || !product.isActive) {
       throw new NotFoundException('Product not found');
     }
-    const size = dto.size ?? '';
-    if (product.sizes.length > 0) {
-      if (!size || !product.sizes.includes(size)) {
-        throw new BadRequestException('Size not available for this product');
-      }
+    const size = dto.size ?? ONE_SIZE;
+    const variant = await this.dataSource
+      .getRepository(ProductVariant)
+      .findOne({ where: { productId: product.id, size } });
+    if (!variant || !variant.isActive) {
+      throw new BadRequestException('Size not available for this product');
     }
 
     const placed = await this.placeOrder(
       buyer,
-      [{ product, quantity: dto.quantity, size }],
+      [{ product, variant, quantity: dto.quantity, size }],
       dto,
       false,
     );
@@ -175,16 +199,17 @@ export class OrdersService {
             `${line.product.name} is no longer available`,
           );
         }
-        await this.decrementStock(
+        await this.variantsService.decrement(
           manager,
-          line.product,
-          line.size,
+          line.variant.id,
           line.quantity,
+          line.size ? `${line.product.name} (${line.size})` : line.product.name,
         );
+        await this.variantsService.syncTotal(manager, line.product.id);
       }
 
       const subtotalCents = lines.reduce(
-        (sum, line) => sum + line.product.priceCents * line.quantity,
+        (sum, line) => sum + unitPrice(line) * line.quantity,
         0,
       );
 
@@ -208,9 +233,10 @@ export class OrdersService {
           manager.create(OrderItem, {
             orderId: order.id,
             productId: line.product.id,
+            variantId: line.variant.id,
             productName: line.product.name,
             productImage: line.product.images[0] ?? null,
-            unitPriceCents: line.product.priceCents,
+            unitPriceCents: unitPrice(line),
             quantity: line.quantity,
             size: line.size,
           }),
@@ -266,79 +292,6 @@ export class OrdersService {
     };
   }
 
-  private async decrementStock(
-    manager: EntityManager,
-    product: Product,
-    size: string,
-    quantity: number,
-  ): Promise<void> {
-    if (product.sizes.length === 0) {
-      const result = await manager
-        .createQueryBuilder()
-        .update(Product)
-        .set({ stock: () => `stock - ${quantity}` })
-        .where('id = :id AND stock >= :quantity', {
-          id: product.id,
-          quantity,
-        })
-        .execute();
-      if (!result.affected) {
-        throw new BadRequestException(`Not enough stock for ${product.name}`);
-      }
-      return;
-    }
-    if (!size || !product.sizes.includes(size)) {
-      throw new BadRequestException(`Pick a size for ${product.name}`);
-    }
-    const rows: unknown = await manager.query(
-      `UPDATE "products"
-       SET "stockBySize" = jsonb_set(
-             COALESCE("stockBySize", '{}'::jsonb),
-             ARRAY[$1],
-             to_jsonb(COALESCE(("stockBySize"->>$1)::int, 0) - $2)
-           ),
-           "stock" = "stock" - $2
-       WHERE "id" = $3
-         AND COALESCE(("stockBySize"->>$1)::int, 0) >= $2
-       RETURNING "id"`,
-      [size, quantity, product.id],
-    );
-    if (!Array.isArray(rows) || rows.length === 0) {
-      throw new BadRequestException(
-        `Not enough stock for ${product.name} (${size})`,
-      );
-    }
-  }
-
-  private async incrementStock(
-    manager: EntityManager,
-    productId: string,
-    size: string,
-    quantity: number,
-  ): Promise<void> {
-    if (!size) {
-      await manager.increment(Product, { id: productId }, 'stock', quantity);
-      return;
-    }
-    await manager.query(
-      `UPDATE "products"
-       SET "stockBySize" = jsonb_set(
-             COALESCE("stockBySize", '{}'::jsonb),
-             ARRAY[$1],
-             to_jsonb(COALESCE(("stockBySize"->>$1)::int, 0) + $2)
-           ),
-           "stock" = "stock" + $2
-       WHERE "id" = $3`,
-      [size, quantity, productId],
-    );
-  }
-
-  /**
-   * `user` is null for a visitor who is not signed in. They may only read a
-   * guest order — one with no account behind it — and only by presenting its
-   * uuid, which is the capability. An order that belongs to an account is never
-   * readable this way, so a leaked id cannot expose someone's history.
-   */
   async getOne(id: string, user: User | null): Promise<Order> {
     const order = await this.orderRepo.findOne({
       where: { id },
@@ -403,27 +356,24 @@ export class OrdersService {
 
     await this.dataSource.transaction(async (manager) => {
       for (const item of order.items) {
-        if (!item.productId) continue;
+        // A line whose variant was deleted keeps its snapshot but has no row
+        // left to move stock on — skip rather than guess which size it was.
+        if (!item.productId || !item.variantId) continue;
         if (enteringCancelled) {
-          await this.incrementStock(
+          await this.variantsService.increment(
             manager,
-            item.productId,
-            item.size,
+            item.variantId,
             item.quantity,
           );
         } else if (leavingCancelled) {
-          const product = await manager.findOne(Product, {
-            where: { id: item.productId },
-          });
-          if (product) {
-            await this.decrementStock(
-              manager,
-              product,
-              item.size,
-              item.quantity,
-            );
-          }
+          await this.variantsService.decrement(
+            manager,
+            item.variantId,
+            item.quantity,
+            item.productName,
+          );
         }
+        await this.variantsService.syncTotal(manager, item.productId);
       }
       order.status = dto.status;
       await manager.save(order);
@@ -456,14 +406,13 @@ export class OrdersService {
     await this.dataSource.transaction(async (manager) => {
       if (order.status !== 'cancelled') {
         for (const item of order.items) {
-          if (item.productId) {
-            await this.incrementStock(
-              manager,
-              item.productId,
-              item.size,
-              item.quantity,
-            );
-          }
+          if (!item.productId || !item.variantId) continue;
+          await this.variantsService.increment(
+            manager,
+            item.variantId,
+            item.quantity,
+          );
+          await this.variantsService.syncTotal(manager, item.productId);
         }
       }
       await manager.delete(Order, { id });

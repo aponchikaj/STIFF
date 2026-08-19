@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cartApi } from "@/lib/api";
-import { stockForSize } from "@/lib/checkout";
+import { priceForSize, stockForSize } from "@/lib/checkout";
+import { useContent } from "@/lib/content";
 import { formatPrice } from "@/lib/format";
 import type { ProductDetail } from "@/lib/api";
 import { errorMessage } from "@/lib/hooks";
@@ -27,11 +28,23 @@ export function ProductControls({ product }: { product: ProductDetail }) {
   const [showStickyBar, setShowStickyBar] = useState(false);
   const ctaRef = useRef<HTMLDivElement>(null);
 
+  // Threshold and wording are admin-editable (Content -> Storefront thresholds),
+  // so urgency copy can be tuned without a deploy.
+  const storefront = useContent("storefront");
+  const lowStockThreshold = Number(storefront.text("lowStockThreshold", "3"));
+  const lowStockLabel = storefront.text("lowStockLabel", "Only {n} left");
+
   const soldOut =
     product.sizes.length === 0
       ? product.stock === 0
       : product.sizes.every((s) => stockForSize(product, s) === 0);
   const available = stockForSize(product, size);
+  const unitPrice = priceForSize(product, size);
+
+  /** Only worth saying when the number is small enough to actually pressure. */
+  function lowStock(qty: number): boolean {
+    return lowStockThreshold > 0 && qty > 0 && qty <= lowStockThreshold;
+  }
   const sizeSoldOut = product.sizes.length > 0 && !!size && available === 0;
   const maxQty = Math.min(Math.max(available, 1), 9);
 
@@ -120,6 +133,14 @@ export function ProductControls({ product }: { product: ProductDetail }) {
               );
             })}
           </div>
+          {size && lowStock(available) && (
+            <p
+              aria-live="polite"
+              className="mt-2 text-[11px] font-medium uppercase tracking-[0.15em]"
+            >
+              {lowStockLabel.replace("{n}", String(available))} in {size}
+            </p>
+          )}
         </>
       )}
 
@@ -197,7 +218,7 @@ export function ProductControls({ product }: { product: ProductDetail }) {
                   {product.name}
                 </p>
                 <p className="text-xs text-muted">
-                  {formatPrice(product.priceCents)}
+                  {formatPrice(unitPrice)}
                   {size ? ` · ${size}` : ""}
                 </p>
               </div>

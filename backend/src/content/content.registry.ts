@@ -55,6 +55,32 @@ export const CONTENT_BLOCKS: ContentBlock[] = [
   },
 
   {
+    key: 'storefront',
+    label: 'Storefront thresholds',
+    group: 'Site',
+    description:
+      'Numbers the shop pages react to. Kept here so they can be tuned without a deploy.',
+    fields: [
+      {
+        key: 'lowStockLabel',
+        label: 'Low-stock wording',
+        type: 'text',
+        hint: 'Use {n} for the number left. Shown once a size drops to the threshold.',
+        default: 'Only {n} left',
+        maxLength: 60,
+      },
+      {
+        key: 'lowStockThreshold',
+        label: 'Low-stock threshold',
+        type: 'text',
+        hint: 'Show the warning when a size has this many units or fewer. 0 turns it off.',
+        default: '3',
+        maxLength: 4,
+      },
+    ],
+  },
+
+  {
     key: 'home-hero',
     label: 'Home — hero',
     group: 'Home',

@@ -9,6 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../users/user.entity';
+import { ProductVariant } from '../products/product-variant.entity';
 import { Product } from '../products/product.entity';
 
 /**
@@ -41,6 +42,21 @@ export class CartItem {
 
   @Column('uuid')
   productId: string;
+
+  /**
+   * The exact size this line is for, and where its stock is checked.
+   *
+   * Nullable only because the column was added to existing rows; every line
+   * written since carries one. Reading stock through the variant rather than
+   * re-resolving product + size is what keeps the check honest — a product
+   * loaded without its variants relation would otherwise look sold out.
+   */
+  @ManyToOne(() => ProductVariant, { onDelete: 'CASCADE', nullable: true })
+  @JoinColumn({ name: 'variantId' })
+  variant: ProductVariant | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  variantId: string | null;
 
   @Column('int')
   quantity: number;

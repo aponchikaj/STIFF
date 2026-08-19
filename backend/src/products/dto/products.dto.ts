@@ -1,16 +1,50 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsObject,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+
+/** One buyable size. `size` is empty for a product sold in a single size. */
+export class VariantDto {
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  size?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  sku?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  stock?: number;
+
+  /** Added to the product price for this size. Negative is allowed. */
+  @IsOptional()
+  @IsInt()
+  priceDeltaCents?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
 
 export class CreateProductDto {
   @IsString()
@@ -41,6 +75,16 @@ export class CreateProductDto {
   @IsArray()
   @IsString({ each: true })
   sizes?: string[];
+
+  /**
+   * The full set of buyable sizes. When present it replaces `sizes` and
+   * `stock` — those two remain only so an older admin build keeps working.
+   */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => VariantDto)
+  variants?: VariantDto[];
 
   @IsOptional()
   @IsInt()
@@ -83,6 +127,16 @@ export class UpdateProductDto {
   @IsArray()
   @IsString({ each: true })
   sizes?: string[];
+
+  /**
+   * The full set of buyable sizes. When present it replaces `sizes` and
+   * `stock` — those two remain only so an older admin build keeps working.
+   */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => VariantDto)
+  variants?: VariantDto[];
 
   @IsOptional()
   @IsInt()

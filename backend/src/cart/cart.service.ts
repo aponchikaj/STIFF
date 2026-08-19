@@ -6,7 +6,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Product } from '../products/product.entity';
-import { stockForSize } from '../products/stock';
+import { ProductVariant } from '../products/product-variant.entity';
+import { ONE_SIZE, priceForSize } from '../products/stock';
 import { CartItem } from './cart-item.entity';
 import { CartOwner, ownerWhere } from './cart-owner';
 import { AddCartItemDto, UpdateCartItemDto } from './dto/cart.dto';
@@ -16,6 +17,23 @@ export interface CartView {
   subtotalCents: number;
 }
 
+/**
+ * Product price plus this line's per-size delta.
+ *
+ * Exported so it can be tested directly: the cart quoting a different number
+ * to the one checkout charges is a silent, money-losing bug, and it happened
+ * once already when this was inlined.
+ */
+export function unitPriceFor(item: CartItem): number {
+  return priceForSize(
+    {
+      priceCents: item.product.priceCents,
+      variants: item.variant ? [item.variant] : [],
+    },
+    item.size,
+  );
+}
+
 @Injectable()
 export class CartService {
   constructor(
@@ -23,17 +41,22 @@ export class CartService {
     private readonly cartRepo: Repository<CartItem>,
     @InjectRepository(Product)
     private readonly productRepo: Repository<Product>,
+    @InjectRepository(ProductVariant)
+    private readonly variantRepo: Repository<ProductVariant>,
     private readonly dataSource: DataSource,
   ) {}
 
   async getCart(owner: CartOwner): Promise<CartView> {
     const items = await this.cartRepo.find({
       where: ownerWhere(owner),
-      relations: { product: true },
+      relations: { product: true, variant: true },
       order: { createdAt: 'ASC' },
     });
+    // Must match what checkout charges. `priceForSize` is the one definition
+    // of a unit price; computing it here and again in orders is how a cart
+    // ends up quoting a different number to the one taken.
     const subtotalCents = items.reduce(
-      (sum, item) => sum + item.product.priceCents * item.quantity,
+      (sum, item) => sum + unitPriceFor(item) * item.quantity,
       0,
     );
     return { items, subtotalCents };
@@ -46,11 +69,13 @@ export class CartService {
     if (!product || !product.isActive) {
       throw new NotFoundException('Product not found');
     }
-    const size = dto.size ?? '';
-    if (product.sizes.length > 0) {
-      if (!size || !product.sizes.includes(size)) {
-        throw new BadRequestException('Size not available for this product');
-      }
+
+    const size = dto.size ?? ONE_SIZE;
+    const variant = await this.variantRepo.findOne({
+      where: { productId: dto.productId, size },
+    });
+    if (!variant || !variant.isActive) {
+      throw new BadRequestException('Size not available for this product');
     }
 
     const where = ownerWhere(owner);
@@ -58,19 +83,21 @@ export class CartService {
       where: { ...where, productId: dto.productId, size },
     });
     const newQuantity = (existing?.quantity ?? 0) + dto.quantity;
-    const available = stockForSize(product, size);
-    if (available < newQuantity) {
-      throw new BadRequestException(`Only ${available} left in stock`);
+    if (variant.stock < newQuantity) {
+      throw new BadRequestException(`Only ${variant.stock} left in stock`);
     }
 
     if (existing) {
       existing.quantity = newQuantity;
+      // Backfills the link on a row written before variants existed.
+      existing.variantId = variant.id;
       await this.cartRepo.save(existing);
     } else {
       await this.cartRepo.save(
         this.cartRepo.create({
           ...where,
           productId: dto.productId,
+          variantId: variant.id,
           quantity: dto.quantity,
           size,
         }),
@@ -86,10 +113,10 @@ export class CartService {
   ): Promise<CartView> {
     const item = await this.cartRepo.findOne({
       where: { id: itemId, ...ownerWhere(owner) },
-      relations: { product: true },
+      relations: { product: true, variant: true },
     });
     if (!item) throw new NotFoundException('Cart item not found');
-    const available = stockForSize(item.product, item.size);
+    const available = item.variant?.stock ?? 0;
     if (available < dto.quantity) {
       throw new BadRequestException(`Only ${available} left in stock`);
     }
@@ -126,7 +153,7 @@ export class CartService {
       const repo = manager.getRepository(CartItem);
       const guestItems = await repo.find({
         where: { guestId },
-        relations: { product: true },
+        relations: { product: true, variant: true },
       });
       if (guestItems.length === 0) return;
 
@@ -134,7 +161,7 @@ export class CartService {
         const existing = await repo.findOne({
           where: { userId, productId: item.productId, size: item.size },
         });
-        const available = stockForSize(item.product, item.size);
+        const available = item.variant?.stock ?? 0;
 
         if (existing) {
           existing.quantity = Math.min(

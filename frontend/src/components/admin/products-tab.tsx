@@ -19,23 +19,30 @@ import {
   textareaCls,
 } from "../ui";
 
+/** One row of the variants editor. Strings because they come from inputs. */
+interface VariantRow {
+  id?: string;
+  size: string;
+  sku: string;
+  stock: string;
+  priceDelta: string;
+  isActive: boolean;
+}
+
+function blankVariant(size = ""): VariantRow {
+  return { size, sku: "", stock: "0", priceDelta: "0", isActive: true };
+}
+
+const DEFAULT_VARIANTS: VariantRow[] = ["S", "M", "L", "XL"].map(blankVariant);
+
 const EMPTY = {
   name: "",
   category: "",
   price: "",
-  stock: "",
-  sizes: "S, M, L, XL",
-  stockBySize: {} as Record<string, string>,
   description: "",
   images: [] as string[],
+  variants: DEFAULT_VARIANTS,
 };
-
-function parseSizes(value: string): string[] {
-  return value
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
 
 export function ProductsTab() {
   const [page, setPage] = useState(1);
@@ -64,22 +71,39 @@ export function ProductsTab() {
       name: product.name,
       category: product.category ?? "",
       price: String(product.priceCents / 100),
-      stock: String(product.stock),
-      sizes: product.sizes.join(", "),
-      stockBySize: Object.fromEntries(
-        product.sizes.map((size) => [
-          size,
-          String(
-            product.stockBySize?.[size] ??
-              (size === product.sizes[0] ? product.stock : 0),
-          ),
-        ]),
-      ),
       description: product.description,
       images: product.images,
+      variants:
+        product.variants.length > 0
+          ? product.variants.map((v) => ({
+              id: v.id,
+              size: v.size,
+              sku: v.sku ?? "",
+              stock: String(v.stock),
+              priceDelta: String(v.priceDeltaCents / 100),
+              isActive: v.isActive,
+            }))
+          : [blankVariant()],
     });
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function patchVariant(index: number, next: Partial<VariantRow>) {
+    setForm((f) => ({
+      ...f,
+      variants: f.variants.map((v, i) => (i === index ? { ...v, ...next } : v)),
+    }));
+  }
+
+  function moveVariant(from: number, to: number) {
+    setForm((f) => {
+      if (to < 0 || to >= f.variants.length) return f;
+      const variants = [...f.variants];
+      const [moved] = variants.splice(from, 1);
+      variants.splice(to, 0, moved);
+      return { ...f, variants };
+    });
   }
 
   function closeForm() {
@@ -109,22 +133,19 @@ export function ProductsTab() {
     e.preventDefault();
     setBusy(true);
     setNote(null);
-    const sizes = parseSizes(form.sizes);
     const payload = {
       name: form.name,
       category: form.category || undefined,
       priceCents: Math.round(Number(form.price) * 100),
-      sizes,
-      stockBySize:
-        sizes.length > 0
-          ? Object.fromEntries(
-              sizes.map((size) => [
-                size,
-                Number(form.stockBySize[size]) || 0,
-              ]),
-            )
-          : undefined,
-      stock: sizes.length > 0 ? undefined : Number(form.stock) || 0,
+      // The backend derives `sizes` and the stock total from these.
+      variants: form.variants.map((v) => ({
+        id: v.id,
+        size: v.size.trim(),
+        sku: v.sku.trim() || undefined,
+        stock: Number(v.stock) || 0,
+        priceDeltaCents: Math.round(Number(v.priceDelta) * 100) || 0,
+        isActive: v.isActive,
+      })),
       description: form.description || undefined,
       images: form.images,
     };
@@ -209,29 +230,8 @@ export function ProductsTab() {
                 className={inputCls}
               />
             </Field>
-            {parseSizes(form.sizes).length === 0 && (
-              <Field id="p-stock" label="Stock">
-                <input
-                  id="p-stock"
-                  required
-                  type="number"
-                  min="0"
-                  value={form.stock}
-                  onChange={(e) => setForm({ ...form, stock: e.target.value })}
-                  className={inputCls}
-                />
-              </Field>
-            )}
           </div>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Field id="p-sizes" label="Sizes (comma separated)">
-              <input
-                id="p-sizes"
-                value={form.sizes}
-                onChange={(e) => setForm({ ...form, sizes: e.target.value })}
-                className={inputCls}
-              />
-            </Field>
+          <div className="grid gap-4">
             <Field id="p-description" label="Description">
               <textarea
                 id="p-description"
@@ -245,33 +245,140 @@ export function ProductsTab() {
             </Field>
           </div>
 
-          {parseSizes(form.sizes).length > 0 && (
-            <div>
-              <p className={labelCls}>Qty per size</p>
-              <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {parseSizes(form.sizes).map((size) => (
-                  <Field key={size} id={`p-stock-${size}`} label={size}>
+          <fieldset className="border border-subtle p-4">
+            <legend className="px-1 text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
+              Sizes and stock
+            </legend>
+            <p className="text-xs text-muted">
+              One row per size. Leave a single row with an empty size for a
+              product sold in one size. Price adjust is added to the price
+              above — use it when a size costs more.
+            </p>
+
+            <div className="mt-3 flex flex-col gap-2">
+              {form.variants.map((variant, i) => (
+                <div
+                  key={i}
+                  className="grid grid-cols-2 items-end gap-2 border-t border-subtle pt-3 sm:grid-cols-[5rem_1fr_5rem_6rem_auto]"
+                >
+                  <Field id={`v-size-${i}`} label="Size">
                     <input
-                      id={`p-stock-${size}`}
+                      id={`v-size-${i}`}
+                      value={variant.size}
+                      placeholder="M"
+                      onChange={(e) => patchVariant(i, { size: e.target.value })}
+                      className={inputCls}
+                    />
+                  </Field>
+                  <Field id={`v-sku-${i}`} label="SKU">
+                    <input
+                      id={`v-sku-${i}`}
+                      value={variant.sku}
+                      placeholder="optional"
+                      onChange={(e) => patchVariant(i, { sku: e.target.value })}
+                      className={inputCls}
+                    />
+                  </Field>
+                  <Field id={`v-stock-${i}`} label="Stock">
+                    <input
+                      id={`v-stock-${i}`}
                       type="number"
                       min="0"
-                      value={form.stockBySize[size] ?? "0"}
+                      value={variant.stock}
+                      onChange={(e) => patchVariant(i, { stock: e.target.value })}
+                      className={inputCls}
+                    />
+                  </Field>
+                  <Field id={`v-delta-${i}`} label="Price adjust">
+                    <input
+                      id={`v-delta-${i}`}
+                      type="number"
+                      step="0.01"
+                      value={variant.priceDelta}
                       onChange={(e) =>
-                        setForm({
-                          ...form,
-                          stockBySize: {
-                            ...form.stockBySize,
-                            [size]: e.target.value,
-                          },
-                        })
+                        patchVariant(i, { priceDelta: e.target.value })
                       }
                       className={inputCls}
                     />
                   </Field>
-                ))}
-              </div>
+                  <div className="flex items-center gap-1 pb-1">
+                    <button
+                      type="button"
+                      className={btnGhostSm}
+                      aria-pressed={variant.isActive}
+                      title={
+                        variant.isActive
+                          ? "Selling — click to retire this size"
+                          : "Retired — click to sell it again"
+                      }
+                      onClick={() =>
+                        patchVariant(i, { isActive: !variant.isActive })
+                      }
+                    >
+                      {variant.isActive ? "Selling" : "Retired"}
+                    </button>
+                    <button
+                      type="button"
+                      className={btnGhostSm}
+                      disabled={i === 0}
+                      aria-label={`Move ${variant.size || "row"} up`}
+                      onClick={() => moveVariant(i, i - 1)}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className={btnGhostSm}
+                      disabled={i === form.variants.length - 1}
+                      aria-label={`Move ${variant.size || "row"} down`}
+                      onClick={() => moveVariant(i, i + 1)}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      className={btnGhostSm}
+                      disabled={form.variants.length === 1}
+                      aria-label={`Remove ${variant.size || "row"}`}
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          variants: f.variants.filter((_, j) => j !== i),
+                        }))
+                      }
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
+
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                className={btnGhostSm}
+                onClick={() =>
+                  setForm((f) => ({
+                    ...f,
+                    variants: [...f.variants, blankVariant()],
+                  }))
+                }
+              >
+                Add size
+              </button>
+              <p className="text-xs text-muted">
+                Total stock:{" "}
+                <span className="font-bold text-foreground">
+                  {form.variants.reduce(
+                    (sum, v) => sum + (Number(v.stock) || 0),
+                    0,
+                  )}
+                </span>
+              </p>
+            </div>
+          </fieldset>
+
 
           <div>
             <p className={labelCls}>Images</p>
@@ -380,11 +487,11 @@ export function ProductsTab() {
                 {product.category ?? "—"} · {formatPrice(product.priceCents)}
               </p>
               <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted">
-                {product.sizes.length > 0
-                  ? product.sizes
+                {product.variants.some((v) => v.size)
+                  ? product.variants
                       .map(
-                        (size) =>
-                          `${size} ${product.stockBySize?.[size] ?? 0}`,
+                        (v) =>
+                          `${v.size} ${v.stock}${v.isActive ? "" : " (retired)"}`,
                       )
                       .join(" · ")
                   : `Stock ${product.stock}`}{" "}
