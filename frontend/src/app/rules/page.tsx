@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { Reveal } from "@/components/motion";
+import { contentList, contentText, fetchContent } from "@/lib/content-server";
 
 export const metadata: Metadata = { title: "Rules" };
 
-const rules = [
+// Fallbacks for the API being unreachable. The editable copy lives in the
+// backend content registry, which is also what the admin form renders.
+const RULES = [
   {
     title: "Wear it hard",
     body: "These pieces are made to be lived in, not archived. Scuffs are proof of use.",
@@ -26,10 +29,10 @@ const rules = [
   },
 ];
 
-const practical = [
+const PRACTICAL = [
   {
     title: "Shipping",
-    body: "Pickup in Tbilisi is free. City courier and region delivery rates show at checkout. Card checkout is not live yet — pay on delivery or by bank transfer.",
+    body: "Pickup in Tbilisi is free. City courier and region delivery rates show at checkout.",
   },
   {
     title: "Returns",
@@ -41,19 +44,22 @@ const practical = [
   },
 ];
 
-export default function RulesPage() {
+export default async function RulesPage() {
+  const copy = await fetchContent("rules");
+  const title = contentText(copy, "title", "House rules");
+  const rules = contentList(copy, "items", RULES);
+  const practical = contentList(copy, "practical", PRACTICAL);
+
   return (
     <section className="w-full px-4 py-12 sm:px-6 sm:py-16">
-      <h1 className="text-4xl uppercase tracking-tight sm:text-6xl">
-        House rules
-      </h1>
+      <h1 className="text-4xl uppercase tracking-tight sm:text-6xl">{title}</h1>
 
       <ol className="mt-12 border-t border-subtle">
         {rules.map((rule, i) => (
           <li key={rule.title} className="border-b border-subtle">
             <Reveal className="grid gap-3 py-8 sm:grid-cols-[6rem_1fr] sm:gap-8 sm:py-10">
               <p className="text-[11px] font-medium tracking-[0.2em] text-muted">
-                0{i + 1}
+                {String(i + 1).padStart(2, "0")}
               </p>
               <div>
                 <h2 className="text-3xl uppercase leading-none tracking-tight sm:text-5xl">
@@ -68,23 +74,25 @@ export default function RulesPage() {
         ))}
       </ol>
 
-      <div className="mt-20">
-        <Reveal>
-          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
-            The practical part
-          </p>
-        </Reveal>
-        <div className="mt-6 grid gap-10 sm:grid-cols-3">
-          {practical.map((item, i) => (
-            <Reveal key={item.title} delay={i * 0.08}>
-              <h2 className="text-xl uppercase tracking-tight sm:text-2xl">
-                {item.title}
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-muted">{item.body}</p>
-            </Reveal>
-          ))}
+      {practical.length > 0 && (
+        <div className="mt-20">
+          <Reveal>
+            <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
+              The practical part
+            </p>
+          </Reveal>
+          <div className="mt-6 grid gap-10 sm:grid-cols-3">
+            {practical.map((item, i) => (
+              <Reveal key={item.title} delay={i * 0.08}>
+                <h2 className="text-xl uppercase tracking-tight sm:text-2xl">
+                  {item.title}
+                </h2>
+                <p className="mt-3 text-sm leading-6 text-muted">{item.body}</p>
+              </Reveal>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }

@@ -15,7 +15,15 @@ export type NotificationType =
   | "comment_reply"
   | "broadcast"
   | "system";
-export type ContentKey = "about" | "contact-info" | "features";
+/** Keys declared by the backend content registry (`content.registry.ts`). */
+export type ContentKey =
+  | "features"
+  | "home-hero"
+  | "home-values"
+  | "home-join"
+  | "about"
+  | "contact-info"
+  | "rules";
 
 export interface SiteFeatures {
   shopEnabled: boolean;
@@ -237,7 +245,32 @@ export interface ContactMessage {
 export interface SiteContent {
   key: string;
   value: Record<string, unknown>;
-  updatedAt: string;
+  /** Null when the block has never been saved and is showing shipped copy. */
+  updatedAt: string | null;
+}
+
+export interface ContentListItem {
+  title: string;
+  body: string;
+}
+
+export type ContentFieldType = "text" | "textarea" | "boolean" | "list";
+
+export interface ContentField {
+  key: string;
+  label: string;
+  type: ContentFieldType;
+  default: string | boolean | ContentListItem[];
+  hint?: string;
+  maxLength?: number;
+}
+
+export interface ContentBlock {
+  key: ContentKey;
+  label: string;
+  group: string;
+  description?: string;
+  fields: ContentField[];
 }
 
 export interface AnalyticsOverview {
