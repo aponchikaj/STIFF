@@ -6,6 +6,7 @@ import { AnalyticsService } from '../analytics/analytics.service';
 import { AuthService } from '../auth/auth.service';
 import { TokenService } from '../auth/token.service';
 import { CartItem } from '../cart/cart-item.entity';
+import { CartService } from '../cart/cart.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
 
@@ -23,6 +24,7 @@ export class TasksService {
     private readonly notificationsService: NotificationsService,
     @InjectRepository(CartItem)
     private readonly cartRepo: Repository<CartItem>,
+    private readonly cartService: CartService,
   ) {}
 
   /** Hourly: purge expired/used auth tokens so the tables stay small. */
@@ -52,6 +54,22 @@ export class TasksService {
     }
   }
 
+  /**
+   * Daily 03:15: drop anonymous carts nobody came back to.
+   *
+   * A guest cart is only reachable through its cookie, and that cookie expires
+   * after 60 days — rows outliving it are unreachable by anyone.
+   */
+  @Cron('15 3 * * *')
+  async purgeStaleGuestCarts(): Promise<void> {
+    try {
+      const deleted = await this.cartService.purgeStaleGuestCarts(60);
+      if (deleted) this.logger.log(`Purged ${deleted} stale guest cart rows`);
+    } catch (err) {
+      this.logger.error('purgeStaleGuestCarts failed', this.stack(err));
+    }
+  }
+
   /** Daily 03:30: nudge users whose cart went quiet 3–4 days ago. */
   @Cron('30 3 * * *')
   async abandonedCartReminders(): Promise<void> {
@@ -63,6 +81,8 @@ export class TasksService {
         .createQueryBuilder('cart')
         .select('cart.userId', 'userId')
         .addSelect('MAX(cart.updatedAt)', 'last')
+        // Guest rows have no account to notify.
+        .where('cart.userId IS NOT NULL')
         .groupBy('cart.userId')
         .having('MAX(cart.updatedAt) BETWEEN :from AND :to', {
           from: fourDaysAgo,

@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AnalyticsModule } from '../analytics/analytics.module';
 import { AuthModule } from '../auth/auth.module';
 import { CartItem } from '../cart/cart-item.entity';
+import { CartModule } from '../cart/cart.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
 import { TasksService } from './tasks.service';
@@ -10,6 +11,7 @@ import { TasksService } from './tasks.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([CartItem]),
+    CartModule,
     AuthModule,
     UsersModule,
     AnalyticsModule,

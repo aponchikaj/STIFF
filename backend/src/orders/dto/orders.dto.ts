@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsEmail,
   IsIn,
   IsInt,
   IsObject,
@@ -70,6 +71,16 @@ export class CheckoutDto {
 
   @IsIn([...PAYMENT_METHODS])
   paymentMethod: (typeof PAYMENT_METHODS)[number];
+
+  /**
+   * Required when nobody is signed in — it is the only way to send the invoice
+   * and the only handle the buyer has on the order. Ignored for signed-in
+   * buyers, whose account email is used instead.
+   */
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(180)
+  email?: string;
 }
 
 export class BuyNowDto extends CheckoutDto {

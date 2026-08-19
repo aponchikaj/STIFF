@@ -45,7 +45,12 @@ export const CONTENT_BLOCKS: ContentBlock[] = [
     description:
       'When the shop is off, the clothing page, cart and every shop button disappear for visitors.',
     fields: [
-      { key: 'shopEnabled', label: 'Shop is open', type: 'boolean', default: true },
+      {
+        key: 'shopEnabled',
+        label: 'Shop is open',
+        type: 'boolean',
+        default: true,
+      },
     ],
   },
 
@@ -157,7 +162,13 @@ export const CONTENT_BLOCKS: ContentBlock[] = [
     label: 'About page',
     group: 'Pages',
     fields: [
-      { key: 'title', label: 'Headline', type: 'text', default: 'Nothing extra', maxLength: 120 },
+      {
+        key: 'title',
+        label: 'Headline',
+        type: 'text',
+        default: 'Nothing extra',
+        maxLength: 120,
+      },
       {
         key: 'body',
         label: 'Paragraph',

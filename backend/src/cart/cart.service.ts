@@ -4,10 +4,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Product } from '../products/product.entity';
 import { stockForSize } from '../products/stock';
 import { CartItem } from './cart-item.entity';
+import { CartOwner, ownerWhere } from './cart-owner';
 import { AddCartItemDto, UpdateCartItemDto } from './dto/cart.dto';
 
 export interface CartView {
@@ -22,11 +23,12 @@ export class CartService {
     private readonly cartRepo: Repository<CartItem>,
     @InjectRepository(Product)
     private readonly productRepo: Repository<Product>,
+    private readonly dataSource: DataSource,
   ) {}
 
-  async getCart(userId: string): Promise<CartView> {
+  async getCart(owner: CartOwner): Promise<CartView> {
     const items = await this.cartRepo.find({
-      where: { userId },
+      where: ownerWhere(owner),
       relations: { product: true },
       order: { createdAt: 'ASC' },
     });
@@ -37,7 +39,7 @@ export class CartService {
     return { items, subtotalCents };
   }
 
-  async addItem(userId: string, dto: AddCartItemDto): Promise<CartView> {
+  async addItem(owner: CartOwner, dto: AddCartItemDto): Promise<CartView> {
     const product = await this.productRepo.findOne({
       where: { id: dto.productId },
     });
@@ -51,8 +53,9 @@ export class CartService {
       }
     }
 
+    const where = ownerWhere(owner);
     const existing = await this.cartRepo.findOne({
-      where: { userId, productId: dto.productId, size },
+      where: { ...where, productId: dto.productId, size },
     });
     const newQuantity = (existing?.quantity ?? 0) + dto.quantity;
     const available = stockForSize(product, size);
@@ -66,23 +69,23 @@ export class CartService {
     } else {
       await this.cartRepo.save(
         this.cartRepo.create({
-          userId,
+          ...where,
           productId: dto.productId,
           quantity: dto.quantity,
           size,
         }),
       );
     }
-    return this.getCart(userId);
+    return this.getCart(owner);
   }
 
   async updateItem(
-    userId: string,
+    owner: CartOwner,
     itemId: string,
     dto: UpdateCartItemDto,
   ): Promise<CartView> {
     const item = await this.cartRepo.findOne({
-      where: { id: itemId, userId },
+      where: { id: itemId, ...ownerWhere(owner) },
       relations: { product: true },
     });
     if (!item) throw new NotFoundException('Cart item not found');
@@ -92,16 +95,80 @@ export class CartService {
     }
     item.quantity = dto.quantity;
     await this.cartRepo.save(item);
-    return this.getCart(userId);
+    return this.getCart(owner);
   }
 
-  async removeItem(userId: string, itemId: string): Promise<CartView> {
-    const result = await this.cartRepo.delete({ id: itemId, userId });
+  async removeItem(owner: CartOwner, itemId: string): Promise<CartView> {
+    const result = await this.cartRepo.delete({
+      id: itemId,
+      ...ownerWhere(owner),
+    });
     if (!result.affected) throw new NotFoundException('Cart item not found');
-    return this.getCart(userId);
+    return this.getCart(owner);
   }
 
-  async clear(userId: string): Promise<void> {
-    await this.cartRepo.delete({ userId });
+  async clear(owner: CartOwner): Promise<void> {
+    await this.cartRepo.delete(ownerWhere(owner));
+  }
+
+  /**
+   * Folds an anonymous cart into the account being signed into.
+   *
+   * Called on login and on register, so the thing someone added before making
+   * an account is still there afterwards. Quantities add up rather than
+   * overwrite, and are capped at what is actually in stock so the merge cannot
+   * produce a cart that fails at checkout.
+   *
+   * Runs in one transaction: a partial merge would silently lose rows.
+   */
+  async mergeGuestCart(guestId: string, userId: string): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(CartItem);
+      const guestItems = await repo.find({
+        where: { guestId },
+        relations: { product: true },
+      });
+      if (guestItems.length === 0) return;
+
+      for (const item of guestItems) {
+        const existing = await repo.findOne({
+          where: { userId, productId: item.productId, size: item.size },
+        });
+        const available = stockForSize(item.product, item.size);
+
+        if (existing) {
+          existing.quantity = Math.min(
+            existing.quantity + item.quantity,
+            Math.max(available, existing.quantity),
+          );
+          await repo.save(existing);
+          await repo.delete({ id: item.id });
+        } else {
+          // Re-own the row rather than copy it, so createdAt (and the cart's
+          // order) survives the merge.
+          item.userId = userId;
+          item.guestId = null;
+          item.quantity = Math.min(item.quantity, Math.max(available, 0));
+          if (item.quantity > 0) {
+            await repo.save(item);
+          } else {
+            await repo.delete({ id: item.id });
+          }
+        }
+      }
+    });
+  }
+
+  /** Housekeeping: anonymous carts nobody came back to. */
+  async purgeStaleGuestCarts(olderThanDays: number): Promise<number> {
+    const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
+    const result = await this.cartRepo
+      .createQueryBuilder()
+      .delete()
+      .where('"guestId" IS NOT NULL')
+      .andWhere('"userId" IS NULL')
+      .andWhere('"updatedAt" < :cutoff', { cutoff })
+      .execute();
+    return result.affected ?? 0;
   }
 }

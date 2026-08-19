@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { CartItem } from '../cart/cart-item.entity';
+import { CartOwner, ownerWhere } from '../cart/cart-owner';
 import { Paginated, paginate } from '../common/types/paginated';
 import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -42,6 +43,29 @@ interface LineToOrder {
   size: string;
 }
 
+/**
+ * Who is placing the order. A guest has no `users` row, so they get no
+ * in-app notifications and no order history — the invoice email and the order
+ * id are their only record, which is why the email is mandatory for them.
+ */
+export type Buyer =
+  | { kind: 'user'; user: User }
+  | { kind: 'guest'; guestId: string; email: string };
+
+function buyerEmail(buyer: Buyer): string {
+  return buyer.kind === 'user' ? buyer.user.email : buyer.email;
+}
+
+function buyerLabel(buyer: Buyer): string {
+  return buyer.kind === 'user' ? buyer.user.username : 'Guest';
+}
+
+function buyerCartOwner(buyer: Buyer): CartOwner {
+  return buyer.kind === 'user'
+    ? { kind: 'user', userId: buyer.user.id }
+    : { kind: 'guest', guestId: buyer.guestId };
+}
+
 @Injectable()
 export class OrdersService {
   constructor(
@@ -51,9 +75,9 @@ export class OrdersService {
     private readonly mailService: MailService,
   ) {}
 
-  async checkout(user: User, dto: CheckoutDto): Promise<Order> {
+  async checkout(buyer: Buyer, dto: CheckoutDto): Promise<Order> {
     const cartItems = await this.dataSource.getRepository(CartItem).find({
-      where: { userId: user.id },
+      where: ownerWhere(buyerCartOwner(buyer)),
       relations: { product: true },
     });
     if (cartItems.length === 0) {
@@ -66,17 +90,12 @@ export class OrdersService {
       size: item.size,
     }));
 
-    const order = await this.placeOrder(user, lines, dto, true);
-    await this.notifyStatus(order, false);
-    void this.mailService.sendOrderInvoice(user.email, order);
-    void this.mailService.sendNewOrderAlert(order, {
-      username: user.username,
-      email: user.email,
-    });
+    const order = await this.placeOrder(buyer, lines, dto, true);
+    await this.announce(buyer, order);
     return order;
   }
 
-  async buyNow(user: User, dto: BuyNowDto): Promise<Order> {
+  async buyNow(buyer: Buyer, dto: BuyNowDto): Promise<Order> {
     const product = await this.dataSource.getRepository(Product).findOne({
       where: { id: dto.productId },
     });
@@ -91,22 +110,32 @@ export class OrdersService {
     }
 
     const order = await this.placeOrder(
-      user,
+      buyer,
       [{ product, quantity: dto.quantity, size }],
       dto,
       false,
     );
-    await this.notifyStatus(order, false);
-    void this.mailService.sendOrderInvoice(user.email, order);
-    void this.mailService.sendNewOrderAlert(order, {
-      username: user.username,
-      email: user.email,
-    });
+    await this.announce(buyer, order);
     return order;
   }
 
+  /**
+   * Tell everyone who needs to know. In-app notification only for signed-in
+   * buyers — a guest has no account to receive one — but both kinds get the
+   * invoice, and the shop always gets its new-order alert.
+   */
+  private async announce(buyer: Buyer, order: Order): Promise<void> {
+    if (buyer.kind === 'user') await this.notifyStatus(order, false);
+    // Fire-and-forget; MailService logs failures internally.
+    void this.mailService.sendOrderInvoice(buyerEmail(buyer), order);
+    void this.mailService.sendNewOrderAlert(order, {
+      username: buyerLabel(buyer),
+      email: buyerEmail(buyer),
+    });
+  }
+
   private async placeOrder(
-    user: User,
+    buyer: Buyer,
     lines: LineToOrder[],
     dto: CheckoutDto,
     clearCart: boolean,
@@ -150,7 +179,8 @@ export class OrdersService {
 
       const order = await manager.save(
         manager.create(Order, {
-          userId: user.id,
+          userId: buyer.kind === 'user' ? buyer.user.id : null,
+          guestEmail: buyer.kind === 'guest' ? buyer.email : null,
           status: 'pending',
           totalCents: subtotalCents + shippingCents,
           currency: 'gel',
@@ -177,7 +207,7 @@ export class OrdersService {
       );
 
       if (clearCart) {
-        await manager.delete(CartItem, { userId: user.id });
+        await manager.delete(CartItem, ownerWhere(buyerCartOwner(buyer)));
       }
 
       const withItems = await manager.findOne(Order, {
@@ -278,12 +308,23 @@ export class OrdersService {
     );
   }
 
-  async getOne(id: string, user: User): Promise<Order> {
+  /**
+   * `user` is null for a visitor who is not signed in. They may only read a
+   * guest order — one with no account behind it — and only by presenting its
+   * uuid, which is the capability. An order that belongs to an account is never
+   * readable this way, so a leaked id cannot expose someone's history.
+   */
+  async getOne(id: string, user: User | null): Promise<Order> {
     const order = await this.orderRepo.findOne({
       where: { id },
       relations: { items: true },
     });
     if (!order) throw new NotFoundException('Order not found');
+
+    if (!user) {
+      if (order.userId !== null) throw new NotFoundException('Order not found');
+      return order;
+    }
     if (order.userId !== user.id && user.role !== 'admin') {
       throw new ForbiddenException('Not your order');
     }

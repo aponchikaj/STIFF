@@ -56,7 +56,9 @@ export class ContentService {
 
   /** Every block at once — one request for the admin form and the site shell. */
   async getAll(): Promise<ResolvedContent[]> {
-    const rows = await this.contentRepo.find({ where: { key: In(CONTENT_KEYS) } });
+    const rows = await this.contentRepo.find({
+      where: { key: In(CONTENT_KEYS) },
+    });
     const byKey = new Map(rows.map((row) => [row.key, row]));
     return CONTENT_BLOCKS.map((block) => {
       const row = byKey.get(block.key);
@@ -82,7 +84,10 @@ export class ContentService {
       await this.contentRepo.save(existing);
     } else {
       await this.contentRepo.save(
-        this.contentRepo.create({ key, value: { ...defaultsFor(block), ...clean } }),
+        this.contentRepo.create({
+          key,
+          value: { ...defaultsFor(block), ...clean },
+        }),
       );
     }
     return this.get(key);
@@ -145,7 +150,9 @@ export class ContentService {
     const trimmed = raw.trim();
     const max = field.maxLength ?? 5000;
     if (trimmed.length > max) {
-      throw new BadRequestException(`${where} is longer than ${max} characters`);
+      throw new BadRequestException(
+        `${where} is longer than ${max} characters`,
+      );
     }
     return trimmed;
   }

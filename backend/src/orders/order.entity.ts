@@ -41,6 +41,14 @@ export class Order {
   @Column({ type: 'uuid', nullable: true })
   userId: string | null;
 
+  /**
+   * Where to send the invoice when nobody signed in. Exactly one of `userId`
+   * and `guestEmail` is always set — `CHK_orders_reachable` enforces it, so an
+   * order can never end up with no way to reach the buyer.
+   */
+  @Column({ type: 'varchar', length: 180, nullable: true })
+  guestEmail: string | null;
+
   @Index()
   @Column({
     type: 'enum',

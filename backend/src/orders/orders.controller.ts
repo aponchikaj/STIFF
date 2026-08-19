@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,12 +9,21 @@ import {
   Patch,
   Post,
   Query,
+  Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { Request, Response } from 'express';
+import {
+  clearGuestCookie,
+  newGuestId,
+  readGuestId,
+  setGuestCookie,
+} from '../cart/cart-owner';
+import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
-import { VerifiedGuard } from '../common/guards/verified.guard';
-import { User } from '../users/user.entity';
+import { VerifiedOrGuestGuard } from '../common/guards/verified-or-guest.guard';
+import type { AuthenticatedRequest } from '../common/types/authenticated-request';
 import {
   BuyNowDto,
   CheckoutDto,
@@ -21,22 +31,64 @@ import {
   UpdateOrderDateDto,
   UpdateOrderStatusDto,
 } from './dto/orders.dto';
-import { OrdersService } from './orders.service';
+import { Buyer, OrdersService } from './orders.service';
 
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
+  @Public()
   @Post('checkout')
-  @UseGuards(VerifiedGuard)
-  checkout(@CurrentUser() user: User, @Body() dto: CheckoutDto) {
-    return this.ordersService.checkout(user, dto);
+  @UseGuards(VerifiedOrGuestGuard)
+  async checkout(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+    @Body() dto: CheckoutDto,
+  ) {
+    const buyer = this.buyer(req, dto.email);
+    const order = await this.ordersService.checkout(buyer, dto);
+    // The cart it was built from is gone, so the cookie has nothing left to
+    // point at. A fresh one is minted the next time something is added.
+    if (buyer.kind === 'guest') clearGuestCookie(res);
+    return order;
   }
 
+  @Public()
   @Post('buy-now')
-  @UseGuards(VerifiedGuard)
-  buyNow(@CurrentUser() user: User, @Body() dto: BuyNowDto) {
-    return this.ordersService.buyNow(user, dto);
+  @UseGuards(VerifiedOrGuestGuard)
+  buyNow(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+    @Body() dto: BuyNowDto,
+  ) {
+    // Buy-now never touches the cart, so a guest without a cookie still needs
+    // an identity for the duration of the call.
+    const buyer = this.buyer(req, dto.email, res);
+    return this.ordersService.buyNow(buyer, dto);
+  }
+
+  /** Signed-in buyer, or a guest identified by cart cookie + typed email. */
+  private buyer(
+    req: Request,
+    email: string | undefined,
+    res?: Response,
+  ): Buyer {
+    const user = (req as AuthenticatedRequest).user;
+    if (user) return { kind: 'user', user };
+
+    const trimmed = email?.trim();
+    if (!trimmed) {
+      throw new BadRequestException(
+        'Enter an email so we can send your order confirmation.',
+      );
+    }
+
+    let guestId = readGuestId(req);
+    if (!guestId) {
+      guestId = newGuestId();
+      if (res) setGuestCookie(res, guestId);
+    }
+    return { kind: 'guest', guestId, email: trimmed };
   }
 
   @Get()
@@ -45,8 +97,17 @@ export class OrdersController {
     return this.ordersService.adminList(query);
   }
 
+  /**
+   * Public so a guest can see their receipt.
+   *
+   * The order id is a v4 uuid — unguessable and not enumerable — and that is
+   * the only key a guest has, exactly like the order-status links every other
+   * shop sends. A signed-in visitor is still held to owning the order.
+   */
+  @Public()
   @Get(':id')
-  getOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: User) {
+  getOne(@Param('id', ParseUUIDPipe) id: string, @Req() req: Request) {
+    const user = (req as AuthenticatedRequest).user ?? null;
     return this.ordersService.getOne(id, user);
   }
 
