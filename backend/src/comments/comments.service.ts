@@ -10,6 +10,7 @@ import { Paginated, paginate } from '../common/types/paginated';
 import { TargetType } from '../common/types/target-type';
 import { GalleryItem } from '../gallery/gallery-item.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { FitService } from '../products/fit.service';
 import { Product } from '../products/product.entity';
 import { User } from '../users/user.entity';
 import { Comment } from './comment.entity';
@@ -27,12 +28,25 @@ export interface PublicComment {
   body: string;
   parentId: string | null;
   user: { id: string; username: string };
+  /**
+   * This person owns a paid order containing the product being commented on.
+   *
+   * Only ever true on product comments; a gallery shot has nothing to buy.
+   * It changes how the whole thread reads, which is the point — it is a cheap
+   * join against `order_items` and it is the difference between an opinion and
+   * a report.
+   */
+  verifiedBuyer?: boolean;
   replies?: PublicComment[];
   createdAt: Date;
   updatedAt: Date;
 }
 
-function toPublicComment(comment: Comment, withReplies = false): PublicComment {
+function toPublicComment(
+  comment: Comment,
+  withReplies = false,
+  buyers?: Set<string>,
+): PublicComment {
   return {
     id: comment.id,
     targetType: comment.targetType,
@@ -40,11 +54,12 @@ function toPublicComment(comment: Comment, withReplies = false): PublicComment {
     body: comment.body,
     parentId: comment.parentId,
     user: { id: comment.user.id, username: comment.user.username },
+    ...(buyers ? { verifiedBuyer: buyers.has(comment.userId) } : {}),
     ...(withReplies
       ? {
           replies: (comment.replies ?? [])
             .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-            .map((r) => toPublicComment(r)),
+            .map((r) => toPublicComment(r, false, buyers)),
         }
       : {}),
     createdAt: comment.createdAt,
@@ -62,6 +77,7 @@ export class CommentsService {
     @InjectRepository(GalleryItem)
     private readonly galleryRepo: Repository<GalleryItem>,
     private readonly notificationsService: NotificationsService,
+    private readonly fitService: FitService,
   ) {}
 
   async list(query: ListCommentsQueryDto): Promise<Paginated<PublicComment>> {
@@ -76,8 +92,22 @@ export class CommentsService {
       skip: query.skip,
       take: query.pageSize,
     });
+    // One query for the whole page. Asking per comment would be N+1 against
+    // the largest table in the shop.
+    const buyers =
+      query.targetType === 'product'
+        ? await this.fitService.buyersAmong(query.targetId, [
+            ...new Set(
+              items.flatMap((c) => [
+                c.userId,
+                ...(c.replies ?? []).map((r) => r.userId),
+              ]),
+            ),
+          ])
+        : undefined;
+
     return paginate(
-      items.map((c) => toPublicComment(c, true)),
+      items.map((c) => toPublicComment(c, true, buyers)),
       total,
       query.page,
       query.pageSize,

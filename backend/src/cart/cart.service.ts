@@ -8,7 +8,7 @@ import { DataSource, Repository } from 'typeorm';
 import { Product } from '../products/product.entity';
 import { ProductVariant } from '../products/product-variant.entity';
 import { availability } from '../products/preorder';
-import { ONE_SIZE, priceForSize } from '../products/stock';
+import { NO_COLOUR, ONE_SIZE, priceForSize } from '../products/stock';
 import { CartItem } from './cart-item.entity';
 import { CartOwner, ownerWhere } from './cart-owner';
 import { AddCartItemDto, UpdateCartItemDto } from './dto/cart.dto';
@@ -32,6 +32,9 @@ export function unitPriceFor(item: CartItem): number {
       variants: item.variant ? [item.variant] : [],
     },
     item.size,
+    // The line's own colour, not the default: looking up by size alone would
+    // miss a colourway variant entirely and quietly drop its price delta.
+    item.variant?.color ?? NO_COLOUR,
   );
 }
 
@@ -71,13 +74,24 @@ export class CartService {
       throw new NotFoundException('Product not found');
     }
 
-    const size = dto.size ?? ONE_SIZE;
-    const variant = await this.variantRepo.findOne({
-      where: { productId: dto.productId, size },
-    });
+    // `variantId` wins when the client knows it — the storefront always does.
+    // Falling back to (size, colour) keeps older clients, and `buy now` links,
+    // working.
+    const variant = dto.variantId
+      ? await this.variantRepo.findOne({
+          where: { id: dto.variantId, productId: dto.productId },
+        })
+      : await this.variantRepo.findOne({
+          where: {
+            productId: dto.productId,
+            size: dto.size ?? ONE_SIZE,
+            color: dto.color ?? NO_COLOUR,
+          },
+        });
     if (!variant || !variant.isActive) {
-      throw new BadRequestException('Size not available for this product');
+      throw new BadRequestException('That option is not available');
     }
+    const size = variant.size;
 
     // Real stock first, then whatever pre-order capacity is left — see
     // `products/preorder.ts` for why 0 means none rather than unlimited.
@@ -87,8 +101,10 @@ export class CartService {
     }
 
     const where = ownerWhere(owner);
+    // Keyed on the variant, not (product, size): two colourways of the same
+    // size are two lines, which is what `UQ_cart_items_*_variant` enforces.
     const existing = await this.cartRepo.findOne({
-      where: { ...where, productId: dto.productId, size },
+      where: { ...where, variantId: variant.id },
     });
     const newQuantity = (existing?.quantity ?? 0) + dto.quantity;
     if (offer.max < newQuantity) {
@@ -175,9 +191,11 @@ export class CartService {
       if (guestItems.length === 0) return;
 
       for (const item of guestItems) {
-        const existing = await repo.findOne({
-          where: { userId, productId: item.productId, size: item.size },
-        });
+        // A pre-variants row carries no variantId; matching on null would
+        // fold it into an unrelated line, so it merges as its own row.
+        const existing = item.variantId
+          ? await repo.findOne({ where: { userId, variantId: item.variantId } })
+          : null;
         const offer = item.variant
           ? availability(item.variant, item.product)
           : null;

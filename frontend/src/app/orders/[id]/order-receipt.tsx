@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { cartApi, returnsApi } from "@/lib/api";
 import type { Order, ReturnStatus } from "@/lib/api";
-import { paymentLabel, SHIPPING_LABELS } from "@/lib/checkout";
+import { SHIPPING_LABELS, paymentLabel, variantLabel } from "@/lib/checkout";
 import type { ShippingMethod } from "@/lib/checkout";
 import { formatDate, formatPrice, shortId } from "@/lib/format";
 import { errorMessage, useAsync } from "@/lib/hooks";
@@ -183,7 +183,9 @@ export function OrderReceipt({ id }: { id: string }) {
                 {item.productName}
               </p>
               <p className="text-xs text-muted">
-                {item.size ? `${item.size} · ` : ""}
+                {variantLabel(item.color, item.size)
+                  ? `${variantLabel(item.color, item.size)} · `
+                  : ""}
                 {item.quantity} × {formatPrice(item.unitPriceCents)}
               </p>
             </div>
@@ -348,7 +350,10 @@ function ReturnForm({
                 {item.productName}
               </span>
               <span className="text-xs text-muted">
-                {item.size ? `${item.size} · ` : ""}ordered {item.quantity}
+                {variantLabel(item.color, item.size)
+                  ? `${variantLabel(item.color, item.size)} · `
+                  : ""}
+                ordered {item.quantity}
               </span>
             </label>
             <input

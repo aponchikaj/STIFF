@@ -80,3 +80,18 @@ export function PlusIcon(props: { className?: string }) {
     </svg>
   );
 }
+
+/**
+ * Bookmark, not a heart.
+ *
+ * The heart already means "like" on this site — a public reaction with a count
+ * — and using it again for a private save would say the two are the same
+ * thing. A bookmark reads as "keep this for me", which is what it is.
+ */
+export function BookmarkIcon(props: { className?: string; filled?: boolean }) {
+  return (
+    <svg {...base(props)} fill={props.filled ? "currentColor" : "none"}>
+      <path d="M6.5 4h11a1 1 0 0 1 1 1v15l-6.5-4-6.5 4V5a1 1 0 0 1 1-1Z" />
+    </svg>
+  );
+}

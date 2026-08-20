@@ -55,6 +55,10 @@ export class OrderItem {
   @Column({ type: 'varchar', default: '' })
   size: string;
 
+  /** Snapshot of the colourway, for the same reason `size` is one. */
+  @Column({ type: 'varchar', length: 40, default: '' })
+  color: string;
+
   /**
    * This line was a pre-order when it was placed.
    *

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { adminApi, galleryApi } from "@/lib/api";
-import type { GalleryItem } from "@/lib/api";
+import { adminApi, galleryApi, productsApi } from "@/lib/api";
+import type { GalleryItem, Product } from "@/lib/api";
 import { errorMessage, useAsync } from "@/lib/hooks";
 import { asRotation, imageUrl } from "@/lib/image";
 import { GalleryUpload } from "./gallery-upload";
@@ -41,6 +41,13 @@ export function GalleryTab() {
     () => galleryApi.listGallery({ pageSize: 50, includeArchived: true }),
     [],
   );
+  // Fetched once for the whole archive rather than per shot — the picker is
+  // opened on one item at a time, but the catalogue is the same list for all
+  // of them.
+  const { data: catalogue } = useAsync(
+    () => productsApi.listProducts({ pageSize: 100, sort: "newest" }),
+    [],
+  );
   const [note, setNote] = useState<string | null>(null);
 
   return (
@@ -57,6 +64,7 @@ export function GalleryTab() {
         {data && (
           <ArchiveList
             items={data.items}
+            products={catalogue?.items ?? []}
             onChanged={reload}
             onError={setNote}
           />
@@ -73,10 +81,12 @@ export function GalleryTab() {
  */
 function ArchiveList({
   items,
+  products,
   onChanged,
   onError,
 }: {
   items: GalleryItem[];
+  products: Product[];
   onChanged: () => void;
   onError: (message: string) => void;
 }) {
@@ -202,6 +212,11 @@ function ArchiveList({
                 ↻
               </button>
               <AltTextButton item={item} onChanged={onChanged} onError={onError} />
+              <LinkedProductsButton
+                item={item}
+                products={products}
+                onError={onError}
+              />
               <button
                 type="button"
                 onClick={async () => {
@@ -297,6 +312,118 @@ function AltTextButton({
       />
       <div className="flex items-center gap-3">
         <button type="submit" disabled={saving} className={btnGhostSm}>
+          {saving ? "Saving…" : "Save"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          className={btnGhostSm}
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * Which pieces are worn in a shot.
+ *
+ * The links drive "Seen in the archive" on the product page and "Shop the
+ * look" here, so tagging a shoot once pays on both sides. The current links
+ * are fetched on open rather than carried in the list response — the archive
+ * grid does not otherwise need them, and it is 50 shots per page.
+ */
+function LinkedProductsButton({
+  item,
+  products,
+  onError,
+}: {
+  item: GalleryItem;
+  products: Product[];
+  onError: (message: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [selected, setSelected] = useState<string[] | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [count, setCount] = useState<number | null>(null);
+
+  async function open() {
+    setEditing(true);
+    try {
+      const detail = await galleryApi.getGalleryItem(item.slug);
+      const ids = (detail.products ?? []).map((p) => p.id);
+      setSelected(ids);
+      setCount(ids.length);
+    } catch (err) {
+      onError(errorMessage(err));
+      setSelected([]);
+    }
+  }
+
+  if (!editing) {
+    return (
+      <button type="button" onClick={() => void open()} className={btnGhostSm}>
+        {count === null ? "Pieces" : `Pieces (${count})`}
+      </button>
+    );
+  }
+
+  return (
+    <form
+      className="flex w-full flex-col gap-2"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (!selected) return;
+        setSaving(true);
+        try {
+          await adminApi.updateGalleryItem(item.id, { productIds: selected });
+          setCount(selected.length);
+          setEditing(false);
+        } catch (err) {
+          onError(errorMessage(err));
+        } finally {
+          setSaving(false);
+        }
+      }}
+    >
+      {selected === null ? (
+        <p className="text-[10px] uppercase tracking-[0.15em] text-muted">
+          Loading…
+        </p>
+      ) : products.length === 0 ? (
+        <p className="text-[10px] uppercase tracking-[0.15em] text-muted">
+          No products to link yet.
+        </p>
+      ) : (
+        <ul className="max-h-40 overflow-y-auto border border-subtle p-2">
+          {products.map((product) => (
+            <li key={product.id}>
+              <label className="flex items-center gap-2 py-0.5 text-[11px]">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(product.id)}
+                  onChange={(e) =>
+                    setSelected((current) =>
+                      e.target.checked
+                        ? [...(current ?? []), product.id]
+                        : (current ?? []).filter((id) => id !== product.id),
+                    )
+                  }
+                  className="size-3.5"
+                />
+                <span className="truncate">{product.name}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={saving || selected === null}
+          className={btnGhostSm}
+        >
           {saving ? "Saving…" : "Save"}
         </button>
         <button

@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Comment } from '../comments/comment.entity';
+import { FitService } from '../products/fit.service';
 import { Reaction } from '../reactions/reaction.entity';
 import { User } from '../users/user.entity';
 import { GalleryItem } from './gallery-item.entity';
@@ -95,6 +96,15 @@ describe('GalleryService', () => {
         {
           provide: getRepositoryToken(Reaction),
           useValue: { delete: jest.fn(), findOne: jest.fn() },
+        },
+        {
+          // Only reached for the product links on a decorated item, which
+          // these cases do not assert on.
+          provide: FitService,
+          useValue: {
+            productsFor: jest.fn().mockResolvedValue([]),
+            setProductsFor: jest.fn(),
+          },
         },
       ],
     }).compile();

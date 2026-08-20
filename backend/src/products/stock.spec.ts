@@ -1,6 +1,10 @@
 import {
+  NO_COLOUR,
   ONE_SIZE,
+  colourways,
   findVariant,
+  hasColourways,
+  normalizeHex,
   isSoldOut,
   normalizeVariants,
   priceForSize,
@@ -8,6 +12,7 @@ import {
   sellableSizes,
   stockForSize,
   sumStock,
+  variantKey,
   type VariantLike,
 } from './stock';
 
@@ -200,6 +205,148 @@ describe('stock helpers', () => {
 
     it('returns nothing for a non-array payload', () => {
       expect(normalizeVariants(undefined)).toEqual([]);
+    });
+  });
+
+  describe('colourways', () => {
+    const jacket = {
+      priceCents: 40000,
+      variants: [
+        { color: 'Black', colorHex: '#111111', size: 'S', stock: 2 },
+        { color: 'Black', colorHex: '#111111', size: 'M', stock: 0 },
+        { color: 'Bone', colorHex: '#e8e2d5', size: 'S', stock: 4 },
+        {
+          color: 'Bone',
+          colorHex: '#e8e2d5',
+          size: 'M',
+          stock: 1,
+          priceDeltaCents: 500,
+        },
+      ],
+    };
+
+    it('reads stock for one colour and size, not the first size that matches', () => {
+      // The bug this guards: looking up 'S' alone finds Black and reports 2
+      // units when the shopper is standing in front of the Bone one.
+      expect(stockForSize(jacket, 'S', 'Black')).toBe(2);
+      expect(stockForSize(jacket, 'S', 'Bone')).toBe(4);
+    });
+
+    it('prices the colourway that was picked', () => {
+      expect(priceForSize(jacket, 'M', 'Bone')).toBe(40500);
+      expect(priceForSize(jacket, 'M', 'Black')).toBe(40000);
+    });
+
+    it('finds nothing when a colour is required but not given', () => {
+      // Not a silent fallback to the first colour: no colour means no choice
+      // has been made yet, and nothing is buyable until one is.
+      expect(findVariant(jacket, 'S')).toBeNull();
+      expect(stockForSize(jacket, 'S')).toBe(0);
+    });
+
+    it('groups colours in variant order with their swatch and total stock', () => {
+      expect(colourways(jacket)).toEqual([
+        { color: 'Black', colorHex: '#111111', stock: 2, isActive: true },
+        { color: 'Bone', colorHex: '#e8e2d5', stock: 5, isActive: true },
+      ]);
+    });
+
+    it('scopes the size list to one colour', () => {
+      const partial = {
+        variants: [
+          { color: 'Black', size: 'S', stock: 1 },
+          { color: 'Black', size: 'L', stock: 1 },
+          { color: 'Bone', size: 'S', stock: 1 },
+        ],
+      };
+      expect(sellableSizes(partial, 'Black')).toEqual(['S', 'L']);
+      expect(sellableSizes(partial, 'Bone')).toEqual(['S']);
+    });
+
+    it('treats a colourless product exactly as it did before colourways', () => {
+      const tee = { priceCents: 9000, variants: [{ size: 'S', stock: 3 }] };
+      expect(hasColourways(tee)).toBe(false);
+      expect(stockForSize(tee, 'S')).toBe(3);
+      expect(colourways(tee)).toEqual([
+        { color: NO_COLOUR, colorHex: null, stock: 3, isActive: true },
+      ]);
+    });
+
+    it('marks a colour inactive only when every size in it is retired', () => {
+      const retired = {
+        variants: [
+          { color: 'Bone', size: 'S', stock: 1, isActive: false },
+          { color: 'Bone', size: 'M', stock: 1, isActive: false },
+          { color: 'Black', size: 'S', stock: 1, isActive: false },
+          { color: 'Black', size: 'M', stock: 1, isActive: true },
+        ],
+      };
+      expect(colourways(retired).map((c) => [c.color, c.isActive])).toEqual([
+        ['Bone', false],
+        ['Black', true],
+      ]);
+    });
+  });
+
+  describe('normalizeHex', () => {
+    it('accepts both lengths and normalises to lowercase #rrggbb', () => {
+      expect(normalizeHex('#FFF')).toBe('#ffffff');
+      expect(normalizeHex('e8e2d5')).toBe('#e8e2d5');
+      expect(normalizeHex('  #E8E2D5  ')).toBe('#e8e2d5');
+    });
+
+    it('is null for anything the CHECK constraint would reject', () => {
+      // Null rather than a throw: a bad swatch should cost the chip, not the
+      // whole product save.
+      expect(normalizeHex('bone')).toBeNull();
+      expect(normalizeHex('#12345')).toBeNull();
+      expect(normalizeHex('')).toBeNull();
+      expect(normalizeHex(undefined)).toBeNull();
+    });
+  });
+
+  describe('normalizeVariants with colour', () => {
+    it('keeps one row per colour and size rather than collapsing on size', () => {
+      const rows = normalizeVariants([
+        { color: 'Black', size: 'S', stock: 1 },
+        { color: 'Bone', size: 'S', stock: 2 },
+      ]);
+      expect(rows).toHaveLength(2);
+      expect(rows.map((v) => [v.color, v.stock])).toEqual([
+        ['Black', 1],
+        ['Bone', 2],
+      ]);
+    });
+
+    it('still collapses a genuine duplicate pair onto the last value', () => {
+      const rows = normalizeVariants([
+        { color: 'Bone', size: 'S', stock: 1 },
+        { color: 'Bone', size: 'S', stock: 9 },
+      ]);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].stock).toBe(9);
+    });
+
+    it('trims the colour and normalises its swatch', () => {
+      const [row] = normalizeVariants([
+        { color: '  Bone  ', colorHex: 'E8E2D5', size: 'S', stock: 1 },
+      ]);
+      expect(row.color).toBe('Bone');
+      expect(row.colorHex).toBe('#e8e2d5');
+    });
+
+    it('drops empty entries from a colourway image list', () => {
+      const [row] = normalizeVariants([
+        { color: 'Bone', size: 'S', stock: 1, images: ['a.jpg', ''] },
+      ]);
+      expect(row.images).toEqual(['a.jpg']);
+    });
+
+    it('cannot be tricked into a key collision by a punctuated label', () => {
+      // The separator is a NUL, which no varchar column can hold — so no
+      // typed-in label can forge a collision with another pair.
+      expect(variantKey('Bone', 'S')).not.toBe(variantKey('Bone S', ''));
+      expect(variantKey('Bone-S', '')).not.toBe(variantKey('Bone', '-S'));
     });
   });
 });

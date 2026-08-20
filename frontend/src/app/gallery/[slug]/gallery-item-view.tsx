@@ -11,6 +11,7 @@ import { useAsync } from "@/lib/hooks";
 import { imageSrcSet, imageUrl, DETAIL_WIDTHS, orientedSize } from "@/lib/image";
 import { CommentsSection } from "@/components/comments-section";
 import { Lightbox } from "@/components/lightbox";
+import { ProductCard } from "@/components/product-card";
 import { ReactionButtons } from "@/components/reaction-buttons";
 import { ShareButton } from "@/components/share-button";
 import { galleryShareSubject } from "@/lib/share-subject";
@@ -156,6 +157,21 @@ export function GalleryItemView({
           </div>
         </div>
       </section>
+
+      {(item.products?.length ?? 0) > 0 && (
+        <section className="mx-auto w-full max-w-5xl px-4 pb-8 sm:px-6">
+          <h2 className="text-2xl uppercase tracking-tight sm:text-4xl">
+            Worn here
+          </h2>
+          <ul className="mt-6 grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+            {item.products.map((product) => (
+              <li key={product.id}>
+                <ProductCard product={product} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <Filmstrip currentId={item.id} position={item.position} />
 

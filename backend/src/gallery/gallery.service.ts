@@ -8,6 +8,8 @@ import { Repository } from 'typeorm';
 import { Comment } from '../comments/comment.entity';
 import { Paginated, paginate } from '../common/types/paginated';
 import { padNumber, slugify } from '../common/utils/slug';
+import { FitService } from '../products/fit.service';
+import { Product } from '../products/product.entity';
 import { Reaction, ReactionType } from '../reactions/reaction.entity';
 import { User } from '../users/user.entity';
 import {
@@ -33,6 +35,8 @@ export type GalleryNeighbour = Pick<
 
 export type GalleryItemWithReaction = GalleryItem & {
   myReaction: ReactionType | null;
+  /** The pieces worn in this shot — "shop the look", the other direction. */
+  products: Product[];
   /** 1-based position in the public archive ordering. */
   position: number;
   total: number;
@@ -63,6 +67,7 @@ export class GalleryService {
     private readonly commentRepo: Repository<Comment>,
     @InjectRepository(Reaction)
     private readonly reactionRepo: Repository<Reaction>,
+    private readonly fitService: FitService,
   ) {}
 
   async list(
@@ -130,14 +135,15 @@ export class GalleryService {
       myReaction = reaction?.type ?? null;
     }
 
-    const [position, total, prev, next] = await Promise.all([
+    const [position, total, prev, next, products] = await Promise.all([
       this.positionOf(item),
       this.galleryRepo.count({ where: { isArchived: false } }),
       this.neighbour(item, 'prev'),
       this.neighbour(item, 'next'),
+      this.fitService.productsFor(id),
     ]);
 
-    return { ...item, myReaction, position, total, prev, next };
+    return { ...item, myReaction, position, total, prev, next, products };
   }
 
   /**
@@ -217,7 +223,11 @@ export class GalleryService {
       rotation: dto.rotation ?? 0,
       sortOrder: dto.sortOrder ?? 0,
     });
-    return this.galleryRepo.save(item);
+    const saved = await this.galleryRepo.save(item);
+    if (dto.productIds !== undefined) {
+      await this.fitService.setProductsFor(saved.id, dto.productIds);
+    }
+    return saved;
   }
 
   /**
@@ -329,7 +339,12 @@ export class GalleryService {
     if (dto.sortOrder !== undefined) item.sortOrder = dto.sortOrder;
     if (dto.isArchived !== undefined) item.isArchived = dto.isArchived;
 
-    return this.galleryRepo.save(item);
+    const saved = await this.galleryRepo.save(item);
+    // Absent leaves the links alone; an empty array clears them.
+    if (dto.productIds !== undefined) {
+      await this.fitService.setProductsFor(id, dto.productIds);
+    }
+    return saved;
   }
 
   async remove(id: string): Promise<void> {
