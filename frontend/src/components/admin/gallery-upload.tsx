@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { adminApi } from "@/lib/api";
 import type { UploadedImage } from "@/lib/api";
 import { errorMessage } from "@/lib/hooks";
-import { imageUrl } from "@/lib/image";
+import { asRotation, imageUrl } from "@/lib/image";
 import { btnGhostSm, btnSolidSm, inputCls, labelCls, Spinner } from "../ui";
 
 const ACCEPT = "image/jpeg,image/png,image/webp";
@@ -25,6 +25,16 @@ interface Draft {
   title: string;
   altText: string;
   description: string;
+  /**
+   * Clockwise degrees applied at delivery.
+   *
+   * Pre-filled from the file's EXIF orientation, because phones write the
+   * sensor's readout and set a tag rather than rotating pixels — and until now
+   * every sideways shot was published sideways and turned by hand afterwards.
+   * The preview below shows exactly what will be published, so a wrong guess
+   * is one click from fixed rather than a surprise on the live site.
+   */
+  rotation: number;
 }
 
 let counter = 0;
@@ -41,7 +51,15 @@ function draftFrom(file: File): Draft {
     title: "",
     altText: "",
     description: "",
+    rotation: 0,
   };
+}
+
+const TURNS = [0, 90, 180, 270] as const;
+
+function turned(rotation: number, direction: 1 | -1): number {
+  const current = asRotation(rotation);
+  return TURNS[(TURNS.indexOf(current) + direction + 4) % 4];
 }
 
 function formatBytes(bytes: number): string {
@@ -84,7 +102,12 @@ export function GalleryUpload({ onPublished }: { onPublished: () => void }) {
     async (draft: Draft) => {
       try {
         const image = await adminApi.uploadImage(draft.file);
-        patch(draft.key, { status: "ready", image, error: null });
+        patch(draft.key, {
+          status: "ready",
+          image,
+          error: null,
+          rotation: asRotation(image.rotation),
+        });
       } catch (err) {
         patch(draft.key, { status: "failed", error: errorMessage(err) });
       }
@@ -154,6 +177,7 @@ export function GalleryUpload({ onPublished }: { onPublished: () => void }) {
           imageUrl: d.image!.url,
           width: d.image!.width ?? undefined,
           height: d.image!.height ?? undefined,
+          rotation: d.rotation,
         })),
       );
       const publishedKeys = new Set(ready.map((d) => d.key));
@@ -274,7 +298,12 @@ export function GalleryUpload({ onPublished }: { onPublished: () => void }) {
                   <img
                     src={
                       draft.image
-                        ? imageUrl(draft.image.url, 192)
+                        ? imageUrl(
+                            draft.image.url,
+                            192,
+                            "tile",
+                            asRotation(draft.rotation),
+                          )
                         : draft.localPreview
                     }
                     alt=""
@@ -298,13 +327,48 @@ export function GalleryUpload({ onPublished }: { onPublished: () => void }) {
                     {draft.image?.width && draft.image.height
                       ? ` · ${draft.image.width}×${draft.image.height}`
                       : ""}
+                    {draft.rotation !== 0 ? ` · ${draft.rotation}°` : ""}
                   </p>
+                  {draft.status === "ready" &&
+                    asRotation(draft.image?.rotation) !== 0 && (
+                      <p className="text-[9px] uppercase tracking-[0.15em] text-muted/70">
+                        Turned from the file&apos;s own EXIF
+                      </p>
+                    )}
                   {draft.status === "failed" && (
                     <p role="alert" className="text-[10px] leading-4 text-muted">
                       {draft.error}
                     </p>
                   )}
                   <div className="mt-auto flex items-center gap-3">
+                    {draft.status === "ready" && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            patch(draft.key, {
+                              rotation: turned(draft.rotation, -1),
+                            })
+                          }
+                          aria-label={`Rotate ${draft.file.name} counter-clockwise`}
+                          className={btnGhostSm}
+                        >
+                          ↺
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            patch(draft.key, {
+                              rotation: turned(draft.rotation, 1),
+                            })
+                          }
+                          aria-label={`Rotate ${draft.file.name} clockwise`}
+                          className={btnGhostSm}
+                        >
+                          ↻
+                        </button>
+                      </>
+                    )}
                     {draft.status === "failed" && (
                       <button
                         type="button"

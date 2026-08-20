@@ -65,7 +65,7 @@ export class ApiError extends Error {
 
 export type QueryParams = Record<
   string,
-  string | number | boolean | undefined
+  string | number | boolean | string[] | undefined
 >;
 
 export interface ApiFetchOptions {
@@ -81,7 +81,11 @@ function buildUrl(path: string, query?: QueryParams): string {
   if (!query) return url;
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined) params.set(key, String(value));
+    if (value === undefined) continue;
+    // An array repeats the key (`?tag=a&tag=b`) rather than joining, which is
+    // what Nest's validation pipe reads back as an array.
+    if (Array.isArray(value)) for (const one of value) params.append(key, one);
+    else params.set(key, String(value));
   }
   const qs = params.toString();
   return qs ? `${url}?${qs}` : url;

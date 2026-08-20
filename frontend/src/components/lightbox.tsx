@@ -26,6 +26,12 @@ const MAX_SCALE = 5;
 /** Past this, a pointer-up is a drag, not a click. */
 const DRAG_SLOP_PX = 6;
 
+/** Below this, a drag across a resting image is a tap, not a swipe. */
+const SWIPE_THRESHOLD_PX = 50;
+
+/** How far an arrow key pans a zoomed image, in screen pixels. */
+const PAN_STEP_PX = 80;
+
 interface Point {
   x: number;
   y: number;
@@ -39,12 +45,20 @@ export function Lightbox({
   caption,
   rotation = 0,
   onClose,
+  onPrev,
+  onNext,
 }: {
   src: string;
   alt?: string;
   caption?: string;
   rotation?: number | null;
   onClose: () => void;
+  /**
+   * Paging, when the viewer sits inside a sequence. Left as undefined the
+   * arrows and swipes simply do nothing, so a one-off image still works.
+   */
+  onPrev?: () => void;
+  onNext?: () => void;
 }) {
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState<Point>(ORIGIN);
@@ -123,25 +137,60 @@ export function Lightbox({
     [clamp, reset],
   );
 
+  const closeRef = useRef<HTMLButtonElement>(null);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
       if (e.key === "Escape") {
         // Escape steps out of the zoom first, then out of the viewer — the
         // same two-stage exit a map has.
         if (scale > 1) reset();
         else onClose();
+        return;
       }
       if (e.key === "+" || e.key === "=") zoomTo(scale + 0.5);
       if (e.key === "-") zoomTo(scale - 0.5);
       if (e.key === "0") reset();
+
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        const forward = e.key === "ArrowRight";
+        // Zoomed in, the arrows move around the photograph: that is what the
+        // viewport is for at that point, and paging away from a detail
+        // somebody just zoomed into would be the wrong answer twice over.
+        if (scale > 1) {
+          e.preventDefault();
+          setOffset((current) =>
+            clamp(
+              { x: current.x + (forward ? -PAN_STEP_PX : PAN_STEP_PX), y: current.y },
+              scale,
+            ),
+          );
+          return;
+        }
+        // At rest they page the archive, the way every photo viewer works.
+        const go = forward ? onNext : onPrev;
+        if (go) {
+          e.preventDefault();
+          go();
+        }
+      }
     };
     window.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
+
+    // The viewer is a modal dialog, so the keyboard has to be inside it —
+    // otherwise the first Tab lands somewhere behind the backdrop.
+    const previous = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+
     return () => {
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
+      previous?.focus?.();
     };
-  }, [onClose, reset, scale, zoomTo]);
+  }, [clamp, onClose, onNext, onPrev, reset, scale, zoomTo]);
 
   // A new image in the same viewer starts at rest rather than inheriting the
   // last one's pan, which would land on empty space.
@@ -165,6 +214,9 @@ export function Lightbox({
       setDragging(false);
       return;
     }
+    // Tracked even at rest, because a resting drag is a swipe to the next
+    // shot. Without this, a horizontal drag on a phone ends as a click on the
+    // backdrop and shuts the viewer instead of paging it.
     dragStart.current = { x: e.clientX, y: e.clientY };
     offsetStart.current = offset;
     setDragging(true);
@@ -199,10 +251,26 @@ export function Lightbox({
   }
 
   function onPointerUp(e: React.PointerEvent) {
+    const start = dragStart.current;
     pointers.current.delete(e.pointerId);
     if (pointers.current.size < 2) pinchStart.current = null;
     dragStart.current = null;
     setDragging(false);
+
+    if (!start || zoomed) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (Math.abs(dx) < SWIPE_THRESHOLD_PX) return;
+    // Ignore a mostly-vertical drag: on a phone that is a scroll gesture that
+    // happened to wander sideways.
+    if (Math.abs(dx) < Math.abs(dy)) return;
+
+    const go = dx > 0 ? onPrev : onNext;
+    if (!go) return;
+    // Suppress the click this pointer-up is about to produce, which would
+    // otherwise close the viewer on the way out.
+    moved.current = true;
+    go();
   }
 
   /**
@@ -285,6 +353,13 @@ export function Lightbox({
         </p>
       )}
 
+      {!zoomed && onPrev && (
+        <PageEdge side="prev" onClick={onPrev} />
+      )}
+      {!zoomed && onNext && (
+        <PageEdge side="next" onClick={onNext} />
+      )}
+
       <div className="absolute right-4 top-4 flex gap-2">
         <button
           type="button"
@@ -298,6 +373,7 @@ export function Lightbox({
           {zoomed ? "−" : "+"}
         </button>
         <button
+          ref={closeRef}
           type="button"
           aria-label="Close"
           onClick={(e) => {
@@ -316,5 +392,37 @@ export function Lightbox({
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * The edge you click to page.
+ *
+ * Only rendered at rest: once zoomed, the same strip of screen is where you
+ * grab the photograph to pan it, and a button sitting on top of that would
+ * swallow the gesture.
+ */
+function PageEdge({
+  side,
+  onClick,
+}: {
+  side: "prev" | "next";
+  onClick: () => void;
+}) {
+  const isPrev = side === "prev";
+  return (
+    <button
+      type="button"
+      aria-label={isPrev ? "Previous shot" : "Next shot"}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className={`absolute inset-y-0 flex w-14 items-center justify-center text-3xl text-background/60 transition-colors hover:bg-foreground/20 hover:text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-background sm:w-20 ${
+        isPrev ? "left-0" : "right-0"
+      }`}
+    >
+      <span aria-hidden="true">{isPrev ? "\u2039" : "\u203a"}</span>
+    </button>
   );
 }

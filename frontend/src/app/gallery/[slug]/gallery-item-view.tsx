@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef } from "react";
 import { galleryApi } from "@/lib/api";
 import type { GalleryItem, GalleryItemDetail } from "@/lib/api";
 import { formatDate } from "@/lib/format";
@@ -10,12 +10,16 @@ import { galleryPath } from "@/lib/gallery-url";
 import { useAsync } from "@/lib/hooks";
 import { imageSrcSet, imageUrl, DETAIL_WIDTHS, orientedSize } from "@/lib/image";
 import { CommentsSection } from "@/components/comments-section";
+import { GalleryCredits } from "@/components/gallery-credits";
 import { Lightbox } from "@/components/lightbox";
 import { ProductCard } from "@/components/product-card";
 import { ReactionButtons } from "@/components/reaction-buttons";
 import { ShareButton } from "@/components/share-button";
+import { ShopTheLook } from "@/components/shop-the-look";
+import { WallpaperButton } from "@/components/wallpaper-button";
 import { galleryShareSubject } from "@/lib/share-subject";
-import { btnOutline, ErrorNote } from "@/components/ui";
+import { shootMeta } from "@/lib/shoot-meta";
+import { btnOutline, chipCls, ErrorNote } from "@/components/ui";
 
 /** The stage gets the viewport; the photo is the page. */
 const STAGE_SIZES = "(min-width: 1024px) 80vw, 100vw";
@@ -34,27 +38,58 @@ export function GalleryItemView({
   initial?: GalleryItemDetail | null;
 }) {
   const router = useRouter();
-  const [zoomed, setZoomed] = useState(false);
+  const pathname = usePathname();
+  const params = useSearchParams();
+  /**
+   * The viewer is a URL state, not a `useState`.
+   *
+   * Paging changes the route, and route changes remount this view — so a
+   * boolean here would be reset by the very navigation it is meant to survive,
+   * dropping you back to the page every time you pressed an arrow. In the URL
+   * it survives, Back closes the viewer, and a full-screen shot is a link
+   * somebody can send.
+   */
+  const zoomed = params.get("view") === "full";
+
   const {
     data: item,
     loading,
     error,
-  } = useAsync(
-    () => galleryApi.getGalleryItem(slug),
-    [slug],
-    initial,
-  );
+  } = useAsync(() => galleryApi.getGalleryItem(slug), [slug], initial);
 
   const prevPath = item?.prev ? galleryPath(item.prev) : null;
   const nextPath = item?.next ? galleryPath(item.next) : null;
 
+  /** Paging from inside the viewer stays inside the viewer. */
+  const keepView = useCallback(
+    (path: string) => (zoomed ? `${path}?view=full` : path),
+    [zoomed],
+  );
+
   const goPrev = useCallback(() => {
-    if (prevPath) router.push(prevPath);
-  }, [prevPath, router]);
+    if (prevPath) router.push(keepView(prevPath), { scroll: false });
+  }, [keepView, prevPath, router]);
 
   const goNext = useCallback(() => {
-    if (nextPath) router.push(nextPath);
-  }, [nextPath, router]);
+    if (nextPath) router.push(keepView(nextPath), { scroll: false });
+  }, [keepView, nextPath, router]);
+
+  const openViewer = useCallback(() => {
+    router.push(`${pathname}?view=full`, { scroll: false });
+  }, [pathname, router]);
+
+  /**
+   * `replace`, not `back`.
+   *
+   * `back` looks tidier and is wrong in two ordinary cases: arriving on a
+   * shared `?view=full` link, where the previous entry is another site
+   * entirely, and closing after paging, where it lands on the previous shot's
+   * viewer rather than this shot's page. Replacing the current entry is
+   * correct however the visitor got here.
+   */
+  const closeViewer = useCallback(() => {
+    router.replace(pathname, { scroll: false });
+  }, [pathname, router]);
 
   // Arrow keys page the archive, Escape leaves it — the shortcuts any photo
   // viewer is expected to have. The lightbox owns Escape while it's open.
@@ -105,7 +140,11 @@ export function GalleryItemView({
           alt={item.altText ?? item.title}
           caption={item.title}
           rotation={item.rotation}
-          onClose={() => setZoomed(false)}
+          onClose={closeViewer}
+          // The viewer pages the archive without closing: arrows, the edge
+          // buttons, and a swipe on touch all land here.
+          onPrev={prevPath ? goPrev : undefined}
+          onNext={nextPath ? goNext : undefined}
         />
       )}
 
@@ -124,7 +163,7 @@ export function GalleryItemView({
 
       <Stage
         item={item}
-        onZoom={() => setZoomed(true)}
+        onZoom={openViewer}
         onPrev={goPrev}
         onNext={goNext}
       />
@@ -139,10 +178,38 @@ export function GalleryItemView({
             <p className="mt-2 text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
               {formatDate(item.createdAt)}
             </p>
+            {item.shoot && (
+              <p className="mt-3 text-[10px] uppercase tracking-[0.15em] text-muted/80">
+                From{" "}
+                <Link
+                  href={`/gallery/shoot/${item.shoot.slug}`}
+                  className="rounded-[2px] font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
+                >
+                  {item.shoot.title}
+                </Link>
+                {shootMeta(item.shoot) ? ` — ${shootMeta(item.shoot)}` : ""}
+              </p>
+            )}
             {item.description && (
               <p className="mt-4 max-w-md text-sm leading-7 text-muted">
                 {item.description}
               </p>
+            )}
+            {item.tags.length > 0 && (
+              <ul className="mt-5 flex flex-wrap gap-2">
+                {item.tags.map((tag) => (
+                  <li key={tag.id}>
+                    {/* Back to the archive, already filtered — the tag is a
+                        way through the archive, not a label on this page. */}
+                    <Link
+                      href={`/gallery?tag=${encodeURIComponent(tag.slug)}`}
+                      className={chipCls(false)}
+                    >
+                      {tag.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -154,8 +221,15 @@ export function GalleryItemView({
               myReaction={item.myReaction}
             />
             <ShareButton subject={galleryShareSubject(item)} />
+            <WallpaperButton
+              src={item.imageUrl}
+              filename={`stiff-${item.slug}`}
+              rotation={item.rotation}
+            />
           </div>
         </div>
+
+        <GalleryCredits credits={item.credits} className="mt-12 max-w-xl" />
       </section>
 
       {(item.products?.length ?? 0) > 0 && (
@@ -163,6 +237,11 @@ export function GalleryItemView({
           <h2 className="text-2xl uppercase tracking-tight sm:text-4xl">
             Worn here
           </h2>
+          <p className="mt-2 text-[10px] uppercase tracking-[0.15em] text-muted/70">
+            {item.products.some((product) => product.hotspotX !== null)
+              ? "Also tagged on the photograph above"
+              : "Every piece in this shot"}
+          </p>
           <ul className="mt-6 grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
             {item.products.map((product) => (
               <li key={product.id}>
@@ -221,16 +300,17 @@ function Stage({
         else onNext();
       }}
     >
-      <button
-        type="button"
-        onClick={onZoom}
-        aria-label={`Open ${item.title} full size`}
-        className="group block cursor-zoom-in rounded-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
-      >
+      {/* The pins are positioned against the image's own box, and a button
+          cannot contain another button — so the zoom target is a sibling
+          stretched over the photograph rather than a wrapper around it. */}
+      <div className="group relative">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={imageUrl(item.imageUrl, 1400, "detail", item.rotation)}
-          srcSet={imageSrcSet(item.imageUrl, DETAIL_WIDTHS, "detail", item.rotation) || undefined}
+          srcSet={
+            imageSrcSet(item.imageUrl, DETAIL_WIDTHS, "detail", item.rotation) ||
+            undefined
+          }
           sizes={STAGE_SIZES}
           alt={item.altText ?? item.title}
           width={orientedSize(item.width, item.height, item.rotation).width}
@@ -238,9 +318,25 @@ function Stage({
           loading="eager"
           fetchPriority="high"
           decoding="async"
+          style={
+            item.blurDataUrl
+              ? {
+                  backgroundImage: `url("${item.blurDataUrl}")`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }
+              : undefined
+          }
           className="max-h-[58dvh] w-auto max-w-full rounded-[2px] object-contain transition-opacity duration-200 group-hover:opacity-95 sm:max-h-[66dvh]"
         />
-      </button>
+        <button
+          type="button"
+          onClick={onZoom}
+          aria-label={`Open ${item.title} full size`}
+          className="absolute inset-0 cursor-zoom-in rounded-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
+        />
+        <ShopTheLook products={item.products ?? []} />
+      </div>
 
       <PageButton
         direction="prev"

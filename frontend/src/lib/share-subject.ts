@@ -49,3 +49,25 @@ export function productShareSubject(product: {
     kicker: "Tbilisi — essential clothing",
   };
 }
+
+/**
+ * A whole shoot. The cover stands in for it, which is the same frame the
+ * index card and the Open Graph image use — one shoot, one picture, wherever
+ * it is shared.
+ */
+export function shootShareSubject(shoot: {
+  title: string;
+  slug: string;
+  description?: string | null;
+  cover?: { imageUrl: string; rotation?: number | null } | null;
+}): ShareSubject | null {
+  if (!shoot.cover) return null;
+  return {
+    title: shoot.title,
+    imageUrl: shoot.cover.imageUrl,
+    caption: shoot.description ?? null,
+    url: `${SITE_URL}/gallery/shoot/${encodeURIComponent(shoot.slug)}`,
+    rotation: shoot.cover.rotation ?? 0,
+    kicker: "The archive",
+  };
+}

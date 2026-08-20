@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { promotionsApi } from "@/lib/api";
+import { fetchAll, promotionsApi } from "@/lib/api";
 import type { DiscountCode, DiscountKind, GiftCard } from "@/lib/api";
 import { formatDate, formatPrice } from "@/lib/format";
 import { errorMessage } from "@/lib/hooks";
@@ -68,8 +68,9 @@ function Discounts() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await promotionsApi.listDiscounts({ page: 1, pageSize: 100 });
-      setItems(result.items);
+      // Every code, not a screenful — and `pageSize: 100` was a 400, which
+      // this list rendered as "no discount codes yet".
+      setItems(await fetchAll(promotionsApi.listDiscounts, {}));
     } catch (err) {
       setNote(errorMessage(err));
     } finally {
@@ -313,8 +314,7 @@ function GiftCards() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await promotionsApi.listGiftCards({ page: 1, pageSize: 100 });
-      setItems(result.items);
+      setItems(await fetchAll(promotionsApi.listGiftCards, {}));
     } catch (err) {
       setNote(errorMessage(err));
     } finally {
