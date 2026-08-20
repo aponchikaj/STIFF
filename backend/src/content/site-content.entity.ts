@@ -1,8 +1,10 @@
 import { Column, Entity, PrimaryColumn, UpdateDateColumn } from 'typeorm';
 
-export const CONTENT_KEYS = ['about', 'contact-info', 'features'] as const;
-export type ContentKey = (typeof CONTENT_KEYS)[number];
-
+/**
+ * One row per editable block. The shape of `value` is described by
+ * `content.registry.ts`, which is also what validates writes and supplies the
+ * fallback copy for blocks that have never been saved.
+ */
 @Entity('site_content')
 export class SiteContent {
   @PrimaryColumn('varchar')

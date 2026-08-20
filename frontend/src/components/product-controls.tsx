@@ -5,18 +5,21 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cartApi } from "@/lib/api";
-import { stockForSize } from "@/lib/checkout";
-import { formatPrice } from "@/lib/format";
+import { priceForSize, stockForSize } from "@/lib/checkout";
+import { availability } from "@/lib/preorder";
+import { useContent } from "@/lib/content";
+import { formatDate, formatPrice } from "@/lib/format";
 import type { ProductDetail } from "@/lib/api";
 import { errorMessage } from "@/lib/hooks";
 import { MinusIcon, PlusIcon } from "./icons";
 import { Magnetic } from "./motion";
+import { StockAlertButton } from "./stock-alert-button";
 import { useSession } from "./providers";
 import { btnOutline, btnSolid, labelCls } from "./ui";
 
 export function ProductControls({ product }: { product: ProductDetail }) {
   const router = useRouter();
-  const { user, refreshBadges } = useSession();
+  const { refreshBadges } = useSession();
   const [size, setSize] = useState<string | null>(
     product.sizes.length === 1 ? product.sizes[0] : null,
   );
@@ -27,11 +30,32 @@ export function ProductControls({ product }: { product: ProductDetail }) {
   const [showStickyBar, setShowStickyBar] = useState(false);
   const ctaRef = useRef<HTMLDivElement>(null);
 
+  // Threshold and wording are admin-editable (Content -> Storefront thresholds),
+  // so urgency copy can be tuned without a deploy.
+  const storefront = useContent("storefront");
+  const lowStockThreshold = Number(storefront.text("lowStockThreshold", "3"));
+  const lowStockLabel = storefront.text("lowStockLabel", "Only {n} left");
+
   const soldOut =
     product.sizes.length === 0
       ? product.stock === 0
       : product.sizes.every((s) => stockForSize(product, s) === 0);
   const available = stockForSize(product, size);
+  const unitPrice = priceForSize(product, size);
+  const selectedVariant =
+    product.variants.find((v) => v.size === (size ?? "")) ?? null;
+
+  // What the server would allow: real stock first, then whatever pre-order
+  // capacity is left.
+  const offer = selectedVariant
+    ? availability(selectedVariant, product)
+    : null;
+  const isPreorder = offer?.kind === "preorder";
+
+  /** Only worth saying when the number is small enough to actually pressure. */
+  function lowStock(qty: number): boolean {
+    return lowStockThreshold > 0 && qty > 0 && qty <= lowStockThreshold;
+  }
   const sizeSoldOut = product.sizes.length > 0 && !!size && available === 0;
   const maxQty = Math.min(Math.max(available, 1), 9);
 
@@ -52,10 +76,8 @@ export function ProductControls({ product }: { product: ProductDetail }) {
   }, [soldOut]);
 
   async function addToCart(goToCart: boolean) {
-    if (!user) {
-      router.push(`/login?next=${encodeURIComponent(`/clothing/${product.slug}`)}`);
-      return;
-    }
+    // No login wall. Guests get a cart keyed to the `stiff_cart` cookie, and
+    // signing in later folds it into the account.
     if (product.sizes.length > 0 && !size) {
       setMessage("Pick a size first.");
       return;
@@ -122,7 +144,32 @@ export function ProductControls({ product }: { product: ProductDetail }) {
               );
             })}
           </div>
+          {size && lowStock(available) && (
+            <p
+              aria-live="polite"
+              className="mt-2 text-[11px] font-medium uppercase tracking-[0.15em]"
+            >
+              {lowStockLabel.replace("{n}", String(available))} in {size}
+            </p>
+          )}
         </>
+      )}
+
+      {isPreorder && offer.kind === "preorder" && (
+        <p className="mt-4 border border-foreground p-3 text-xs leading-6">
+          Made to order.{" "}
+          {offer.shipsAt
+            ? `Ships from ${formatDate(offer.shipsAt)}.`
+            : "We'll confirm a ship date by email."}{" "}
+          {offer.max} left in this run.
+        </p>
+      )}
+
+      {selectedVariant && available === 0 && !isPreorder && (
+        <StockAlertButton
+          variant={selectedVariant}
+          productName={product.name}
+        />
       )}
 
       {!soldOut && (
@@ -162,7 +209,9 @@ export function ProductControls({ product }: { product: ProductDetail }) {
             onClick={() => addToCart(false)}
             className={btnSolid}
           >
-            {soldOut || sizeSoldOut
+            {isPreorder
+              ? "Pre-order"
+              : soldOut || sizeSoldOut
               ? "Sold out"
               : busy
                 ? "Adding…"
@@ -199,7 +248,7 @@ export function ProductControls({ product }: { product: ProductDetail }) {
                   {product.name}
                 </p>
                 <p className="text-xs text-muted">
-                  {formatPrice(product.priceCents)}
+                  {formatPrice(unitPrice)}
                   {size ? ` · ${size}` : ""}
                 </p>
               </div>

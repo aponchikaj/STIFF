@@ -12,7 +12,9 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
+import { clearGuestCookie, readGuestId } from '../cart/cart-owner';
+import { CartService } from '../cart/cart.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedRequest } from '../common/types/authenticated-request';
 import { Public } from '../common/decorators/public.decorator';
@@ -44,15 +46,18 @@ export class AuthController {
     private readonly tokenService: TokenService,
     private readonly usersService: UsersService,
     private readonly configService: ConfigService,
+    private readonly cartService: CartService,
   ) {}
 
   @Public()
   @Post('register')
   async register(
     @Body() dto: RegisterDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
     const user = await this.authService.register(dto);
+    await this.adoptGuestCart(req, res, user.id);
     const pair = await this.tokenService.issueTokenPair(user);
     this.setAuthCookies(res, pair);
     return {
@@ -67,9 +72,11 @@ export class AuthController {
   @HttpCode(200)
   async login(
     @Body() dto: LoginDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
     const user = await this.authService.login(dto);
+    await this.adoptGuestCart(req, res, user.id);
     const pair = await this.tokenService.issueTokenPair(user);
     this.setAuthCookies(res, pair);
     return {
@@ -184,6 +191,30 @@ export class AuthController {
       sameSite === 'none' ||
       this.configService.get<string>('NODE_ENV') === 'production';
     return { httpOnly: true as const, sameSite, secure };
+  }
+
+  /**
+   * Folds anything added before signing in into the account's cart, then drops
+   * the guest cookie so the two can never diverge again.
+   *
+   * Deliberately non-fatal: a cart that fails to merge is a worse outcome than
+   * a login that fails, so the error is swallowed and the visitor keeps their
+   * session.
+   */
+  private async adoptGuestCart(
+    req: Request,
+    res: Response,
+    userId: string,
+  ): Promise<void> {
+    const guestId = readGuestId(req);
+    if (!guestId) return;
+    try {
+      await this.cartService.mergeGuestCart(guestId, userId);
+    } catch {
+      // Keep the sign-in; the guest cart stays put for a later attempt.
+      return;
+    }
+    clearGuestCookie(res);
   }
 
   private setAuthCookies(res: Response, pair: TokenPair): void {

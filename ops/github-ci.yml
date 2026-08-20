@@ -1,0 +1,174 @@
+name: CI
+
+on:
+  push:
+    branches: [main, stage, pre-prod, staff]
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same branch makes the older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  detect:
+    name: What's in this branch
+    runs-on: ubuntu-latest
+    outputs:
+      has_staff: ${{ steps.check.outputs.has_staff }}
+    steps:
+      - uses: actions/checkout@v4
+      # The staff workspace lives only on the `staff` branch; main, stage and
+      # pre-prod carry the shop. Detecting rather than assuming keeps one
+      # workflow correct on every branch.
+      - id: check
+        run: |
+          if [ -f staff/package.json ]; then
+            echo "has_staff=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_staff=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  backend:
+    name: Backend — lint, types, tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+  migrations:
+    name: Migrations — run against a scratch database
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    # A throwaway Postgres. Migrations must apply to an empty schema and roll
+    # back cleanly here before they are ever pointed at the shared Supabase
+    # instance that also serves production.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: stiff
+          POSTGRES_PASSWORD: stiff
+          POSTGRES_DB: stiff
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U stiff"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_USERNAME: stiff
+      DB_PASSWORD: stiff
+      DB_NAME: stiff
+      DB_SSL: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      # Supabase ships uuid-ossp in an `extensions` schema; a stock Postgres
+      # image has neither, so create it where search_path will find it.
+      - name: Install required extensions
+        run: |
+          PGPASSWORD=stiff psql -h localhost -U stiff -d stiff \
+            -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";' \
+            -c 'CREATE EXTENSION IF NOT EXISTS "pg_trgm";'
+
+      - name: Apply every migration
+        run: npm run migration:run
+
+      - name: Roll the last migration back and forward again
+        run: |
+          npm run migration:revert
+          npm run migration:run
+
+  frontend:
+    name: Frontend — lint, types, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+  staff:
+    name: Staff — lint, types, build
+    needs: detect
+    if: needs.detect.outputs.has_staff == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: staff
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: staff/package-lock.json
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build

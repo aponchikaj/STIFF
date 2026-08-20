@@ -2,9 +2,11 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { ProductVariant } from './product-variant.entity';
 
 @Entity('products')
 export class Product {
@@ -32,16 +34,41 @@ export class Product {
   @Column({ type: 'text', array: true, default: '{}' })
   sizes: string[];
 
-  /** Total units. Kept in sync with stockBySize when the product has sizes. */
+  /**
+   * Sum of every variant's stock, maintained on write.
+   *
+   * Denormalised on purpose: browsing sorts and filters on it, and a join per
+   * row to add up variants would be the most expensive query on the site.
+   * `ProductVariant.stock` is the source of truth.
+   */
   @Column({ type: 'int', default: 0 })
   stock: number;
 
-  /** Units remaining per size label. Empty object means one-size (use `stock`). */
-  @Column({ type: 'jsonb', default: {} })
-  stockBySize: Record<string, number>;
+  @OneToMany(() => ProductVariant, (variant) => variant.product)
+  variants: ProductVariant[];
 
   @Column({ default: true })
   isActive: boolean;
+
+  /**
+   * When the drop opens.
+   *
+   * A product is only visible once this has passed AND `isActive` is on, so a
+   * scheduled piece cannot leak early by someone ticking the box first.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  publishAt: Date | null;
+
+  @Column({ default: false })
+  preorderEnabled: boolean;
+
+  /** What the customer is promised. Shown on the product and the receipt. */
+  @Column({ type: 'date', nullable: true })
+  preorderShipsAt: string | null;
+
+  /** Units sellable beyond real stock. 0 means none, never unlimited. */
+  @Column({ type: 'int', default: 0 })
+  preorderLimit: number;
 
   @Column({ type: 'int', default: 0 })
   likeCount: number;

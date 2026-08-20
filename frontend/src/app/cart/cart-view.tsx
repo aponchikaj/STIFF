@@ -1,14 +1,22 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { authApi, cartApi, ApiError } from "@/lib/api";
-import type { Order, ShippingAddress } from "@/lib/api";
 import {
-  LIVE_PAYMENT_METHODS,
-  PAYMENT_LABELS,
-  PAYMENT_METHODS,
-  PAYMENT_NOTES,
+  authApi,
+  cartApi,
+  customersApi,
+  paymentsApi,
+  promotionsApi,
+  ApiError,
+} from "@/lib/api";
+import type {
+  PaymentAvailability,
+  PriceBreakdown,
+  ShippingAddress,
+} from "@/lib/api";
+import {
   SHIPPING_FEES_CENTS,
   SHIPPING_LABELS,
   SHIPPING_METHODS,
@@ -16,7 +24,7 @@ import {
   type PaymentMethod,
   type ShippingMethod,
 } from "@/lib/checkout";
-import { formatPrice, shortId } from "@/lib/format";
+import { formatPrice } from "@/lib/format";
 import { errorMessage, useAsync } from "@/lib/hooks";
 import { MinusIcon, PlusIcon, XIcon } from "@/components/icons";
 import { ShopClosed } from "@/components/if-shop";
@@ -25,16 +33,18 @@ import { useSession } from "@/components/providers";
 import { ProductImage } from "@/components/product-image";
 import {
   btnGhostSm,
-  btnOutline,
+  chipCls,
   btnSolid,
   ErrorNote,
   Field,
   inputCls,
   labelCls,
   Loading,
+  selectCls,
 } from "@/components/ui";
 
 export function CartView() {
+  const router = useRouter();
   const { user, loading: sessionLoading, refreshBadges, shopEnabled } =
     useSession();
   const { data: cart, setData: setCart, loading, error, reload } = useAsync(
@@ -45,51 +55,53 @@ export function CartView() {
   const [checkingOut, setCheckingOut] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [needsVerify, setNeedsVerify] = useState(false);
-  const [order, setOrder] = useState<Order | null>(null);
-  const [shippingMethod, setShippingMethod] =
+  const [shippingMethod, setShippingMethodState] =
     useState<ShippingMethod>("tbilisi");
+
+  /** Changing delivery can cross the free-shipping line, so the quote goes. */
+  function setShippingMethod(next: ShippingMethod) {
+    setShippingMethodState(next);
+    setQuote(null);
+    setCodeNote(null);
+  }
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cod");
+  const [discountCode, setDiscountCode] = useState("");
+  const [giftCardCode, setGiftCardCode] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState<string | null>(null);
+  const [appliedGiftCard, setAppliedGiftCard] = useState<string | null>(null);
+  const [quote, setQuote] = useState<PriceBreakdown | null>(null);
+  const [codeNote, setCodeNote] = useState<string | null>(null);
+  const [applying, setApplying] = useState(false);
+  const [addressId, setAddressId] = useState<string | null>(null);
+
+  // Signed-in buyers retyped their address every order. The default is
+  // preselected because it is the one they almost always want.
+  const { data: addresses } = useAsync(
+    () => (user ? customersApi.listAddresses() : Promise.resolve([])),
+    [user?.id],
+  );
+  const { data: regionData } = useAsync(() => customersApi.getRegions(), []);
+  const regions = regionData?.regions ?? ["Tbilisi"];
+  const savedAddress =
+    addressId === ""
+      ? null
+      : ((addresses ?? []).find((a) => a.id === addressId) ??
+        (addresses ?? []).find((a) => a.isDefault) ??
+        null);
+
+  // Which methods exist and which are usable is the server's call — see
+  // `payments/payment.types.ts`. Hardcoding it here is what previously let the
+  // page offer a card option nothing could take.
+  const { data: paymentData } = useAsync(
+    () => paymentsApi.getPaymentMethods(),
+    [],
+  );
+  const paymentOptions: PaymentAvailability[] = paymentData?.methods ?? [];
+  const selectedPayment =
+    paymentOptions.find((option) => option.method === paymentMethod) ?? null;
 
   if (!shopEnabled) return <ShopClosed />;
   if (sessionLoading) return <Loading label="Loading cart" />;
-  if (!user) {
-    return (
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 py-24 text-center">
-        <h1 className="text-4xl uppercase tracking-tight sm:text-6xl">Cart</h1>
-        <p className="text-sm text-muted">Log in to see your cart.</p>
-        <Link href="/login?next=/cart" className={btnSolid}>
-          Log in
-        </Link>
-      </div>
-    );
-  }
-
-  if (order) {
-    return (
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 py-24 text-center">
-        <h1 className="text-4xl uppercase tracking-tight sm:text-6xl">
-          Order placed
-        </h1>
-        <p className="text-sm leading-7 text-muted">
-          Order{" "}
-          <span className="font-bold text-foreground">
-            #{shortId(order.id)}
-          </span>{" "}
-          is in — {formatPrice(order.totalCents)}, {order.items.length}{" "}
-          {order.items.length === 1 ? "item" : "items"}. It stays pending until
-          we confirm payment. You&apos;ll get an email at every step.
-        </p>
-        <div className="flex flex-wrap justify-center gap-3">
-          <Link href="/account" className={btnSolid}>
-            View my orders
-          </Link>
-          <Link href="/clothing" className={`${btnOutline} h-12 px-6`}>
-            Keep shopping
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   async function updateQuantity(itemId: string, quantity: number) {
     setBusyItem(itemId);
@@ -119,6 +131,46 @@ export function CartView() {
     }
   }
 
+  /**
+   * Asks the server what the order costs with these codes.
+   *
+   * Nothing is computed here — checkout re-resolves the same codes, so a
+   * preview that disagreed with the charge would be the bug this avoids.
+   */
+  async function applyCodes() {
+    setApplying(true);
+    setCodeNote(null);
+    try {
+      const result = await promotionsApi.quote({
+        shippingMethod,
+        discountCode: discountCode.trim() || undefined,
+        giftCardCode: giftCardCode.trim() || undefined,
+      });
+      setQuote(result);
+      setAppliedDiscount(
+        result.discountCents > 0 || !discountCode.trim()
+          ? discountCode.trim().toUpperCase() || null
+          : null,
+      );
+      setAppliedGiftCard(
+        result.giftCardCents > 0 ? giftCardCode.trim().toUpperCase() : null,
+      );
+      setCodeNote(
+        result.discountCents > 0 || result.giftCardCents > 0
+          ? "Applied."
+          : "Nothing came off — check the code and the minimum.",
+      );
+    } catch (err) {
+      // Keep the un-discounted quote so the page still shows a real total.
+      setQuote(null);
+      setAppliedDiscount(null);
+      setAppliedGiftCard(null);
+      setCodeNote(errorMessage(err));
+    } finally {
+      setApplying(false);
+    }
+  }
+
   async function checkout(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const data = new FormData(e.currentTarget);
@@ -128,8 +180,10 @@ export function CartView() {
       lastName: String(data.get("lastName") ?? ""),
       line1: isPickup ? undefined : String(data.get("line1") ?? ""),
       city: isPickup ? undefined : String(data.get("city") ?? ""),
-      country: isPickup ? undefined : String(data.get("country") ?? "Georgia"),
+      // The shop ships inside Georgia only, so country is not asked for.
+      country: isPickup ? undefined : "Georgia",
       phone: String(data.get("phone") ?? ""),
+      region: isPickup ? undefined : String(data.get("region") ?? ""),
     };
     setCheckingOut(true);
     setNote(null);
@@ -139,9 +193,20 @@ export function CartView() {
         shippingAddress: address,
         shippingMethod,
         paymentMethod,
+        // Ignored for signed-in buyers; the only way to reach a guest.
+        email: user ? undefined : String(data.get("email") ?? ""),
+        discountCode: discountCode.trim() || undefined,
+        giftCardCode: giftCardCode.trim() || undefined,
       });
-      setOrder(placed);
+      if (placed.payment.kind === "redirect") {
+        window.location.href = placed.payment.url;
+        return;
+      }
       await refreshBadges();
+      // The receipt page is the order's permanent home — it survives a
+      // refresh, works for guests, and is what the confirmation email links
+      // to. Keeping a second copy of it inline here only invited them to drift.
+      router.push(`/orders/${placed.order.id}`);
     } catch (err) {
       if (
         err instanceof ApiError &&
@@ -159,8 +224,16 @@ export function CartView() {
 
   const itemCount =
     cart?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
-  const shippingCents = SHIPPING_FEES_CENTS[shippingMethod];
-  const totalCents = (cart?.subtotalCents ?? 0) + shippingCents;
+  // The server prices the order; this page never does its own arithmetic on
+  // discounts or shipping, so what is shown is what will be charged.
+  const quoteBase: PriceBreakdown = {
+    subtotalCents: cart?.subtotalCents ?? 0,
+    discountCents: 0,
+    shippingCents: SHIPPING_FEES_CENTS[shippingMethod],
+    giftCardCents: 0,
+    totalCents: (cart?.subtotalCents ?? 0) + SHIPPING_FEES_CENTS[shippingMethod],
+  };
+  const totals = quote ?? quoteBase;
   const pickup = shippingMethod === "pickup";
 
   return (
@@ -277,19 +350,66 @@ export function CartView() {
               <div className="flex flex-col gap-2 border-b border-subtle pb-4 text-sm">
                 <div className="flex justify-between text-muted">
                   <span>Subtotal</span>
-                  <span>{formatPrice(cart.subtotalCents)}</span>
+                  <span>{formatPrice(totals.subtotalCents)}</span>
                 </div>
+                {totals.discountCents > 0 && (
+                  <div className="flex justify-between text-muted">
+                    <span>Discount{appliedDiscount ? ` (${appliedDiscount})` : ""}</span>
+                    <span>−{formatPrice(totals.discountCents)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-muted">
                   <span>{SHIPPING_LABELS[shippingMethod]}</span>
                   <span>
-                    {shippingCents === 0 ? "Free" : formatPrice(shippingCents)}
+                    {totals.shippingCents === 0
+                      ? "Free"
+                      : formatPrice(totals.shippingCents)}
                   </span>
                 </div>
+                {totals.giftCardCents > 0 && (
+                  <div className="flex justify-between text-muted">
+                    <span>Gift card{appliedGiftCard ? ` (${appliedGiftCard})` : ""}</span>
+                    <span>−{formatPrice(totals.giftCardCents)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-base font-bold">
                   <span>Total</span>
-                  <span>{formatPrice(totalCents)}</span>
+                  <span>{formatPrice(totals.totalCents)}</span>
                 </div>
               </div>
+
+              <fieldset className="flex flex-col gap-2">
+                <legend className={labelCls}>Discount or gift card</legend>
+                <div className="flex gap-2">
+                  <input
+                    aria-label="Discount code"
+                    value={discountCode}
+                    placeholder="Discount code"
+                    onChange={(e) => setDiscountCode(e.target.value)}
+                    className={`${inputCls} h-10`}
+                  />
+                  <input
+                    aria-label="Gift card code"
+                    value={giftCardCode}
+                    placeholder="Gift card"
+                    onChange={(e) => setGiftCardCode(e.target.value)}
+                    className={`${inputCls} h-10`}
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={applying}
+                  onClick={applyCodes}
+                  className={`${btnGhostSm} self-start`}
+                >
+                  {applying ? "Checking…" : "Apply"}
+                </button>
+                {codeNote && (
+                  <p aria-live="polite" className="text-xs text-muted">
+                    {codeNote}
+                  </p>
+                )}
+              </fieldset>
 
               {needsVerify && (
                 <div className="border border-subtle p-3">
@@ -342,16 +462,15 @@ export function CartView() {
               <fieldset>
                 <legend className={labelCls}>Payment</legend>
                 <div className="mt-3 flex flex-col gap-2">
-                  {PAYMENT_METHODS.map((method) => {
-                    const live = LIVE_PAYMENT_METHODS.includes(method);
-                    const selected = paymentMethod === method;
+                  {paymentOptions.map((option) => {
+                    const selected = paymentMethod === option.method;
                     return (
                       <button
-                        key={method}
+                        key={option.method}
                         type="button"
-                        disabled={!live}
+                        disabled={!option.available}
                         onClick={() => {
-                          if (live) setPaymentMethod(method);
+                          if (option.available) setPaymentMethod(option.method);
                         }}
                         className={`flex h-11 items-center justify-between rounded-[2px] border px-3 text-left text-xs font-medium uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted disabled:cursor-not-allowed disabled:opacity-40 ${
                           selected
@@ -359,27 +478,73 @@ export function CartView() {
                             : "border-subtle text-muted hover:border-foreground hover:text-foreground"
                         }`}
                       >
-                        <span>{PAYMENT_LABELS[method]}</span>
-                        {!live && <span>Coming soon</span>}
+                        <span>{option.label}</span>
+                        {!option.available && <span>Coming soon</span>}
+                        {option.available && option.testMode && (
+                          <span>Test mode</span>
+                        )}
                       </button>
                     );
                   })}
                 </div>
-                <p className="mt-2 text-xs leading-6 text-muted">
-                  {PAYMENT_NOTES[paymentMethod]}
-                </p>
+                {selectedPayment && (
+                  <p className="mt-2 text-xs leading-6 text-muted">
+                    {selectedPayment.note}
+                  </p>
+                )}
               </fieldset>
 
               <p className={labelCls}>
                 {pickup ? "Your details" : "Delivery details"}
               </p>
+
+              {(addresses ?? []).length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {(addresses ?? []).map((address) => {
+                    const active = savedAddress?.id === address.id;
+                    return (
+                      <button
+                        key={address.id}
+                        type="button"
+                        onClick={() => setAddressId(address.id)}
+                        className={chipCls(active)}
+                      >
+                        {address.label || address.city || "Saved"}
+                        {address.isDefault ? " ·" : ""}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => setAddressId("")}
+                    className={chipCls(savedAddress === null)}
+                  >
+                    New address
+                  </button>
+                </div>
+              )}
+
               <div className="grid gap-4">
+                {!user && (
+                  <Field id="ship-email" label="Email">
+                    <input
+                      id="ship-email"
+                      name="email"
+                      type="email"
+                      required
+                      autoComplete="email"
+                      placeholder="you@example.com"
+                      className={inputCls}
+                    />
+                  </Field>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <Field id="ship-first" label="Name">
                     <input
                       id="ship-first"
                       name="firstName"
                       required
+                      defaultValue={savedAddress?.firstName ?? ""}
                       autoComplete="given-name"
                       className={inputCls}
                     />
@@ -389,6 +554,7 @@ export function CartView() {
                       id="ship-last"
                       name="lastName"
                       required
+                      defaultValue={savedAddress?.lastName ?? ""}
                       autoComplete="family-name"
                       className={inputCls}
                     />
@@ -400,6 +566,7 @@ export function CartView() {
                       id="ship-line1"
                       name="line1"
                       required
+                      defaultValue={savedAddress?.line1 ?? ""}
                       autoComplete="street-address"
                       className={inputCls}
                     />
@@ -411,8 +578,11 @@ export function CartView() {
                     name="phone"
                     type="tel"
                     required
-                    minLength={3}
+                    minLength={9}
+                    inputMode="tel"
+                    placeholder="555 12 34 56"
                     autoComplete="tel"
+                    defaultValue={savedAddress?.phone ?? ""}
                     className={inputCls}
                   />
                 </Field>
@@ -423,18 +593,24 @@ export function CartView() {
                         id="ship-city"
                         name="city"
                         required
+                        defaultValue={savedAddress?.city ?? ""}
                         autoComplete="address-level2"
                         className={inputCls}
                       />
                     </Field>
-                    <Field id="ship-country" label="Country">
-                      <input
-                        id="ship-country"
-                        name="country"
-                        defaultValue="Georgia"
-                        autoComplete="country-name"
-                        className={inputCls}
-                      />
+                    <Field id="ship-region" label="Region">
+                      <select
+                        id="ship-region"
+                        name="region"
+                        defaultValue={savedAddress?.region ?? "Tbilisi"}
+                        className={selectCls}
+                      >
+                        {regions.map((region) => (
+                          <option key={region} value={region}>
+                            {region}
+                          </option>
+                        ))}
+                      </select>
                     </Field>
                   </div>
                 )}

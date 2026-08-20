@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsEmail,
   IsIn,
   IsInt,
   IsObject,
@@ -45,6 +46,12 @@ export class ShippingAddressDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(80)
+  region?: string;
+
+  /** Optional — Georgian postcodes exist but are widely unused. */
+  @IsOptional()
+  @IsString()
   @MaxLength(20)
   postalCode?: string;
 
@@ -70,6 +77,26 @@ export class CheckoutDto {
 
   @IsIn([...PAYMENT_METHODS])
   paymentMethod: (typeof PAYMENT_METHODS)[number];
+
+  /**
+   * Required when nobody is signed in — it is the only way to send the invoice
+   * and the only handle the buyer has on the order. Ignored for signed-in
+   * buyers, whose account email is used instead.
+   */
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(180)
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  discountCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  giftCardCode?: string;
 }
 
 export class BuyNowDto extends CheckoutDto {
@@ -116,4 +143,22 @@ export class UpdateOrderDateDto {
   /** New order date, YYYY-MM-DD (time of day is preserved at noon). */
   @Matches(/^\d{4}-\d{2}-\d{2}$/)
   date: string;
+}
+
+export class UpdateTrackingDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  trackingCarrier?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  trackingNumber?: string;
+
+  /** The carrier's own page. Replaces the generic link in status emails. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  trackingUrl?: string;
 }

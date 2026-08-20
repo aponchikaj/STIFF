@@ -1,11 +1,26 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { CONTENT_KEYS, SiteContent } from './site-content.entity';
+import { In, Repository } from 'typeorm';
+import {
+  CONTENT_BLOCKS,
+  CONTENT_KEYS,
+  ContentBlock,
+  ContentField,
+  ContentListItem,
+  defaultsFor,
+  findBlock,
+} from './content.registry';
+import { SiteContent } from './site-content.entity';
+
+const MAX_LIST_ITEMS = 24;
+const MAX_LIST_TITLE = 120;
+const MAX_LIST_BODY = 1000;
+
+export interface ResolvedContent {
+  key: string;
+  value: Record<string, unknown>;
+  updatedAt: Date | null;
+}
 
 @Injectable()
 export class ContentService {
@@ -14,31 +29,163 @@ export class ContentService {
     private readonly contentRepo: Repository<SiteContent>,
   ) {}
 
-  private assertKey(key: string): void {
-    if (!(CONTENT_KEYS as readonly string[]).includes(key)) {
+  private blockOrThrow(key: string): ContentBlock {
+    const block = findBlock(key);
+    if (!block) {
       throw new BadRequestException(
         `Unknown content key — valid keys: ${CONTENT_KEYS.join(', ')}`,
       );
     }
+    return block;
   }
 
-  async get(key: string): Promise<SiteContent> {
-    this.assertKey(key);
-    const content = await this.contentRepo.findOne({ where: { key } });
-    if (!content) throw new NotFoundException('Content not set yet');
-    return content;
+  /**
+   * Never 404s. A block that has never been saved resolves to the copy shipped
+   * in the registry, so a fresh database renders a complete site rather than
+   * blank sections.
+   */
+  async get(key: string): Promise<ResolvedContent> {
+    const block = this.blockOrThrow(key);
+    const row = await this.contentRepo.findOne({ where: { key } });
+    return {
+      key,
+      value: { ...defaultsFor(block), ...(row?.value ?? {}) },
+      updatedAt: row?.updatedAt ?? null,
+    };
+  }
+
+  /** Every block at once — one request for the admin form and the site shell. */
+  async getAll(): Promise<ResolvedContent[]> {
+    const rows = await this.contentRepo.find({
+      where: { key: In(CONTENT_KEYS) },
+    });
+    const byKey = new Map(rows.map((row) => [row.key, row]));
+    return CONTENT_BLOCKS.map((block) => {
+      const row = byKey.get(block.key);
+      return {
+        key: block.key,
+        value: { ...defaultsFor(block), ...(row?.value ?? {}) },
+        updatedAt: row?.updatedAt ?? null,
+      };
+    });
   }
 
   async upsert(
     key: string,
     value: Record<string, unknown>,
-  ): Promise<SiteContent> {
-    this.assertKey(key);
+  ): Promise<ResolvedContent> {
+    const block = this.blockOrThrow(key);
+    const clean = this.validate(block, value);
+
     const existing = await this.contentRepo.findOne({ where: { key } });
     if (existing) {
-      existing.value = value;
-      return this.contentRepo.save(existing);
+      // Merge so a partial save (one field from one form) cannot blank the rest.
+      existing.value = { ...existing.value, ...clean };
+      await this.contentRepo.save(existing);
+    } else {
+      await this.contentRepo.save(
+        this.contentRepo.create({
+          key,
+          value: { ...defaultsFor(block), ...clean },
+        }),
+      );
     }
-    return this.contentRepo.save(this.contentRepo.create({ key, value }));
+    return this.get(key);
+  }
+
+  /**
+   * Accepts only the fields the block declares, and coerces each to its declared
+   * type. Anything unknown is dropped rather than rejected so an older admin
+   * build cannot fail a save against a newer registry.
+   */
+  private validate(
+    block: ContentBlock,
+    value: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const field of block.fields) {
+      if (!(field.key in value)) continue;
+      out[field.key] = this.coerce(block, field, value[field.key]);
+    }
+    if (Object.keys(out).length === 0) {
+      throw new BadRequestException(
+        `No known fields for "${block.key}" — expected ${block.fields
+          .map((f) => f.key)
+          .join(', ')}`,
+      );
+    }
+    return out;
+  }
+
+  private coerce(
+    block: ContentBlock,
+    field: ContentField,
+    raw: unknown,
+  ): unknown {
+    const where = `${block.key}.${field.key}`;
+
+    if (field.type === 'boolean') {
+      if (typeof raw !== 'boolean') {
+        throw new BadRequestException(`${where} must be true or false`);
+      }
+      return raw;
+    }
+
+    if (field.type === 'list') {
+      if (!Array.isArray(raw)) {
+        throw new BadRequestException(`${where} must be a list`);
+      }
+      if (raw.length > MAX_LIST_ITEMS) {
+        throw new BadRequestException(
+          `${where} takes at most ${MAX_LIST_ITEMS} items`,
+        );
+      }
+      return raw.map((item, i) => this.coerceListItem(where, item, i));
+    }
+
+    // text | textarea
+    if (typeof raw !== 'string') {
+      throw new BadRequestException(`${where} must be text`);
+    }
+    const trimmed = raw.trim();
+    const max = field.maxLength ?? 5000;
+    if (trimmed.length > max) {
+      throw new BadRequestException(
+        `${where} is longer than ${max} characters`,
+      );
+    }
+    return trimmed;
+  }
+
+  private coerceListItem(
+    where: string,
+    item: unknown,
+    index: number,
+  ): ContentListItem {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      throw new BadRequestException(`${where}[${index}] must be an object`);
+    }
+    const { title, body } = item as Record<string, unknown>;
+    if (typeof title !== 'string' || typeof body !== 'string') {
+      throw new BadRequestException(
+        `${where}[${index}] needs a title and a body`,
+      );
+    }
+    const cleanTitle = title.trim();
+    const cleanBody = body.trim();
+    if (!cleanTitle) {
+      throw new BadRequestException(`${where}[${index}] needs a title`);
+    }
+    if (cleanTitle.length > MAX_LIST_TITLE) {
+      throw new BadRequestException(
+        `${where}[${index}] title is longer than ${MAX_LIST_TITLE} characters`,
+      );
+    }
+    if (cleanBody.length > MAX_LIST_BODY) {
+      throw new BadRequestException(
+        `${where}[${index}] body is longer than ${MAX_LIST_BODY} characters`,
+      );
+    }
+    return { title: cleanTitle, body: cleanBody };
   }
 }

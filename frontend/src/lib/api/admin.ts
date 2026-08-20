@@ -365,3 +365,15 @@ export function deleteCollabVideo(): Promise<{ success: boolean }> {
 export function previewCollabVideo(): Promise<CollabPlayback> {
   return apiFetch(`/collab/${COLLAB_SLUG}/preview`);
 }
+
+/** Where the parcel is. Sent with the shipped-status email. */
+export function setOrderTracking(
+  id: string,
+  data: {
+    trackingCarrier?: string;
+    trackingNumber?: string;
+    trackingUrl?: string;
+  },
+): Promise<Order> {
+  return apiFetch(`/orders/${id}/tracking`, { method: "PATCH", body: data });
+}
