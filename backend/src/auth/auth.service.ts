@@ -9,6 +9,7 @@ import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import { IsNull, MoreThan, Repository } from 'typeorm';
 import { MailService } from '../mail/mail.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { User } from '../users/user.entity';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
@@ -27,6 +28,7 @@ export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly mailService: MailService,
+    private readonly notificationsService: NotificationsService,
     @InjectRepository(EmailToken)
     private readonly emailTokenRepo: Repository<EmailToken>,
   ) {}
@@ -49,6 +51,9 @@ export class AuthService {
     const ok = await bcrypt.compare(dto.password, user.passwordHash);
     if (!ok) throw new UnauthorizedException('Invalid credentials');
     if (user.isBlocked) throw new ForbiddenException('Account is blocked');
+    // Covers someone who ordered as a guest after already having an account,
+    // and anyone whose orders predate a verification that has since happened.
+    await this.claimPastOrders(user);
     return user;
   }
 
@@ -70,6 +75,34 @@ export class AuthService {
     }
     await this.usersService.setVerified(token.userId);
     await this.emailTokenRepo.update({ id: token.id }, { usedAt: new Date() });
+
+    // The moment ownership of the address is proven is the moment the guest
+    // orders on it become this account's — see `claimGuestOrders` for why
+    // nothing weaker than a verified email will do.
+    const user = await this.usersService.findById(token.userId);
+    if (user) await this.claimPastOrders(user);
+  }
+
+  /**
+   * Folds in orders placed before this account existed, and says so.
+   *
+   * Silent would be worse than not doing it: someone who ordered as a guest
+   * has no reason to look in an account they just made, so the notification is
+   * the only thing that makes the orders discoverable.
+   */
+  private async claimPastOrders(user: User): Promise<void> {
+    const claimed = await this.usersService.claimGuestOrders(user);
+    if (claimed === 0) return;
+    await this.notificationsService.notify(
+      user.id,
+      'system',
+      claimed === 1
+        ? 'We found an earlier order'
+        : `We found ${claimed} earlier orders`,
+      claimed === 1
+        ? 'An order you placed as a guest with this email is now in your account.'
+        : `Orders you placed as a guest with this email are now in your account.`,
+    );
   }
 
   async forgotPassword(email: string): Promise<void> {
