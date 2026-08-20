@@ -16,6 +16,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { ContactModule } from './contact/contact.module';
 import { ContentModule } from './content/content.module';
+import { CustomersModule } from './customers/customers.module';
 import { GalleryModule } from './gallery/gallery.module';
 import { MailModule } from './mail/mail.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -80,6 +81,7 @@ import { UsersModule } from './users/users.module';
     NotificationsModule,
     ContactModule,
     ContentModule,
+    CustomersModule,
     CollabModule,
     AnalyticsModule,
     UploadsModule,

@@ -12,6 +12,7 @@ import type { ProductDetail } from "@/lib/api";
 import { errorMessage } from "@/lib/hooks";
 import { MinusIcon, PlusIcon } from "./icons";
 import { Magnetic } from "./motion";
+import { StockAlertButton } from "./stock-alert-button";
 import { useSession } from "./providers";
 import { btnOutline, btnSolid, labelCls } from "./ui";
 
@@ -40,6 +41,8 @@ export function ProductControls({ product }: { product: ProductDetail }) {
       : product.sizes.every((s) => stockForSize(product, s) === 0);
   const available = stockForSize(product, size);
   const unitPrice = priceForSize(product, size);
+  const selectedVariant =
+    product.variants.find((v) => v.size === (size ?? "")) ?? null;
 
   /** Only worth saying when the number is small enough to actually pressure. */
   function lowStock(qty: number): boolean {
@@ -142,6 +145,13 @@ export function ProductControls({ product }: { product: ProductDetail }) {
             </p>
           )}
         </>
+      )}
+
+      {selectedVariant && available === 0 && (
+        <StockAlertButton
+          variant={selectedVariant}
+          productName={product.name}
+        />
       )}
 
       {!soldOut && (

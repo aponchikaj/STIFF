@@ -17,6 +17,11 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { ProductVariant } from '../products/product-variant.entity';
 import { Product } from '../products/product.entity';
 import { ONE_SIZE, priceForSize } from '../products/stock';
+import {
+  isGeorgiaRegion,
+  normalizeGeorgianPhone,
+  normalizePostalCode,
+} from './georgia';
 import { VariantsService } from '../products/variants.service';
 import { User } from '../users/user.entity';
 import {
@@ -321,11 +326,24 @@ export class OrdersService {
     method: ShippingMethod,
     addr: CheckoutDto['shippingAddress'],
   ): CheckoutDto['shippingAddress'] {
+    // One stored shape, whatever was typed — a courier has to be able to dial
+    // this. See `orders/georgia.ts` for why five spellings all arrive here.
+    const phone = normalizeGeorgianPhone(addr.phone ?? '');
+    if (!phone) {
+      throw new BadRequestException(
+        'Enter a Georgian phone number, for example 555 12 34 56.',
+      );
+    }
+    const postalCode = normalizePostalCode(addr.postalCode) ?? undefined;
+
     if (method === 'pickup') {
       return {
         ...addr,
+        phone,
+        postalCode,
         line1: addr.line1?.trim() || 'Pickup in Tbilisi',
         city: 'Tbilisi',
+        region: 'Tbilisi',
         country: 'Georgia',
       };
     }
@@ -334,9 +352,14 @@ export class OrdersService {
         'Address and city are required for delivery',
       );
     }
+    const region = addr.region?.trim();
     return {
       ...addr,
-      country: addr.country?.trim() || 'Georgia',
+      phone,
+      postalCode,
+      region: isGeorgiaRegion(region) ? region : undefined,
+      // The shop ships inside Georgia only, so this is not a question.
+      country: 'Georgia',
     };
   }
 

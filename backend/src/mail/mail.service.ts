@@ -328,6 +328,25 @@ export class MailService {
     await this.send(email, msg.subject, html, link);
   }
 
+  async sendBackInStock(
+    email: string,
+    label: string,
+    productSlug: string,
+  ): Promise<void> {
+    if (!email) return;
+    const link = `${this.frontendUrl}/clothing/${productSlug}`;
+    const html = `
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#000;">
+  <p style="font-size:28px;font-weight:900;letter-spacing:-1px;margin:0;">* STIFF</p>
+  <p style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#52525b;margin:6px 0 28px;">Back in stock</p>
+  <p style="font-size:16px;font-weight:bold;margin:0 0 8px;">${esc(label)}</p>
+  <p style="font-size:14px;line-height:1.7;margin:0 0 24px;">You asked us to tell you when this came back. Small runs sell out fast — it may not last.</p>
+  <a href="${link}" style="display:inline-block;padding:14px 28px;background:#000;color:#fff;font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;text-decoration:none;">Take a look</a>
+  <p style="font-size:11px;color:#a1a1aa;margin-top:32px;">STIFF — essential clothing, Tbilisi. You are only told once per restock.</p>
+</div>`;
+    await this.send(email, `${label} is back — STIFF`, html, link);
+  }
+
   private async send(
     to: string,
     subject: string,

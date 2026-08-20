@@ -46,6 +46,12 @@ export class ShippingAddressDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(80)
+  region?: string;
+
+  /** Optional — Georgian postcodes exist but are widely unused. */
+  @IsOptional()
+  @IsString()
   @MaxLength(20)
   postalCode?: string;
 

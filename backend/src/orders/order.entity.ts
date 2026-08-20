@@ -25,6 +25,8 @@ export interface ShippingAddress {
   line1?: string;
   line2?: string;
   city?: string;
+  /** One of the eleven Georgian regions. */
+  region?: string;
   postalCode?: string;
   country?: string;
   phone?: string;

@@ -6,6 +6,7 @@ import { useState } from "react";
 import {
   authApi,
   cartApi,
+  customersApi,
   paymentsApi,
   promotionsApi,
   ApiError,
@@ -32,12 +33,14 @@ import { useSession } from "@/components/providers";
 import { ProductImage } from "@/components/product-image";
 import {
   btnGhostSm,
+  chipCls,
   btnSolid,
   ErrorNote,
   Field,
   inputCls,
   labelCls,
   Loading,
+  selectCls,
 } from "@/components/ui";
 
 export function CartView() {
@@ -69,6 +72,22 @@ export function CartView() {
   const [quote, setQuote] = useState<PriceBreakdown | null>(null);
   const [codeNote, setCodeNote] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
+  const [addressId, setAddressId] = useState<string | null>(null);
+
+  // Signed-in buyers retyped their address every order. The default is
+  // preselected because it is the one they almost always want.
+  const { data: addresses } = useAsync(
+    () => (user ? customersApi.listAddresses() : Promise.resolve([])),
+    [user?.id],
+  );
+  const { data: regionData } = useAsync(() => customersApi.getRegions(), []);
+  const regions = regionData?.regions ?? ["Tbilisi"];
+  const savedAddress =
+    addressId === ""
+      ? null
+      : ((addresses ?? []).find((a) => a.id === addressId) ??
+        (addresses ?? []).find((a) => a.isDefault) ??
+        null);
 
   // Which methods exist and which are usable is the server's call — see
   // `payments/payment.types.ts`. Hardcoding it here is what previously let the
@@ -161,8 +180,10 @@ export function CartView() {
       lastName: String(data.get("lastName") ?? ""),
       line1: isPickup ? undefined : String(data.get("line1") ?? ""),
       city: isPickup ? undefined : String(data.get("city") ?? ""),
-      country: isPickup ? undefined : String(data.get("country") ?? "Georgia"),
+      // The shop ships inside Georgia only, so country is not asked for.
+      country: isPickup ? undefined : "Georgia",
       phone: String(data.get("phone") ?? ""),
+      region: isPickup ? undefined : String(data.get("region") ?? ""),
     };
     setCheckingOut(true);
     setNote(null);
@@ -476,6 +497,33 @@ export function CartView() {
               <p className={labelCls}>
                 {pickup ? "Your details" : "Delivery details"}
               </p>
+
+              {(addresses ?? []).length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {(addresses ?? []).map((address) => {
+                    const active = savedAddress?.id === address.id;
+                    return (
+                      <button
+                        key={address.id}
+                        type="button"
+                        onClick={() => setAddressId(address.id)}
+                        className={chipCls(active)}
+                      >
+                        {address.label || address.city || "Saved"}
+                        {address.isDefault ? " ·" : ""}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => setAddressId("")}
+                    className={chipCls(savedAddress === null)}
+                  >
+                    New address
+                  </button>
+                </div>
+              )}
+
               <div className="grid gap-4">
                 {!user && (
                   <Field id="ship-email" label="Email">
@@ -496,6 +544,7 @@ export function CartView() {
                       id="ship-first"
                       name="firstName"
                       required
+                      defaultValue={savedAddress?.firstName ?? ""}
                       autoComplete="given-name"
                       className={inputCls}
                     />
@@ -505,6 +554,7 @@ export function CartView() {
                       id="ship-last"
                       name="lastName"
                       required
+                      defaultValue={savedAddress?.lastName ?? ""}
                       autoComplete="family-name"
                       className={inputCls}
                     />
@@ -516,6 +566,7 @@ export function CartView() {
                       id="ship-line1"
                       name="line1"
                       required
+                      defaultValue={savedAddress?.line1 ?? ""}
                       autoComplete="street-address"
                       className={inputCls}
                     />
@@ -527,8 +578,11 @@ export function CartView() {
                     name="phone"
                     type="tel"
                     required
-                    minLength={3}
+                    minLength={9}
+                    inputMode="tel"
+                    placeholder="555 12 34 56"
                     autoComplete="tel"
+                    defaultValue={savedAddress?.phone ?? ""}
                     className={inputCls}
                   />
                 </Field>
@@ -539,18 +593,24 @@ export function CartView() {
                         id="ship-city"
                         name="city"
                         required
+                        defaultValue={savedAddress?.city ?? ""}
                         autoComplete="address-level2"
                         className={inputCls}
                       />
                     </Field>
-                    <Field id="ship-country" label="Country">
-                      <input
-                        id="ship-country"
-                        name="country"
-                        defaultValue="Georgia"
-                        autoComplete="country-name"
-                        className={inputCls}
-                      />
+                    <Field id="ship-region" label="Region">
+                      <select
+                        id="ship-region"
+                        name="region"
+                        defaultValue={savedAddress?.region ?? "Tbilisi"}
+                        className={selectCls}
+                      >
+                        {regions.map((region) => (
+                          <option key={region} value={region}>
+                            {region}
+                          </option>
+                        ))}
+                      </select>
                     </Field>
                   </div>
                 )}

@@ -168,6 +168,8 @@ export interface ShippingAddress {
   line1?: string;
   line2?: string;
   city?: string;
+  /** One of the eleven Georgian regions. */
+  region?: string;
   postalCode?: string;
   country?: string;
   phone?: string;
@@ -594,5 +596,24 @@ export interface GiftCard {
   isActive: boolean;
   expiresAt: string | null;
   note: string;
+  createdAt: string;
+}
+
+// ---------- customer conveniences ----------
+
+export interface UserAddress {
+  id: string;
+  label: string;
+  firstName: string;
+  lastName: string;
+  line1: string;
+  line2: string | null;
+  city: string;
+  region: string | null;
+  postalCode: string | null;
+  country: string;
+  /** Normalised to +995XXXXXXXXX. */
+  phone: string;
+  isDefault: boolean;
   createdAt: string;
 }
