@@ -1,5 +1,6 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsIn,
@@ -220,6 +221,26 @@ export class RateFitDto {
 export type ProductSort = 'newest' | 'price_asc' | 'price_desc' | 'popular';
 
 export class ListProductsQueryDto extends PaginationDto {
+  /**
+   * Fetch an explicit set, in one request.
+   *
+   * What "recently viewed" needs: the browser holds a list of ids and wants
+   * the cards for them. Comma-separated because it rides in a query string.
+   */
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string'
+      ? value
+          .split(',')
+          .map((id) => id.trim())
+          .filter(Boolean)
+      : value,
+  )
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @ArrayMaxSize(24)
+  ids?: string[];
+
   @IsOptional()
   @IsString()
   search?: string;

@@ -11,7 +11,12 @@ import type {
 export function listProducts(
   params?: ProductListParams,
 ): Promise<Paginated<Product>> {
-  return apiFetch("/products", { query: { ...params } });
+  const { ids, ...rest } = params ?? {};
+  return apiFetch("/products", {
+    // Comma-joined, because a query string carries scalars — the backend
+    // splits it back into a list.
+    query: { ...rest, ...(ids?.length ? { ids: ids.join(",") } : {}) },
+  });
 }
 
 export function getProduct(idOrSlug: string): Promise<ProductDetail> {

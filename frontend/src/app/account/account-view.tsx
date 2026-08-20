@@ -8,6 +8,7 @@ import type { OrderStatus, UserAddress } from "@/lib/api";
 import { formatDate, formatPrice, shortId } from "@/lib/format";
 import { errorMessage, useAsync } from "@/lib/hooks";
 import { Reveal } from "@/components/motion";
+import { ProductCard } from "@/components/product-card";
 import { useSession } from "@/components/providers";
 import { variantLabel } from "@/lib/checkout";
 import {
@@ -55,6 +56,7 @@ export function AccountView() {
         <Stats />
       </Reveal>
       <Reveal delay={0.1}>
+        <Saved />
         <Addresses />
         <Orders />
       </Reveal>
@@ -451,3 +453,48 @@ function Orders() {
   );
 }
 
+
+/**
+ * Saved pieces.
+ *
+ * Private, and separate from likes: a like is the public signal that drives
+ * the "popular" sort, this is intent. Sits above orders because it is a list
+ * of things someone still means to do.
+ */
+function Saved() {
+  const { data, loading, reload } = useAsync(
+    () => customersApi.listWishlist(),
+    [],
+  );
+
+  if (loading) return <Loading label="Loading saved" />;
+  if (!data || data.length === 0) return null;
+
+  return (
+    <section aria-label="Saved" className="mb-14">
+      <h2 className="text-2xl uppercase tracking-tight sm:text-4xl">
+        Saved{" "}
+        <span className="text-muted">
+          {data.length > 0 ? `(${data.length})` : ""}
+        </span>
+      </h2>
+      <ul className="mt-6 grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+        {data.map((product) => (
+          <li key={product.id} className="flex flex-col gap-2">
+            <ProductCard product={product} />
+            <button
+              type="button"
+              onClick={async () => {
+                await customersApi.unsave(product.id);
+                reload();
+              }}
+              className={`${btnGhostSm} self-start`}
+            >
+              Remove
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}

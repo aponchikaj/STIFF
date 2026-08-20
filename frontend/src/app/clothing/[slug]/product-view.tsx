@@ -21,6 +21,8 @@ import { ProductCard } from "@/components/product-card";
 import { ProductControls } from "@/components/product-controls";
 import { ProductImage } from "@/components/product-image";
 import { ReactionButtons } from "@/components/reaction-buttons";
+import { RecentlyViewedStrip } from "@/components/recently-viewed-strip";
+import { SaveButton } from "@/components/save-button";
 import { ShareButton } from "@/components/share-button";
 import { productShareSubject } from "@/lib/share-subject";
 import { btnOutline, Loading } from "@/components/ui";
@@ -186,6 +188,7 @@ export function ProductView({
               dislikeCount={product.dislikeCount}
               myReaction={product.myReaction}
             />
+            <SaveButton productId={product.id} productName={product.name} />
             {shareSubject && <ShareButton subject={shareSubject} />}
           </div>
           <ProductControls
@@ -203,6 +206,8 @@ export function ProductView({
         shots={product.archiveShots ?? []}
         productName={product.name}
       />
+
+      <RecentlyViewedStrip currentId={product.id} currentSlug={product.slug} />
 
       <section className="mx-auto w-full max-w-5xl px-4 pb-16 sm:px-6">
         <CommentsSection targetType="product" targetId={product.id} />

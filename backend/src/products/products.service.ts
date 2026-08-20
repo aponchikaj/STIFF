@@ -145,6 +145,9 @@ export class ProductsService {
         '(product."publishAt" IS NULL OR product."publishAt" <= now())',
       );
     }
+    if (query.ids && query.ids.length > 0) {
+      qb.andWhere('product.id IN (:...ids)', { ids: query.ids });
+    }
     if (query.search) {
       qb.andWhere(
         '(product.name ILIKE :search OR product.description ILIKE :search)',

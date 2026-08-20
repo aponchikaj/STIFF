@@ -472,6 +472,8 @@ export interface CollabPublicConfig {
 // ---------- request param types ----------
 
 export interface ProductListParams extends PaginationParams {
+  /** Fetch an explicit set — what "recently viewed" reads from localStorage. */
+  ids?: string[];
   search?: string;
   category?: string;
   minPrice?: number;
