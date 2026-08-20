@@ -1,11 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { adminApi, galleryApi, productsApi } from "@/lib/api";
-import type { GalleryItem, Product } from "@/lib/api";
+import type {
+  GalleryItem,
+  GalleryShoot,
+  GalleryTagWithCount,
+  Product,
+} from "@/lib/api";
+import { fetchAll } from "@/lib/api";
 import { errorMessage, useAsync } from "@/lib/hooks";
 import { asRotation, imageUrl } from "@/lib/image";
+import { GalleryShoots } from "./gallery-shoots";
+import { GalleryTags } from "./gallery-tags";
 import { GalleryUpload } from "./gallery-upload";
+import { ShotEditor } from "./shot-editor";
 import {
   btnGhostSm,
   btnSolidSm,
@@ -34,18 +43,26 @@ async function rotateShot(
 }
 
 /**
- * Two halves: staging a new shoot, and maintaining what's already published.
+ * Staging a new shoot, filing it, and maintaining what's already published.
  */
 export function GalleryTab() {
   const { data, loading, error, reload } = useAsync(
     () => galleryApi.listGallery({ pageSize: 50, includeArchived: true }),
     [],
   );
-  // Fetched once for the whole archive rather than per shot — the picker is
-  // opened on one item at a time, but the catalogue is the same list for all
-  // of them.
+  // Fetched once for the whole archive rather than per shot — the editor is
+  // opened on one item at a time, but the catalogue, the shoots and the tags
+  // are the same lists for all of them.
   const { data: catalogue } = useAsync(
-    () => productsApi.listProducts({ pageSize: 100, sort: "newest" }),
+    () => fetchAll(productsApi.listProducts, { sort: "newest" as const }),
+    [],
+  );
+  const { data: shoots, reload: reloadShoots } = useAsync(
+    () => galleryApi.listShoots(),
+    [],
+  );
+  const { data: tags, reload: reloadTags } = useAsync(
+    () => galleryApi.listTags(),
     [],
   );
   const [note, setNote] = useState<string | null>(null);
@@ -54,8 +71,19 @@ export function GalleryTab() {
     <div className="flex flex-col gap-12">
       <GalleryUpload onPublished={reload} />
 
+      <GalleryShoots onError={setNote} />
+
+      <GalleryTags
+        tags={tags ?? []}
+        onChanged={reloadTags}
+        onError={setNote}
+      />
+
       <section>
-        <p className={labelCls}>Archive ({data?.total ?? 0})</p>
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <p className={labelCls}>Archive ({data?.total ?? 0})</p>
+          <PlaceholderButton onNote={setNote} onChanged={reload} />
+        </div>
         {loading && <Loading label="Loading gallery" />}
         {error && <ErrorNote message={error} />}
         <p aria-live="polite" className="min-h-4 text-xs text-muted">
@@ -64,13 +92,66 @@ export function GalleryTab() {
         {data && (
           <ArchiveList
             items={data.items}
-            products={catalogue?.items ?? []}
-            onChanged={reload}
+            products={catalogue ?? []}
+            shoots={shoots ?? []}
+            tags={tags ?? []}
+            onChanged={() => {
+              reload();
+              // Filing a shot changes the shoot counts and the tag counts, and
+              // a stale count next to a live filter is a bug report.
+              reloadShoots();
+              reloadTags();
+            }}
             onError={setNote}
           />
         )}
       </section>
     </div>
+  );
+}
+
+/**
+ * Fills in blur placeholders for the archive that predates them.
+ *
+ * New uploads generate theirs on publish, so this is a one-off — but it is a
+ * button rather than a migration because it depends on Cloudinary answering,
+ * and a migration that needs a third party is a migration that fails on a bad
+ * afternoon.
+ */
+function PlaceholderButton({
+  onNote,
+  onChanged,
+}: {
+  onNote: (message: string) => void;
+  onChanged: () => void;
+}) {
+  const [running, setRunning] = useState(false);
+
+  return (
+    <button
+      type="button"
+      disabled={running}
+      onClick={async () => {
+        setRunning(true);
+        onNote("Generating placeholders…");
+        try {
+          const result = await adminApi.backfillGalleryPlaceholders();
+          onNote(
+            result.processed === 0
+              ? "Every shot already has a placeholder."
+              : `Filled ${result.filled} of ${result.processed}.`,
+          );
+          onChanged();
+        } catch (err) {
+          onNote(errorMessage(err));
+        } finally {
+          setRunning(false);
+        }
+      }}
+      className={btnGhostSm}
+    >
+      {running ? "Generating…" : "Fill placeholders"}
+    </button>
   );
 }
 
@@ -82,16 +163,21 @@ export function GalleryTab() {
 function ArchiveList({
   items,
   products,
+  shoots,
+  tags,
   onChanged,
   onError,
 }: {
   items: GalleryItem[];
   products: Product[];
+  shoots: GalleryShoot[];
+  tags: GalleryTagWithCount[];
   onChanged: () => void;
   onError: (message: string) => void;
 }) {
   const [order, setOrder] = useState<GalleryItem[] | null>(null);
   const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   const list = order ?? items;
   const dirty = order !== null;
 
@@ -144,7 +230,8 @@ function ArchiveList({
 
       <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
         {list.map((item, index) => (
-          <li key={item.id}>
+          <Fragment key={item.id}>
+          <li>
             <div className="relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -212,11 +299,15 @@ function ArchiveList({
                 ↻
               </button>
               <AltTextButton item={item} onChanged={onChanged} onError={onError} />
-              <LinkedProductsButton
-                item={item}
-                products={products}
-                onError={onError}
-              />
+              <button
+                type="button"
+                onClick={() =>
+                  setEditing(editing === item.id ? null : item.id)
+                }
+                className={btnGhostSm}
+              >
+                {editing === item.id ? "Close" : "Shoot, tags, pieces"}
+              </button>
               <button
                 type="button"
                 onClick={async () => {
@@ -250,6 +341,18 @@ function ArchiveList({
               </button>
             </div>
           </li>
+          {editing === item.id && (
+            <ShotEditor
+              item={item}
+              products={products}
+              shoots={shoots}
+              tags={tags}
+              onSaved={onChanged}
+              onClose={() => setEditing(null)}
+              onError={onError}
+            />
+          )}
+          </Fragment>
         ))}
       </ul>
     </>
@@ -312,118 +415,6 @@ function AltTextButton({
       />
       <div className="flex items-center gap-3">
         <button type="submit" disabled={saving} className={btnGhostSm}>
-          {saving ? "Saving…" : "Save"}
-        </button>
-        <button
-          type="button"
-          onClick={() => setEditing(false)}
-          className={btnGhostSm}
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
-  );
-}
-
-/**
- * Which pieces are worn in a shot.
- *
- * The links drive "Seen in the archive" on the product page and "Shop the
- * look" here, so tagging a shoot once pays on both sides. The current links
- * are fetched on open rather than carried in the list response — the archive
- * grid does not otherwise need them, and it is 50 shots per page.
- */
-function LinkedProductsButton({
-  item,
-  products,
-  onError,
-}: {
-  item: GalleryItem;
-  products: Product[];
-  onError: (message: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [selected, setSelected] = useState<string[] | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [count, setCount] = useState<number | null>(null);
-
-  async function open() {
-    setEditing(true);
-    try {
-      const detail = await galleryApi.getGalleryItem(item.slug);
-      const ids = (detail.products ?? []).map((p) => p.id);
-      setSelected(ids);
-      setCount(ids.length);
-    } catch (err) {
-      onError(errorMessage(err));
-      setSelected([]);
-    }
-  }
-
-  if (!editing) {
-    return (
-      <button type="button" onClick={() => void open()} className={btnGhostSm}>
-        {count === null ? "Pieces" : `Pieces (${count})`}
-      </button>
-    );
-  }
-
-  return (
-    <form
-      className="flex w-full flex-col gap-2"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        if (!selected) return;
-        setSaving(true);
-        try {
-          await adminApi.updateGalleryItem(item.id, { productIds: selected });
-          setCount(selected.length);
-          setEditing(false);
-        } catch (err) {
-          onError(errorMessage(err));
-        } finally {
-          setSaving(false);
-        }
-      }}
-    >
-      {selected === null ? (
-        <p className="text-[10px] uppercase tracking-[0.15em] text-muted">
-          Loading…
-        </p>
-      ) : products.length === 0 ? (
-        <p className="text-[10px] uppercase tracking-[0.15em] text-muted">
-          No products to link yet.
-        </p>
-      ) : (
-        <ul className="max-h-40 overflow-y-auto border border-subtle p-2">
-          {products.map((product) => (
-            <li key={product.id}>
-              <label className="flex items-center gap-2 py-0.5 text-[11px]">
-                <input
-                  type="checkbox"
-                  checked={selected.includes(product.id)}
-                  onChange={(e) =>
-                    setSelected((current) =>
-                      e.target.checked
-                        ? [...(current ?? []), product.id]
-                        : (current ?? []).filter((id) => id !== product.id),
-                    )
-                  }
-                  className="size-3.5"
-                />
-                <span className="truncate">{product.name}</span>
-              </label>
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={saving || selected === null}
-          className={btnGhostSm}
-        >
           {saving ? "Saving…" : "Save"}
         </button>
         <button

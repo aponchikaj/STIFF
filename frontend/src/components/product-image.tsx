@@ -33,6 +33,7 @@ export const ProductImage = memo(function ProductImage({
   aspect = "aspect-[3/4]",
   iconClassName = "size-10 text-subtle",
   className = "",
+  blurDataUrl = null,
   sizes = DEFAULT_SIZES,
   width,
   height,
@@ -56,6 +57,15 @@ export const ProductImage = memo(function ProductImage({
   fit?: ImageFit;
   /** Clockwise degrees. Applied at Cloudinary so the reserved box matches. */
   rotation?: number | null;
+  /**
+   * Inline base64 stand-in, shown while the photograph decodes.
+   *
+   * Set as the image's own background rather than a sibling element: the
+   * background shows through until the image has pixels, and is covered by
+   * them the moment it does. No JavaScript, no load handler, and nothing to
+   * fade out — which is what lets this stay a server component.
+   */
+  blurDataUrl?: string | null;
 }) {
   if (!src) {
     return (
@@ -84,6 +94,15 @@ export const ProductImage = memo(function ProductImage({
       loading={priority ? "eager" : "lazy"}
       fetchPriority={priority ? "high" : "low"}
       decoding="async"
+      style={
+        blurDataUrl
+          ? {
+              backgroundImage: `url("${blurDataUrl}")`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }
+          : undefined
+      }
       // `aspect` wins over any intrinsic width/height attributes, so tiles that
       // opt into a fixed ratio still crop; `aspect=""` keeps natural height and
       // uses the attributes to reserve the right box.

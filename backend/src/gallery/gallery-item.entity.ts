@@ -2,11 +2,15 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
   JoinTable,
   ManyToMany,
+  ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Product } from '../products/product.entity';
+import { GalleryShoot } from './gallery-shoot.entity';
+import { GalleryTag } from './gallery-tag.entity';
 
 @Entity('gallery_items')
 export class GalleryItem {
@@ -45,6 +49,28 @@ export class GalleryItem {
   @Column({ type: 'int', nullable: true })
   height: number | null;
 
+  /**
+   * The shoot this frame came out of, or null for the older archive, which
+   * predates shoots. Nullable rather than backfilled into a synthetic
+   * "Uncategorised" shoot — that would invent a fact about the archive.
+   */
+  @Column({ type: 'uuid', nullable: true })
+  shootId: string | null;
+
+  @ManyToOne(() => GalleryShoot, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'shootId' })
+  shoot: GalleryShoot | null;
+
+  /**
+   * A ~500-byte base64 JPEG shown while the real photograph decodes.
+   *
+   * Inline rather than a URL: a grid of twenty-four placeholder *requests*
+   * competes for bandwidth with the photographs it is standing in for, which
+   * is the problem it exists to solve. Null until the shot is processed.
+   */
+  @Column({ type: 'text', nullable: true })
+  blurDataUrl: string | null;
+
   // Clockwise degrees applied at delivery (Cloudinary `a_90` / `a_180` /
   // `a_270`). Stored pixels stay untouched — some phone uploads land on their
   // side, so a standing person reads left-to-right until this is set. 90 and
@@ -72,6 +98,15 @@ export class GalleryItem {
     inverseJoinColumn: { name: 'productId', referencedColumnName: 'id' },
   })
   products: Product[];
+
+  /** Season, location, theme — the axes the archive is filtered along. */
+  @ManyToMany(() => GalleryTag)
+  @JoinTable({
+    name: 'gallery_item_tags',
+    joinColumn: { name: 'galleryItemId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'tagId', referencedColumnName: 'id' },
+  })
+  tags: GalleryTag[];
 
   @Column({ type: 'int', default: 0 })
   likeCount: number;

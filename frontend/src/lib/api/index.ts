@@ -1,5 +1,6 @@
 export * from "./client";
 export * from "./types";
+export * from "./paginate";
 
 export * as authApi from "./auth";
 export * as profileApi from "./profile";
