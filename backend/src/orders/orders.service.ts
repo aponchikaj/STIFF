@@ -16,6 +16,7 @@ import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ProductVariant } from '../products/product-variant.entity';
 import { Product } from '../products/product.entity';
+import { isPreorderLine } from '../products/preorder';
 import { ONE_SIZE, priceForSize } from '../products/stock';
 import {
   isGeorgiaRegion,
@@ -57,6 +58,8 @@ interface LineToOrder {
   variant: ProductVariant;
   quantity: number;
   size: string;
+  /** Decided while placing the order, then snapshotted onto the order line. */
+  isPreorder?: boolean;
 }
 
 /**
@@ -216,13 +219,29 @@ export class OrdersService {
             `${line.product.name} is no longer available`,
           );
         }
-        await this.variantsService.decrement(
-          manager,
-          line.variant.id,
-          line.quantity,
-          line.size ? `${line.product.name} (${line.size})` : line.product.name,
-        );
-        await this.variantsService.syncTotal(manager, line.product.id);
+        const label = line.size
+          ? `${line.product.name} (${line.size})`
+          : line.product.name;
+
+        // A pre-order line has no stock to take, so it books capacity instead.
+        if (isPreorderLine(line.variant, line.product)) {
+          line.isPreorder = true;
+          await this.variantsService.reservePreorder(
+            manager,
+            line.variant.id,
+            line.quantity,
+            line.product.preorderLimit,
+            label,
+          );
+        } else {
+          await this.variantsService.decrement(
+            manager,
+            line.variant.id,
+            line.quantity,
+            label,
+          );
+          await this.variantsService.syncTotal(manager, line.product.id);
+        }
       }
 
       const subtotalCents = lines.reduce(
@@ -292,6 +311,7 @@ export class OrdersService {
             unitPriceCents: unitPrice(line),
             quantity: line.quantity,
             size: line.size,
+            isPreorder: line.isPreorder === true,
           }),
         ),
       );
@@ -431,6 +451,14 @@ export class OrdersService {
         // left to move stock on — skip rather than guess which size it was.
         if (!item.productId || !item.variantId) continue;
         if (enteringCancelled) {
+          if (item.isPreorder) {
+            await this.variantsService.releasePreorder(
+              manager,
+              item.variantId,
+              item.quantity,
+            );
+            continue;
+          }
           await this.variantsService.increment(
             manager,
             item.variantId,
@@ -498,6 +526,16 @@ export class OrdersService {
     await this.dataSource.transaction(async (manager) => {
       for (const item of order.items) {
         if (!item.productId || !item.variantId) continue;
+        if (item.isPreorder) {
+          // Nothing came off a shelf, so nothing goes back on one — what is
+          // freed is the slot in the pre-order run.
+          await this.variantsService.releasePreorder(
+            manager,
+            item.variantId,
+            item.quantity,
+          );
+          continue;
+        }
         await this.variantsService.increment(
           manager,
           item.variantId,
@@ -559,6 +597,14 @@ export class OrdersService {
       if (order.status !== 'cancelled') {
         for (const item of order.items) {
           if (!item.productId || !item.variantId) continue;
+          if (item.isPreorder) {
+            await this.variantsService.releasePreorder(
+              manager,
+              item.variantId,
+              item.quantity,
+            );
+            continue;
+          }
           await this.variantsService.increment(
             manager,
             item.variantId,

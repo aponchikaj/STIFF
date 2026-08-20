@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Product } from '../products/product.entity';
 import { ProductVariant } from '../products/product-variant.entity';
+import { availability } from '../products/preorder';
 import { ONE_SIZE, priceForSize } from '../products/stock';
 import { CartItem } from './cart-item.entity';
 import { CartOwner, ownerWhere } from './cart-owner';
@@ -78,13 +79,24 @@ export class CartService {
       throw new BadRequestException('Size not available for this product');
     }
 
+    // Real stock first, then whatever pre-order capacity is left — see
+    // `products/preorder.ts` for why 0 means none rather than unlimited.
+    const offer = availability(variant, product);
+    if (offer.kind === 'unavailable') {
+      throw new BadRequestException(offer.reason);
+    }
+
     const where = ownerWhere(owner);
     const existing = await this.cartRepo.findOne({
       where: { ...where, productId: dto.productId, size },
     });
     const newQuantity = (existing?.quantity ?? 0) + dto.quantity;
-    if (variant.stock < newQuantity) {
-      throw new BadRequestException(`Only ${variant.stock} left in stock`);
+    if (offer.max < newQuantity) {
+      throw new BadRequestException(
+        offer.kind === 'preorder'
+          ? `Only ${offer.max} left to pre-order`
+          : `Only ${offer.max} left in stock`,
+      );
     }
 
     if (existing) {
@@ -116,9 +128,14 @@ export class CartService {
       relations: { product: true, variant: true },
     });
     if (!item) throw new NotFoundException('Cart item not found');
-    const available = item.variant?.stock ?? 0;
-    if (available < dto.quantity) {
-      throw new BadRequestException(`Only ${available} left in stock`);
+    const offer = item.variant
+      ? availability(item.variant, item.product)
+      : ({ kind: 'unavailable', reason: 'That size is gone.' } as const);
+    if (offer.kind === 'unavailable') {
+      throw new BadRequestException(offer.reason);
+    }
+    if (offer.max < dto.quantity) {
+      throw new BadRequestException(`Only ${offer.max} available`);
     }
     item.quantity = dto.quantity;
     await this.cartRepo.save(item);
@@ -161,7 +178,10 @@ export class CartService {
         const existing = await repo.findOne({
           where: { userId, productId: item.productId, size: item.size },
         });
-        const available = item.variant?.stock ?? 0;
+        const offer = item.variant
+          ? availability(item.variant, item.product)
+          : null;
+        const available = offer && offer.kind !== 'unavailable' ? offer.max : 0;
 
         if (existing) {
           existing.quantity = Math.min(

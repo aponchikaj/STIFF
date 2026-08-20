@@ -183,6 +183,49 @@ export class VariantsService {
     );
   }
 
+  /**
+   * Records a unit promised against stock that does not exist yet.
+   *
+   * Guarded in the WHERE clause against the product's limit, so two checkouts
+   * racing for the last pre-order slot cannot both succeed — the same rule
+   * real stock gets, for the same reason.
+   */
+  async reservePreorder(
+    manager: EntityManager,
+    variantId: string,
+    quantity: number,
+    limit: number,
+    label: string,
+  ): Promise<void> {
+    const rows = await manager.query<unknown[]>(
+      `UPDATE "product_variants"
+         SET "preorderedCount" = "preorderedCount" + $2, "updatedAt" = now()
+       WHERE "id" = $1
+         AND "isActive" = true
+         AND "preorderedCount" + $2 <= $3
+       RETURNING "id"`,
+      [variantId, quantity, limit],
+    );
+    if (!Array.isArray(rows) || rows.length === 0) {
+      throw new BadRequestException(`Pre-orders are full for ${label}`);
+    }
+  }
+
+  /** Releases promised units — cancellations and returns. */
+  async releasePreorder(
+    manager: EntityManager,
+    variantId: string,
+    quantity: number,
+  ): Promise<void> {
+    await manager.query(
+      `UPDATE "product_variants"
+         SET "preorderedCount" = GREATEST("preorderedCount" - $2, 0),
+             "updatedAt" = now()
+       WHERE "id" = $1`,
+      [variantId, quantity],
+    );
+  }
+
   /** Resolves the variant a shopper asked for, by product and size label. */
   async findFor(
     manager: EntityManager,

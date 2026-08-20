@@ -60,6 +60,10 @@ export class ProductVariant {
   @Column({ default: true })
   isActive: boolean;
 
+  /** Sold against stock that does not exist yet — counted against the limit. */
+  @Column({ type: 'int', default: 0 })
+  preorderedCount: number;
+
   @CreateDateColumn()
   createdAt: Date;
 

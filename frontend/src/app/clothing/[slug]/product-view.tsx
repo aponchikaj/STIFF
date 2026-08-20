@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { productsApi } from "@/lib/api";
 import type { ProductDetail } from "@/lib/api";
+import { DropCountdown } from "@/components/drop-countdown";
 import { useContent } from "@/lib/content";
 import { formatPrice } from "@/lib/format";
 import { useAsync } from "@/lib/hooks";
@@ -128,6 +129,9 @@ export function ProductView({
             <p className="text-lg text-muted">
               {formatPrice(product.priceCents)}
             </p>
+            {product.publishAt && (
+              <DropCountdown publishAt={product.publishAt} />
+            )}
             {product.stock > 0 && product.stock <= lowStockThreshold && (
               <span className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
                 <AsteriskMark className="size-3.5" />

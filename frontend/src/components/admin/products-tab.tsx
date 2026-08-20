@@ -42,6 +42,10 @@ const EMPTY = {
   description: "",
   images: [] as string[],
   variants: DEFAULT_VARIANTS,
+  publishAt: "",
+  preorderEnabled: false,
+  preorderShipsAt: "",
+  preorderLimit: "",
 };
 
 export function ProductsTab() {
@@ -73,6 +77,13 @@ export function ProductsTab() {
       price: String(product.priceCents / 100),
       description: product.description,
       images: product.images,
+      // datetime-local wants no timezone suffix.
+      publishAt: product.publishAt
+        ? new Date(product.publishAt).toISOString().slice(0, 16)
+        : "",
+      preorderEnabled: product.preorderEnabled ?? false,
+      preorderShipsAt: product.preorderShipsAt ?? "",
+      preorderLimit: product.preorderLimit ? String(product.preorderLimit) : "",
       variants:
         product.variants.length > 0
           ? product.variants.map((v) => ({
@@ -148,6 +159,12 @@ export function ProductsTab() {
       })),
       description: form.description || undefined,
       images: form.images,
+      publishAt: form.publishAt
+        ? new Date(form.publishAt).toISOString()
+        : null,
+      preorderEnabled: form.preorderEnabled,
+      preorderShipsAt: form.preorderShipsAt || undefined,
+      preorderLimit: Number(form.preorderLimit) || 0,
     };
     try {
       if (editingId) {
@@ -379,6 +396,74 @@ export function ProductsTab() {
             </div>
           </fieldset>
 
+
+          <fieldset className="border border-subtle p-4">
+            <legend className="px-1 text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
+              Drop and pre-orders
+            </legend>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field id="p-publish" label="Go live at">
+                <input
+                  id="p-publish"
+                  type="datetime-local"
+                  value={form.publishAt}
+                  onChange={(e) =>
+                    setForm({ ...form, publishAt: e.target.value })
+                  }
+                  className={inputCls}
+                />
+              </Field>
+              <div className="flex items-end pb-1">
+                <p className="text-xs leading-6 text-muted">
+                  Leave empty to publish as soon as the product is active.
+                  Shoppers cannot see it before this moment even if it is.
+                </p>
+              </div>
+            </div>
+
+            <label className="mt-4 flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={form.preorderEnabled}
+                onChange={(e) =>
+                  setForm({ ...form, preorderEnabled: e.target.checked })
+                }
+                className="size-4"
+              />
+              Take pre-orders once a size sells out
+            </label>
+
+            {form.preorderEnabled && (
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <Field id="p-pre-limit" label="Extra units per size">
+                  <input
+                    id="p-pre-limit"
+                    type="number"
+                    min="0"
+                    value={form.preorderLimit}
+                    onChange={(e) =>
+                      setForm({ ...form, preorderLimit: e.target.value })
+                    }
+                    className={inputCls}
+                  />
+                </Field>
+                <Field id="p-pre-ships" label="Ships from">
+                  <input
+                    id="p-pre-ships"
+                    type="date"
+                    value={form.preorderShipsAt}
+                    onChange={(e) =>
+                      setForm({ ...form, preorderShipsAt: e.target.value })
+                    }
+                    className={inputCls}
+                  />
+                </Field>
+                <p className="text-xs leading-6 text-muted sm:col-span-2">
+                  0 extra units means no pre-orders — it never means unlimited.
+                </p>
+              </div>
+            )}
+          </fieldset>
 
           <div>
             <p className={labelCls}>Images</p>

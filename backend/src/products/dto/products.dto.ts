@@ -4,6 +4,7 @@ import {
   IsBoolean,
   IsIn,
   IsInt,
+  IsISO8601,
   IsObject,
   IsOptional,
   IsString,
@@ -149,6 +150,27 @@ export class UpdateProductDto {
 
   @IsOptional()
   isActive?: boolean;
+
+  /** When the drop opens. Null publishes immediately. */
+  @IsOptional()
+  @IsISO8601()
+  publishAt?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  preorderEnabled?: boolean;
+
+  /** YYYY-MM-DD, shown to the customer as the promised ship date. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  preorderShipsAt?: string;
+
+  /** Units sellable beyond real stock. 0 means none. */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  preorderLimit?: number;
 }
 
 export type ProductSort = 'newest' | 'price_asc' | 'price_desc' | 'popular';

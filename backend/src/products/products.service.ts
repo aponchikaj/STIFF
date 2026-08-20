@@ -16,6 +16,7 @@ import {
   UpdateProductDto,
 } from './dto/products.dto';
 import { Product } from './product.entity';
+import { isLive } from './preorder';
 import { ProductVariant } from './product-variant.entity';
 import { ONE_SIZE, type VariantInput, normalizeVariants } from './stock';
 import { VariantsService } from './variants.service';
@@ -96,6 +97,11 @@ export class ProductsService {
 
     if (user?.role !== 'admin') {
       qb.andWhere('product.isActive = true');
+      // A scheduled drop stays hidden until its moment, even with isActive on
+      // — otherwise ticking the box early leaks it.
+      qb.andWhere(
+        '(product."publishAt" IS NULL OR product."publishAt" <= now())',
+      );
     }
     if (query.search) {
       qb.andWhere(
@@ -159,7 +165,8 @@ export class ProductsService {
     const product = await this.productRepo.findOne({
       where: UUID_RE.test(idOrSlug) ? { id: idOrSlug } : { slug: idOrSlug },
     });
-    if (!product || (!product.isActive && user?.role !== 'admin')) {
+    const visible = isLive(product ?? { isActive: false });
+    if (!product || (!visible && user?.role !== 'admin')) {
       throw new NotFoundException('Product not found');
     }
 
@@ -227,6 +234,18 @@ export class ProductsService {
       if (dto.images !== undefined) product.images = dto.images;
       if (dto.category !== undefined) product.category = dto.category;
       if (dto.isActive !== undefined) product.isActive = dto.isActive;
+      if (dto.publishAt !== undefined) {
+        product.publishAt = dto.publishAt ? new Date(dto.publishAt) : null;
+      }
+      if (dto.preorderEnabled !== undefined) {
+        product.preorderEnabled = dto.preorderEnabled;
+      }
+      if (dto.preorderShipsAt !== undefined) {
+        product.preorderShipsAt = dto.preorderShipsAt || null;
+      }
+      if (dto.preorderLimit !== undefined) {
+        product.preorderLimit = Math.max(0, dto.preorderLimit);
+      }
 
       const touchesStock =
         dto.variants !== undefined || dto.sizes !== undefined;
@@ -268,6 +287,23 @@ export class ProductsService {
     await this.reactionRepo.delete({ targetType: 'product', targetId: id });
     await this.productRepo.delete({ id });
     return { success: true, soft: false };
+  }
+
+  /**
+   * Opens drops whose moment has arrived.
+   *
+   * Products are hidden by the query above until `publishAt` passes, so this
+   * only clears the timestamp — it is bookkeeping, not the gate. That means a
+   * missed cron run delays nothing.
+   */
+  async openScheduledDrops(): Promise<number> {
+    const result = await this.productRepo
+      .createQueryBuilder()
+      .update(Product)
+      .set({ publishAt: null })
+      .where('"publishAt" IS NOT NULL AND "publishAt" <= now()')
+      .execute();
+    return result.affected ?? 0;
   }
 
   private async uniqueSlug(name: string, excludeId?: string): Promise<string> {

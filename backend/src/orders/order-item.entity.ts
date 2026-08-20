@@ -54,4 +54,13 @@ export class OrderItem {
 
   @Column({ type: 'varchar', default: '' })
   size: string;
+
+  /**
+   * This line was a pre-order when it was placed.
+   *
+   * Recorded on the line rather than inferred from the product, which stops
+   * taking pre-orders eventually — the admin still needs to see what is owed.
+   */
+  @Column({ default: false })
+  isPreorder: boolean;
 }

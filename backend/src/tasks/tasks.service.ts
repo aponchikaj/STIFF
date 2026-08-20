@@ -8,6 +8,7 @@ import { TokenService } from '../auth/token.service';
 import { CartItem } from '../cart/cart-item.entity';
 import { CartService } from '../cart/cart.service';
 import { CrossSellService } from '../customers/cross-sell.service';
+import { ProductsService } from '../products/products.service';
 import { StockAlertsService } from '../customers/stock-alerts.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
@@ -29,6 +30,7 @@ export class TasksService {
     private readonly cartService: CartService,
     private readonly stockAlertsService: StockAlertsService,
     private readonly crossSellService: CrossSellService,
+    private readonly productsService: ProductsService,
   ) {}
 
   /** Hourly: purge expired/used auth tokens so the tables stay small. */
@@ -81,6 +83,22 @@ export class TasksService {
       if (deleted) this.logger.log(`Purged ${deleted} old stock alerts`);
     } catch (err) {
       this.logger.error('purgeNotifiedAlerts failed', this.stack(err));
+    }
+  }
+
+  /**
+   * Every minute: open drops whose moment has arrived.
+   *
+   * Browsing already hides an unpublished product, so this only tidies the
+   * timestamp — a missed run delays no drop, it just leaves the flag set.
+   */
+  @Cron('* * * * *')
+  async openScheduledDrops(): Promise<void> {
+    try {
+      const opened = await this.productsService.openScheduledDrops();
+      if (opened) this.logger.log(`Opened ${opened} scheduled drop(s)`);
+    } catch (err) {
+      this.logger.error('openScheduledDrops failed', this.stack(err));
     }
   }
 

@@ -76,6 +76,8 @@ export interface ProductVariant {
   priceDeltaCents: number;
   position: number;
   isActive: boolean;
+  /** Units already promised against stock that does not exist yet. */
+  preorderedCount?: number;
 }
 
 export interface Product {
@@ -92,6 +94,11 @@ export interface Product {
   stock: number;
   variants: ProductVariant[];
   isActive: boolean;
+  /** When the drop opens. Null means it is live now. */
+  publishAt?: string | null;
+  preorderEnabled?: boolean;
+  preorderShipsAt?: string | null;
+  preorderLimit?: number;
   likeCount: number;
   dislikeCount: number;
   commentCount: number;
@@ -438,19 +445,35 @@ export interface LoginInput {
   password: string;
 }
 
+export interface VariantInput {
+  id?: string;
+  size: string;
+  sku?: string;
+  stock: number;
+  priceDeltaCents?: number;
+  isActive?: boolean;
+}
+
 export interface CreateProductInput {
   name: string;
   description?: string;
   priceCents: number;
   images?: string[];
   category?: string;
+  /** The full set of buyable sizes. Replaces the old sizes + stock pair. */
+  variants?: VariantInput[];
+  /** Legacy shape, still accepted so an older admin build keeps working. */
   sizes?: string[];
   stock?: number;
-  stockBySize?: Record<string, number>;
 }
 
 export interface UpdateProductInput extends Partial<CreateProductInput> {
   isActive?: boolean;
+  /** When the drop opens. Null publishes as soon as it is active. */
+  publishAt?: string | null;
+  preorderEnabled?: boolean;
+  preorderShipsAt?: string;
+  preorderLimit?: number;
 }
 
 export interface CreateGalleryItemInput {

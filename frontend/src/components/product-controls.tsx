@@ -6,8 +6,9 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cartApi } from "@/lib/api";
 import { priceForSize, stockForSize } from "@/lib/checkout";
+import { availability } from "@/lib/preorder";
 import { useContent } from "@/lib/content";
-import { formatPrice } from "@/lib/format";
+import { formatDate, formatPrice } from "@/lib/format";
 import type { ProductDetail } from "@/lib/api";
 import { errorMessage } from "@/lib/hooks";
 import { MinusIcon, PlusIcon } from "./icons";
@@ -43,6 +44,13 @@ export function ProductControls({ product }: { product: ProductDetail }) {
   const unitPrice = priceForSize(product, size);
   const selectedVariant =
     product.variants.find((v) => v.size === (size ?? "")) ?? null;
+
+  // What the server would allow: real stock first, then whatever pre-order
+  // capacity is left.
+  const offer = selectedVariant
+    ? availability(selectedVariant, product)
+    : null;
+  const isPreorder = offer?.kind === "preorder";
 
   /** Only worth saying when the number is small enough to actually pressure. */
   function lowStock(qty: number): boolean {
@@ -147,7 +155,17 @@ export function ProductControls({ product }: { product: ProductDetail }) {
         </>
       )}
 
-      {selectedVariant && available === 0 && (
+      {isPreorder && offer.kind === "preorder" && (
+        <p className="mt-4 border border-foreground p-3 text-xs leading-6">
+          Made to order.{" "}
+          {offer.shipsAt
+            ? `Ships from ${formatDate(offer.shipsAt)}.`
+            : "We'll confirm a ship date by email."}{" "}
+          {offer.max} left in this run.
+        </p>
+      )}
+
+      {selectedVariant && available === 0 && !isPreorder && (
         <StockAlertButton
           variant={selectedVariant}
           productName={product.name}
@@ -191,7 +209,9 @@ export function ProductControls({ product }: { product: ProductDetail }) {
             onClick={() => addToCart(false)}
             className={btnSolid}
           >
-            {soldOut || sizeSoldOut
+            {isPreorder
+              ? "Pre-order"
+              : soldOut || sizeSoldOut
               ? "Sold out"
               : busy
                 ? "Adding…"

@@ -50,6 +50,26 @@ export class Product {
   @Column({ default: true })
   isActive: boolean;
 
+  /**
+   * When the drop opens.
+   *
+   * A product is only visible once this has passed AND `isActive` is on, so a
+   * scheduled piece cannot leak early by someone ticking the box first.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  publishAt: Date | null;
+
+  @Column({ default: false })
+  preorderEnabled: boolean;
+
+  /** What the customer is promised. Shown on the product and the receipt. */
+  @Column({ type: 'date', nullable: true })
+  preorderShipsAt: string | null;
+
+  /** Units sellable beyond real stock. 0 means none, never unlimited. */
+  @Column({ type: 'int', default: 0 })
+  preorderLimit: number;
+
   @Column({ type: 'int', default: 0 })
   likeCount: number;
 
