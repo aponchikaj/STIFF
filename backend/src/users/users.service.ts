@@ -175,6 +175,37 @@ export class UsersService {
     };
   }
 
+  /**
+   * Hands this account the orders it placed before it existed.
+   *
+   * The bar is a **verified** email, and nothing less. A guest order carries a
+   * full name, a street address, a phone number and a payment history, so
+   * matching on an unverified address would mean anyone could register with
+   * someone else's email and read their order history. Registering is not
+   * proof; clicking the link sent to that inbox is.
+   *
+   * `guestEmail` is left in place — it is the address the invoice actually
+   * went to — and `claimedAt` records the transfer, so an order that changed
+   * hands is distinguishable from one that was always this account's.
+   *
+   * Returns how many moved, so the caller can say so.
+   */
+  async claimGuestOrders(user: User): Promise<number> {
+    if (!user.isVerified) return 0;
+
+    const result = await this.orderRepo
+      .createQueryBuilder()
+      .update(Order)
+      .set({ userId: user.id, claimedAt: () => 'now()' })
+      .where('"userId" IS NULL')
+      // Case-insensitively: someone types Sam@X.com at checkout and sam@x.com
+      // when registering, and it is the same inbox either way.
+      .andWhere('lower("guestEmail") = lower(:email)', { email: user.email })
+      .execute();
+
+    return result.affected ?? 0;
+  }
+
   async getMyOrders(
     userId: string,
     query: PaginationDto,

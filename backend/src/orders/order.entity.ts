@@ -53,6 +53,17 @@ export class Order {
   @Column({ type: 'varchar', length: 180, nullable: true })
   guestEmail: string | null;
 
+  /**
+   * When an account took this order over.
+   *
+   * Set only for an order placed as a guest and later claimed by proving
+   * ownership of `guestEmail`. Null means it was either always an account's or
+   * still nobody's — which is why this is a timestamp rather than a flag on
+   * `userId`, whose presence alone cannot tell those two apart.
+   */
+  @Column({ type: 'timestamptz', nullable: true })
+  claimedAt: Date | null;
+
   @Index()
   @Column({
     type: 'enum',
