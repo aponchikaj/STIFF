@@ -8,7 +8,13 @@ import { mergeLocalWishlist } from "@/lib/wishlist";
 import { useSession } from "@/components/providers";
 import { btnSolid, Field, inputCls } from "@/components/ui";
 
-export function RegisterForm({ defaultEmail = "" }: { defaultEmail?: string }) {
+export function RegisterForm({
+  defaultEmail = "",
+  next = "/account",
+}: {
+  defaultEmail?: string;
+  next?: string;
+}) {
   const router = useRouter();
   const { setUser } = useSession();
   const [busy, setBusy] = useState(false);
@@ -29,7 +35,7 @@ export function RegisterForm({ defaultEmail = "" }: { defaultEmail?: string }) {
       // Hand over anything saved while signed out, the same way the guest
       // cart is folded in. Awaited so the account page shows it immediately.
       await mergeLocalWishlist();
-      router.push("/account");
+      router.push(next);
     } catch (err) {
       setError(errorMessage(err));
       setBusy(false);

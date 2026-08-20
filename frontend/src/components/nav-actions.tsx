@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { CartDrawer } from "./cart-drawer";
 import { useSession } from "./providers";
-import { BagIcon, SearchIcon, UserIcon } from "./icons";
+import { BagIcon, BookmarkIcon, SearchIcon, UserIcon } from "./icons";
+import { useWishlist } from "@/lib/wishlist";
 import { SearchOverlay } from "./search-overlay";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -15,6 +16,9 @@ export function NavActions() {
   const { user, cartCount, unreadCount, shopEnabled } = useSession();
   const [searchOpen, setSearchOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
+  // Signed out this reads the browser's list, so the count is right for a
+  // guest too — which is the whole point of saving without an account.
+  const { ids: savedIds } = useWishlist(!!user);
 
   return (
     <div className="flex items-center">
@@ -40,6 +44,14 @@ export function NavActions() {
             </span>
           )}
         </button>
+      )}
+      {shopEnabled && savedIds.length > 0 && (
+        <Link href="/saved" aria-label="Saved pieces" className={iconLinkCls}>
+          <BookmarkIcon className="size-[18px]" />
+          <span className="absolute right-0 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-[2px] bg-foreground px-1 text-[9px] font-bold leading-none text-background">
+            {savedIds.length > 99 ? "99+" : savedIds.length}
+          </span>
+        </Link>
       )}
       <Link
         href={user ? "/account" : "/login"}
