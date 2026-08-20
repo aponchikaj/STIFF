@@ -306,35 +306,41 @@ export class FitService {
       });
       if (live.length === 0) return;
 
-      await manager
-        .createQueryBuilder()
-        .insert()
-        .into('gallery_item_products', [
-          'galleryItemId',
-          'productId',
-          'hotspotX',
-          'hotspotY',
-        ])
-        .values(
-          live.map((product) => {
-            const tag = normalized.get(product.id);
-            // Half a pin is not a pin. The CHECK constraint says the same
-            // thing, and this is what keeps it from ever being tested.
-            const placed =
-              tag?.hotspotX !== undefined &&
-              tag?.hotspotX !== null &&
-              tag?.hotspotY !== undefined &&
-              tag?.hotspotY !== null;
-            return {
-              galleryItemId,
-              productId: product.id,
-              hotspotX: placed ? tag.hotspotX : null,
-              hotspotY: placed ? tag.hotspotY : null,
-            };
-          }),
-        )
-        .orIgnore()
-        .execute();
+      // Raw SQL, not the query builder.
+      //
+      // `gallery_item_products` is the join table behind `GalleryItem.products`,
+      // so TypeORM has junction metadata for it — and that metadata knows two
+      // columns. Values keyed on anything else are mapped through it and
+      // quietly dropped, which stored every pin as NULL while the insert
+      // reported success. The columns are literals here and every value is a
+      // parameter.
+      const values: unknown[] = [];
+      const tuples = live.map((product) => {
+        const tag = normalized.get(product.id);
+        // Half a pin is not a pin. `CHK_gallery_item_products_hotspot` says
+        // the same thing; this is what keeps it from ever being tested.
+        const placed =
+          tag?.hotspotX !== undefined &&
+          tag.hotspotX !== null &&
+          tag.hotspotY !== undefined &&
+          tag.hotspotY !== null;
+        values.push(
+          galleryItemId,
+          product.id,
+          placed ? tag.hotspotX : null,
+          placed ? tag.hotspotY : null,
+        );
+        const at = values.length;
+        return `($${at - 3}, $${at - 2}, $${at - 1}, $${at})`;
+      });
+
+      await manager.query(
+        `INSERT INTO "gallery_item_products" ("galleryItemId", "productId", "hotspotX", "hotspotY")
+         VALUES ${tuples.join(', ')}
+         ON CONFLICT ("galleryItemId", "productId") DO UPDATE
+           SET "hotspotX" = EXCLUDED."hotspotX", "hotspotY" = EXCLUDED."hotspotY"`,
+        values,
+      );
     });
   }
 }

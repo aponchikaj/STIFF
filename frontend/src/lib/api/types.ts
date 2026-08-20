@@ -696,6 +696,12 @@ export interface UploadedImage {
   url: string;
   width: number | null;
   height: number | null;
+  /**
+   * Clockwise degrees the file's own EXIF orientation asks for, so the
+   * uploader can pre-fill it. A suggestion, not a decision — the preview shows
+   * the turned result and it can be overridden before publishing.
+   */
+  rotation?: number;
 }
 
 export type UpdateGalleryItemInput = Partial<CreateGalleryItemInput> & {
