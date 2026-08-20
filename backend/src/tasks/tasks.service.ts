@@ -6,6 +6,10 @@ import { AnalyticsService } from '../analytics/analytics.service';
 import { AuthService } from '../auth/auth.service';
 import { TokenService } from '../auth/token.service';
 import { CartItem } from '../cart/cart-item.entity';
+import { CartService } from '../cart/cart.service';
+import { CrossSellService } from '../customers/cross-sell.service';
+import { ProductsService } from '../products/products.service';
+import { StockAlertsService } from '../customers/stock-alerts.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
 
@@ -23,6 +27,10 @@ export class TasksService {
     private readonly notificationsService: NotificationsService,
     @InjectRepository(CartItem)
     private readonly cartRepo: Repository<CartItem>,
+    private readonly cartService: CartService,
+    private readonly stockAlertsService: StockAlertsService,
+    private readonly crossSellService: CrossSellService,
+    private readonly productsService: ProductsService,
   ) {}
 
   /** Hourly: purge expired/used auth tokens so the tables stay small. */
@@ -41,6 +49,59 @@ export class TasksService {
     }
   }
 
+  /**
+   * Every 15 minutes: tell people whose size came back.
+   *
+   * On a schedule rather than at the moment stock changes, because a restock
+   * usually means several variants saved in a row — one message per customer,
+   * not one per save.
+   */
+  @Cron('*/15 * * * *')
+  async notifyRestocked(): Promise<void> {
+    try {
+      await this.stockAlertsService.notifyRestocked();
+    } catch (err) {
+      this.logger.error('notifyRestocked failed', this.stack(err));
+    }
+  }
+
+  /** Daily 02:30: recompute what gets bought together. */
+  @Cron('30 2 * * *')
+  async refreshCrossSell(): Promise<void> {
+    try {
+      await this.crossSellService.refresh();
+    } catch (err) {
+      this.logger.error('refreshCrossSell failed', this.stack(err));
+    }
+  }
+
+  /** Daily 03:45: drop stock alerts sent months ago — they are just history. */
+  @Cron('45 3 * * *')
+  async purgeNotifiedAlerts(): Promise<void> {
+    try {
+      const deleted = await this.stockAlertsService.purgeNotified(90);
+      if (deleted) this.logger.log(`Purged ${deleted} old stock alerts`);
+    } catch (err) {
+      this.logger.error('purgeNotifiedAlerts failed', this.stack(err));
+    }
+  }
+
+  /**
+   * Every minute: open drops whose moment has arrived.
+   *
+   * Browsing already hides an unpublished product, so this only tidies the
+   * timestamp — a missed run delays no drop, it just leaves the flag set.
+   */
+  @Cron('* * * * *')
+  async openScheduledDrops(): Promise<void> {
+    try {
+      const opened = await this.productsService.openScheduledDrops();
+      if (opened) this.logger.log(`Opened ${opened} scheduled drop(s)`);
+    } catch (err) {
+      this.logger.error('openScheduledDrops failed', this.stack(err));
+    }
+  }
+
   /** Daily 03:00: remove week-old unverified accounts with no orders. */
   @Cron('0 3 * * *')
   async deleteStaleUnverified(): Promise<void> {
@@ -49,6 +110,22 @@ export class TasksService {
       if (deleted) this.logger.log(`Deleted ${deleted} stale unverified users`);
     } catch (err) {
       this.logger.error('deleteStaleUnverified failed', this.stack(err));
+    }
+  }
+
+  /**
+   * Daily 03:15: drop anonymous carts nobody came back to.
+   *
+   * A guest cart is only reachable through its cookie, and that cookie expires
+   * after 60 days — rows outliving it are unreachable by anyone.
+   */
+  @Cron('15 3 * * *')
+  async purgeStaleGuestCarts(): Promise<void> {
+    try {
+      const deleted = await this.cartService.purgeStaleGuestCarts(60);
+      if (deleted) this.logger.log(`Purged ${deleted} stale guest cart rows`);
+    } catch (err) {
+      this.logger.error('purgeStaleGuestCarts failed', this.stack(err));
     }
   }
 
@@ -63,6 +140,8 @@ export class TasksService {
         .createQueryBuilder('cart')
         .select('cart.userId', 'userId')
         .addSelect('MAX(cart.updatedAt)', 'last')
+        // Guest rows have no account to notify.
+        .where('cart.userId IS NOT NULL')
         .groupBy('cart.userId')
         .having('MAX(cart.updatedAt) BETWEEN :from AND :to', {
           from: fourDaysAgo,

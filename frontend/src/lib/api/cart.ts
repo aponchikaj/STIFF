@@ -1,6 +1,11 @@
 import type { PaymentMethod, ShippingMethod } from "../checkout";
 import { apiFetch } from "./client";
-import type { CartView, Order, ShippingAddress } from "./types";
+import type {
+  CartView,
+  Order,
+  PlacedOrder,
+  ShippingAddress,
+} from "./types";
 
 export function getCart(): Promise<CartView> {
   return apiFetch("/cart");
@@ -39,7 +44,11 @@ export function checkout(data: {
   shippingAddress: ShippingAddress;
   shippingMethod: ShippingMethod;
   paymentMethod: PaymentMethod;
-}): Promise<Order> {
+  /** Required when nobody is signed in. */
+  email?: string;
+  discountCode?: string;
+  giftCardCode?: string;
+}): Promise<PlacedOrder> {
   return apiFetch("/orders/checkout", { method: "POST", body: data });
 }
 
@@ -50,10 +59,19 @@ export function buyNow(data: {
   shippingAddress: ShippingAddress;
   shippingMethod: ShippingMethod;
   paymentMethod: PaymentMethod;
-}): Promise<Order> {
+  /** Required when nobody is signed in. */
+  email?: string;
+  discountCode?: string;
+  giftCardCode?: string;
+}): Promise<PlacedOrder> {
   return apiFetch("/orders/buy-now", { method: "POST", body: data });
 }
 
 export function getOrder(id: string): Promise<Order> {
   return apiFetch(`/orders/${id}`);
+}
+
+/** Customer cancellation. Works for guests with just the order id. */
+export function cancelOrder(id: string): Promise<Order> {
+  return apiFetch(`/orders/${id}/cancel`, { method: "POST" });
 }

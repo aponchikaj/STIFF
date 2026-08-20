@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { productsApi } from "@/lib/api";
 import type { ProductDetail } from "@/lib/api";
+import { DropCountdown } from "@/components/drop-countdown";
+import { useContent } from "@/lib/content";
 import { formatPrice } from "@/lib/format";
 import { useAsync } from "@/lib/hooks";
 import { CommentsSection } from "@/components/comments-section";
@@ -20,8 +22,13 @@ import { ShareButton } from "@/components/share-button";
 import { productShareSubject } from "@/lib/share-subject";
 import { btnOutline, Loading } from "@/components/ui";
 
-/** At or below this many units the piece is flagged as running out. */
-const LOW_STOCK = 5;
+/**
+ * Headline scarcity, across every size.
+ *
+ * Deliberately blunter than the per-size warning in `ProductControls`: this one
+ * says the piece is nearly gone, that one says which size is. Both read their
+ * threshold from Content -> Storefront thresholds.
+ */
 
 export function ProductView({
   slug,
@@ -30,6 +37,9 @@ export function ProductView({
   slug: string;
   initial?: ProductDetail | null;
 }) {
+  const storefront = useContent("storefront");
+  const lowStockThreshold = Number(storefront.text("lowStockThreshold", "3"));
+  const lowStockLabel = storefront.text("lowStockLabel", "Only {n} left");
   const { shopEnabled } = useSession();
   const [lightbox, setLightbox] = useState<string | null>(null);
   const { data: product, loading, error } = useAsync(
@@ -119,10 +129,13 @@ export function ProductView({
             <p className="text-lg text-muted">
               {formatPrice(product.priceCents)}
             </p>
-            {product.stock > 0 && product.stock <= LOW_STOCK && (
+            {product.publishAt && (
+              <DropCountdown publishAt={product.publishAt} />
+            )}
+            {product.stock > 0 && product.stock <= lowStockThreshold && (
               <span className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
                 <AsteriskMark className="size-3.5" />
-                Only {product.stock} left
+                {lowStockLabel.replace("{n}", String(product.stock))}
               </span>
             )}
           </div>

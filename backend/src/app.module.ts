@@ -16,11 +16,15 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { ContactModule } from './contact/contact.module';
 import { ContentModule } from './content/content.module';
+import { CustomersModule } from './customers/customers.module';
 import { GalleryModule } from './gallery/gallery.module';
 import { MailModule } from './mail/mail.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { OrdersModule } from './orders/orders.module';
+import { PaymentsModule } from './payments/payments.module';
 import { ProductsModule } from './products/products.module';
+import { PromotionsModule } from './promotions/promotions.module';
+import { ReturnsModule } from './returns/returns.module';
 import { ReactionsModule } from './reactions/reactions.module';
 import { SearchModule } from './search/search.module';
 import { StaffModule } from './staff/staff.module';
@@ -66,14 +70,18 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     AuthModule,
     ProductsModule,
+    PromotionsModule,
     GalleryModule,
     ReactionsModule,
+    ReturnsModule,
     CommentsModule,
     CartModule,
     OrdersModule,
+    PaymentsModule,
     NotificationsModule,
     ContactModule,
     ContentModule,
+    CustomersModule,
     CollabModule,
     AnalyticsModule,
     UploadsModule,

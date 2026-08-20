@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { contentText, fetchContent } from "@/lib/content-server";
 import { AsteriskMark } from "./asterisk-mark";
 import { IfShop } from "./if-shop";
 import { Magnetic } from "./motion";
@@ -7,7 +8,22 @@ import { btnOutline, btnSolid } from "./ui";
 
 /** Conversion-focused hero. Scroll drift/spin is CSS `scroll()` timeline
  *  (compositor-only) so the main thread stays free for 120Hz scrolling. */
-export function HomeHero() {
+export async function HomeHero() {
+  const copy = await fetchContent("home-hero");
+  const eyebrow = contentText(copy, "eyebrow", "Tbilisi — est. 2026");
+  const tagline = contentText(
+    copy,
+    "tagline",
+    "Essential clothing. Nothing extra. Heavy fabric, hard cuts, one mark — made to be worn until it falls apart.",
+  );
+  const primaryCta = contentText(copy, "primaryCta", "Shop the drop");
+  const secondaryCta = contentText(copy, "secondaryCta", "See the archive");
+  const coordinates = contentText(
+    copy,
+    "coordinates",
+    "[ 41.7151° N, 44.8271° E — Tbilisi ]",
+  );
+
   return (
     <section className="relative flex h-dvh flex-col items-center justify-center overflow-hidden px-6">
       {/* Backdrop sits outside any 3D/transform context so the filtered
@@ -33,7 +49,7 @@ export function HomeHero() {
 
       <div className="hero-copy relative flex flex-col items-center text-center">
         <p className="text-[11px] font-medium uppercase tracking-[0.35em] text-muted">
-          Tbilisi — est. 2026
+          {eyebrow}
         </p>
         <div className="mt-6 flex items-center gap-4 sm:gap-6">
           <span className="hero-asterisk">
@@ -44,8 +60,7 @@ export function HomeHero() {
           </h1>
         </div>
         <p className="mt-6 max-w-md text-sm leading-7 text-muted">
-          Essential clothing. Nothing extra. Heavy fabric, hard cuts, one mark
-          — made to be worn until it falls apart.
+          {tagline}
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <IfShop>
@@ -54,7 +69,7 @@ export function HomeHero() {
                 href="/clothing"
                 className={`${btnSolid} active:scale-[0.98]`}
               >
-                Shop the drop
+                {primaryCta}
               </Link>
             </Magnetic>
           </IfShop>
@@ -63,12 +78,12 @@ export function HomeHero() {
               href="/gallery"
               className={`${btnOutline} h-12 px-6 active:scale-[0.98]`}
             >
-              See the archive
+              {secondaryCta}
             </Link>
           </Magnetic>
         </div>
         <p className="mt-10 text-[10px] font-medium uppercase tracking-[0.25em] text-muted">
-          [ 41.7151° N, 44.8271° E — Tbilisi ]
+          {coordinates}
         </p>
       </div>
     </section>
