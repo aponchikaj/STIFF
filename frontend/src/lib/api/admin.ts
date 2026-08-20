@@ -14,6 +14,8 @@ import type {
   CreateGalleryItemInput,
   CreateProductInput,
   GalleryItem,
+  GalleryShoot,
+  GalleryTag,
   Order,
   OrderStatus,
   Paginated,
@@ -27,6 +29,8 @@ import type {
   TimeseriesPoint,
   TopProduct,
   TrafficReport,
+  ShootInput,
+  TagInput,
   UpdateGalleryItemInput,
   UpdateProductInput,
   UploadedImage,
@@ -145,6 +149,59 @@ export function updateGalleryItem(
 
 export function deleteGalleryItem(id: string): Promise<{ success: boolean }> {
   return apiFetch(`/gallery/${id}`, { method: "DELETE" });
+}
+
+/**
+ * Fills in blur placeholders for shots that have none.
+ *
+ * A button rather than a migration: it needs Cloudinary, not the database,
+ * and new uploads generate theirs on publish. This is only for the archive
+ * that predates them.
+ */
+export function backfillGalleryPlaceholders(): Promise<{
+  processed: number;
+  filled: number;
+}> {
+  return apiFetch("/gallery/placeholders", { method: "POST" });
+}
+
+// ---------- shoots ----------
+
+export function createShoot(data: ShootInput): Promise<GalleryShoot> {
+  return apiFetch("/gallery/shoots", { method: "POST", body: data });
+}
+
+export function updateShoot(
+  id: string,
+  data: ShootInput,
+): Promise<GalleryShoot> {
+  return apiFetch(`/gallery/shoots/${id}`, { method: "PUT", body: data });
+}
+
+export function deleteShoot(id: string): Promise<{ success: boolean }> {
+  return apiFetch(`/gallery/shoots/${id}`, { method: "DELETE" });
+}
+
+/** Shots not filed under any shoot — where the assigner starts. */
+export function listUngroupedShots(): Promise<GalleryItem[]> {
+  return apiFetch("/gallery/shoots/ungrouped");
+}
+
+// ---------- tags ----------
+
+export function createGalleryTag(data: TagInput): Promise<GalleryTag> {
+  return apiFetch("/gallery/tags", { method: "POST", body: data });
+}
+
+export function updateGalleryTag(
+  id: string,
+  data: TagInput,
+): Promise<GalleryTag> {
+  return apiFetch(`/gallery/tags/${id}`, { method: "PUT", body: data });
+}
+
+export function deleteGalleryTag(id: string): Promise<{ success: boolean }> {
+  return apiFetch(`/gallery/tags/${id}`, { method: "DELETE" });
 }
 
 // ---------- orders ----------

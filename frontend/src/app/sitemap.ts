@@ -19,6 +19,12 @@ interface GalleryRow {
   createdAt: string;
 }
 
+interface ShootRow {
+  slug: string;
+  isPublished: boolean;
+  createdAt: string;
+}
+
 interface Page<T> {
   items: T[];
   total: number;
@@ -53,6 +59,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     { url: `${SITE_URL}/gallery`, changeFrequency: "weekly", priority: 0.7 },
+    {
+      url: `${SITE_URL}/gallery/shoot`,
+      changeFrequency: "weekly",
+      priority: 0.6,
+    },
     { url: `${SITE_URL}/about`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${SITE_URL}/contact`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${SITE_URL}/rules`, changeFrequency: "monthly", priority: 0.4 },
@@ -70,6 +81,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         changeFrequency: "weekly",
         priority: 0.8,
       });
+    }
+  } catch {
+    // API down — static routes only
+  }
+
+  try {
+    // Shoots are not paginated: the endpoint returns the whole list, and there
+    // are tens of them where there are hundreds of shots.
+    const res = await fetch(`${serverApiBase()}/gallery/shoots`, {
+      next: { revalidate: 3600 },
+    });
+    if (res.ok) {
+      for (const shoot of (await res.json()) as ShootRow[]) {
+        // Drafts are reachable by link but must not be advertised.
+        if (!shoot.isPublished) continue;
+        entries.push({
+          url: `${SITE_URL}/gallery/shoot/${shoot.slug}`,
+          lastModified: new Date(shoot.createdAt),
+          changeFrequency: "monthly",
+          priority: 0.6,
+        });
+      }
     }
   } catch {
     // API down — static routes only

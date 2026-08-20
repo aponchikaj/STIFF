@@ -7,6 +7,24 @@ import { ProductFitRating } from './product-fit-rating.entity';
 import { Product } from './product.entity';
 import { PURCHASED_STATUSES } from './purchases';
 
+/**
+ * A piece worn in an archive shot, and where on the frame it is worn.
+ *
+ * The coordinates are percentages of the *displayed* frame, after `rotation`
+ * has been applied; null means the piece is tagged but nobody placed a pin.
+ */
+export interface ProductInShot extends Product {
+  hotspotX: number | null;
+  hotspotY: number | null;
+}
+
+/** What the admin submits when tagging a piece into a shot. */
+export interface ProductTag {
+  productId: string;
+  hotspotX?: number | null;
+  hotspotY?: number | null;
+}
+
 /** A fit summary plus what the person reading it already said. */
 export interface FitReport extends FitSummary {
   /** Their own rating, or null. */
@@ -212,9 +230,15 @@ export class FitService {
     return new Map(rows.map((row) => [row.productId, row.count]));
   }
 
-  /** Products worn in a set of archive shots, for the admin editor. */
-  async productsFor(galleryItemId: string): Promise<Product[]> {
-    return this.dataSource
+  /**
+   * The pieces worn in one shot, each with its pin if someone placed one.
+   *
+   * The coordinates ride along with the product rather than arriving as a
+   * separate list, because a pin without its product is meaningless and the
+   * two would only have to be re-joined on the client.
+   */
+  async productsFor(galleryItemId: string): Promise<ProductInShot[]> {
+    const qb = this.dataSource
       .getRepository(Product)
       .createQueryBuilder('product')
       .innerJoin(
@@ -223,16 +247,48 @@ export class FitService {
         'link."productId" = product."id"',
       )
       .where('link."galleryItemId" = :galleryItemId', { galleryItemId })
-      .orderBy('product."name"', 'ASC')
-      .getMany();
+      .orderBy('product."name"', 'ASC');
+
+    // Two selections of the same rows: the entity, and the join columns
+    // TypeORM will not hydrate onto it.
+    const [products, pins] = await Promise.all([
+      qb.getMany(),
+      this.dataSource
+        .createQueryBuilder()
+        .select('link."productId"', 'productId')
+        .addSelect('link."hotspotX"', 'hotspotX')
+        .addSelect('link."hotspotY"', 'hotspotY')
+        .from('gallery_item_products', 'link')
+        .where('link."galleryItemId" = :galleryItemId', { galleryItemId })
+        .getRawMany<{
+          productId: string;
+          hotspotX: number | null;
+          hotspotY: number | null;
+        }>(),
+    ]);
+
+    const byId = new Map(pins.map((pin) => [pin.productId, pin]));
+    return products.map((product) => ({
+      ...product,
+      hotspotX: byId.get(product.id)?.hotspotX ?? null,
+      hotspotY: byId.get(product.id)?.hotspotY ?? null,
+    }));
   }
 
   /** Replaces a shot's product links with exactly what the admin submitted. */
   async setProductsFor(
     galleryItemId: string,
-    productIds: string[],
+    tags: (string | ProductTag)[],
   ): Promise<void> {
-    const wanted = [...new Set(productIds)];
+    // Accepts a bare id or an id with a pin, so a caller that has no
+    // coordinates to offer does not have to invent a shape.
+    const normalized = new Map<string, ProductTag>();
+    for (const tag of tags) {
+      const entry: ProductTag =
+        typeof tag === 'string' ? { productId: tag } : tag;
+      normalized.set(entry.productId, entry);
+    }
+
     await this.dataSource.transaction(async (manager) => {
       await manager
         .createQueryBuilder()
@@ -240,24 +296,51 @@ export class FitService {
         .from('gallery_item_products')
         .where('"galleryItemId" = :galleryItemId', { galleryItemId })
         .execute();
-      if (wanted.length === 0) return;
+      if (normalized.size === 0) return;
 
       // Only ids that resolve — a stale id from a stale admin tab would
       // otherwise fail the whole save on a foreign key.
-      const live = await manager
-        .getRepository(Product)
-        .find({ where: { id: In(wanted) }, select: { id: true } });
+      const live = await manager.getRepository(Product).find({
+        where: { id: In([...normalized.keys()]) },
+        select: { id: true },
+      });
       if (live.length === 0) return;
 
-      await manager
-        .createQueryBuilder()
-        .insert()
-        .into('gallery_item_products', ['galleryItemId', 'productId'])
-        .values(
-          live.map((product) => ({ galleryItemId, productId: product.id })),
-        )
-        .orIgnore()
-        .execute();
+      // Raw SQL, not the query builder.
+      //
+      // `gallery_item_products` is the join table behind `GalleryItem.products`,
+      // so TypeORM has junction metadata for it — and that metadata knows two
+      // columns. Values keyed on anything else are mapped through it and
+      // quietly dropped, which stored every pin as NULL while the insert
+      // reported success. The columns are literals here and every value is a
+      // parameter.
+      const values: unknown[] = [];
+      const tuples = live.map((product) => {
+        const tag = normalized.get(product.id);
+        // Half a pin is not a pin. `CHK_gallery_item_products_hotspot` says
+        // the same thing; this is what keeps it from ever being tested.
+        const placed =
+          tag?.hotspotX !== undefined &&
+          tag.hotspotX !== null &&
+          tag.hotspotY !== undefined &&
+          tag.hotspotY !== null;
+        values.push(
+          galleryItemId,
+          product.id,
+          placed ? tag.hotspotX : null,
+          placed ? tag.hotspotY : null,
+        );
+        const at = values.length;
+        return `($${at - 3}, $${at - 2}, $${at - 1}, $${at})`;
+      });
+
+      await manager.query(
+        `INSERT INTO "gallery_item_products" ("galleryItemId", "productId", "hotspotX", "hotspotY")
+         VALUES ${tuples.join(', ')}
+         ON CONFLICT ("galleryItemId", "productId") DO UPDATE
+           SET "hotspotX" = EXCLUDED."hotspotX", "hotspotY" = EXCLUDED."hotspotY"`,
+        values,
+      );
     });
   }
 }

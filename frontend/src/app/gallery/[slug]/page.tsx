@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { GalleryItemDetail } from "@/lib/api";
+import { creditsToSchema } from "@/components/gallery-credits";
 import { galleryPath } from "@/lib/gallery-url";
 import { DETAIL_WIDTHS, imageSrcSet, imageUrl, orientedSize } from "@/lib/image";
 import { serverApiBase, SITE_URL } from "@/lib/site";
@@ -71,7 +72,10 @@ export default async function GalleryItemPage({
   const item = await fetchShot(slug);
 
   // ImageObject is what an image search actually reads: the caption, the
-  // dimensions, and a licence pointing back at the page it belongs to.
+  // dimensions, who made it, and a licence pointing back at the page it
+  // belongs to. `creator` is the half that matters most here — an image
+  // result that names the photographer is worth more to them than a credit
+  // line nobody outside the page ever sees.
   const jsonLd = item
     ? {
         "@context": "https://schema.org",
@@ -86,12 +90,49 @@ export default async function GalleryItemPage({
         uploadDate: item.createdAt,
         representativeOfPage: true,
         url: `${SITE_URL}${galleryPath(item)}`,
-        isPartOf: {
-          "@type": "CollectionPage",
-          name: "STIFF Archive",
-          url: `${SITE_URL}/gallery`,
-        },
+        ...creditsToSchema(item.credits ?? []),
+        ...(item.tags?.length
+          ? { keywords: item.tags.map((tag) => tag.label).join(", ") }
+          : {}),
+        // The shoot is the closer parent when there is one; the archive is
+        // still the collection either way.
+        isPartOf: item.shoot
+          ? {
+              "@type": "ImageGallery",
+              name: item.shoot.title,
+              url: `${SITE_URL}/gallery/shoot/${item.shoot.slug}`,
+              ...(item.shoot.shotOn ? { datePublished: item.shoot.shotOn } : {}),
+              isPartOf: {
+                "@type": "CollectionPage",
+                name: "STIFF Archive",
+                url: `${SITE_URL}/gallery`,
+              },
+            }
+          : {
+              "@type": "CollectionPage",
+              name: "STIFF Archive",
+              url: `${SITE_URL}/gallery`,
+            },
+        ...(item.shoot?.location
+          ? { contentLocation: { "@type": "Place", name: item.shoot.location } }
+          : {}),
+        // Pieces worn in the shot. Google reads this to connect a photograph
+        // to something buyable, which is the whole point of tagging them.
+        ...(item.products?.length
+          ? {
+              about: item.products.map((product) => ({
+                "@type": "Product",
+                name: product.name,
+                url: `${SITE_URL}/clothing/${product.slug}`,
+              })),
+            }
+          : {}),
         copyrightHolder: { "@type": "Organization", name: "STIFF" },
+        copyrightNotice: "© STIFF",
+        creditText: "STIFF",
+        // Where someone goes to ask about using the photograph, which is what
+        // `acquireLicensePage` is for — it is the licensable-image signal.
+        acquireLicensePage: `${SITE_URL}/contact`,
       }
     : null;
 

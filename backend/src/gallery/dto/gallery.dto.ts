@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -6,17 +6,84 @@ import {
   IsBoolean,
   IsIn,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
   Min,
   MinLength,
   ValidateNested,
 } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+import { CreditInputDto } from './shoot.dto';
 
-export class CreateGalleryItemDto {
+/**
+ * A piece worn in a shot, and optionally where on the frame it is worn.
+ *
+ * Coordinates are percentages of the displayed frame, after `rotation`. Both
+ * or neither: half a pin is not a pin, which is what
+ * `CHK_gallery_item_products_hotspot` enforces at the other end.
+ */
+export class ProductTagDto {
+  @IsUUID()
+  productId: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  hotspotX?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  hotspotY?: number;
+}
+
+/**
+ * Fields shared by create and update: what a shot belongs to and what is in
+ * it, as opposed to what it looks like.
+ */
+export class GalleryLinksDto {
+  /**
+   * The pieces worn in this shot, with their pins.
+   *
+   * Supersedes `productIds` when both are sent. Absent leaves the links
+   * alone; an empty array clears them.
+   */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => ProductTagDto)
+  productTags?: ProductTagDto[];
+
+  /** The shoot this frame came out of. Null detaches it. */
+  @IsOptional()
+  @IsUUID()
+  shootId?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @ArrayMaxSize(20)
+  tagIds?: string[];
+
+  /** Credits specific to this frame, on top of the shoot's. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => CreditInputDto)
+  credits?: CreditInputDto[];
+}
+
+export class CreateGalleryItemDto extends GalleryLinksDto {
   @IsString()
   @MinLength(1)
   @MaxLength(120)
@@ -78,7 +145,7 @@ export class CreateGalleryItemDto {
   sortOrder?: number;
 }
 
-export class UpdateGalleryItemDto {
+export class UpdateGalleryItemDto extends GalleryLinksDto {
   /**
    * The pieces worn in this shot.
    *
@@ -240,4 +307,32 @@ export class ListGalleryQueryDto extends PaginationDto {
   @Type(() => Boolean)
   @IsBoolean()
   includeArchived?: boolean;
+
+  /** Tag slug. Repeat the parameter to narrow across axes: season *and* place. */
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? [value] : value,
+  )
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(10)
+  tag?: string[];
+
+  /** Shoot slug. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  shoot?: string;
+
+  /**
+   * Keyset position, from a previous page's `nextCursor`.
+   *
+   * Supersedes `page` when present. Anything unreadable is ignored rather
+   * than rejected, so a stale bookmark starts the archive from the top
+   * instead of showing an error.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(400)
+  cursor?: string;
 }

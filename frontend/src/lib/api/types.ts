@@ -151,6 +151,68 @@ export interface ProductDetail extends Product {
   archiveShots: ArchiveShot[];
 }
 
+/** The jobs a shoot is credited in. Mirrors CREDIT_ROLES on the backend. */
+export type CreditRole =
+  | "photographer"
+  | "model"
+  | "stylist"
+  | "makeup"
+  | "hair"
+  | "art_direction"
+  | "set_design"
+  | "retouch"
+  | "assistant"
+  | "location";
+
+export interface GalleryCredit {
+  id: string;
+  role: CreditRole;
+  name: string;
+  /** Stored without the leading @; the display and the URL both derive from it. */
+  instagram: string | null;
+  url: string | null;
+  sortOrder: number;
+}
+
+export type TagKind = "season" | "location" | "theme";
+
+export interface GalleryTag {
+  id: string;
+  slug: string;
+  label: string;
+  kind: TagKind;
+  sortOrder: number;
+}
+
+/** A tag with how many live shots carry it. */
+export interface GalleryTagWithCount extends GalleryTag {
+  count: number;
+}
+
+export interface GalleryShoot {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  /** A calendar day, `YYYY-MM-DD` — a shoot has no meaningful hour. */
+  shotOn: string | null;
+  coverItemId: string | null;
+  sortOrder: number;
+  isPublished: boolean;
+  createdAt: string;
+}
+
+export interface ShootSummary extends GalleryShoot {
+  cover: GalleryItem | null;
+  shotCount: number;
+}
+
+export interface ShootDetail extends ShootSummary {
+  items: GalleryItem[];
+  credits: GalleryCredit[];
+}
+
 export interface GalleryItem {
   id: string;
   slug: string;
@@ -164,12 +226,26 @@ export interface GalleryItem {
   height: number | null;
   /** Clockwise degrees applied at delivery. 0 / omitted means the file is already upright. */
   rotation?: number;
+  /**
+   * Inline base64 stand-in shown while the photograph decodes. Null until the
+   * shot has been processed; the surface color holds the box either way.
+   */
+  blurDataUrl?: string | null;
+  shootId?: string | null;
+  tags?: GalleryTag[];
   sortOrder: number;
   isArchived: boolean;
   likeCount: number;
   dislikeCount: number;
   commentCount: number;
   createdAt: string;
+}
+
+/** A piece worn in a shot, and where on the frame it is worn. */
+export interface ProductInShot extends Product {
+  /** Percentages of the displayed frame, after rotation. Null means unpinned. */
+  hotspotX: number | null;
+  hotspotY: number | null;
 }
 
 export type GalleryNeighbour = Pick<
@@ -186,8 +262,12 @@ export type GalleryNeighbour = Pick<
 
 export interface GalleryItemDetail extends GalleryItem {
   myReaction: ReactionType | null;
-  /** The pieces worn in this shot — "shop the look". */
-  products: Product[];
+  /** The pieces worn in this shot, with their pins — "shop the look". */
+  products: ProductInShot[];
+  tags: GalleryTag[];
+  /** This frame's credits, falling back to its shoot's. */
+  credits: GalleryCredit[];
+  shoot: GalleryShoot | null;
   /** 1-based position in the archive, for the "042 / 057" counter. */
   position: number;
   total: number;
@@ -484,6 +564,20 @@ export interface ProductListParams extends PaginationParams {
 export interface GalleryListParams extends PaginationParams {
   sort?: GallerySort;
   includeArchived?: boolean;
+  /** Tag slugs. Several narrow rather than widen: season *and* place. */
+  tag?: string[];
+  shoot?: string;
+  /**
+   * Keyset position from a previous page's `nextCursor`. Supersedes `page`,
+   * and is how the grid pages: offset paging drifts when the archive moves
+   * under a scroll.
+   */
+  cursor?: string;
+}
+
+/** A page of the archive. `nextCursor` is null on the last one. */
+export interface PaginatedShots extends Paginated<GalleryItem> {
+  nextCursor: string | null;
 }
 
 export interface RegisterInput {
@@ -532,10 +626,52 @@ export interface UpdateProductInput extends Partial<CreateProductInput> {
   preorderLimit?: number;
 }
 
+/** A piece worn in a shot, with its pin if one was placed. */
+export interface ProductTagInput {
+  productId: string;
+  hotspotX?: number;
+  hotspotY?: number;
+}
+
+export interface CreditInput {
+  role: CreditRole;
+  name: string;
+  instagram?: string;
+  url?: string;
+  sortOrder?: number;
+}
+
+export interface ShootInput {
+  title?: string;
+  slug?: string;
+  description?: string;
+  location?: string;
+  shotOn?: string;
+  coverItemId?: string;
+  sortOrder?: number;
+  isPublished?: boolean;
+  /** The whole roll, in order. Replaces whatever the shoot held before. */
+  itemIds?: string[];
+  credits?: CreditInput[];
+}
+
+export interface TagInput {
+  label?: string;
+  slug?: string;
+  kind?: TagKind;
+  sortOrder?: number;
+}
+
 export interface CreateGalleryItemInput {
   title: string;
   /** The pieces worn in this shot. Omit to leave existing links alone. */
   productIds?: string[];
+  /** The same, with pins. Supersedes `productIds` when both are sent. */
+  productTags?: ProductTagInput[];
+  shootId?: string | null;
+  tagIds?: string[];
+  /** Credits specific to this frame, on top of the shoot's. */
+  credits?: CreditInput[];
   slug?: string;
   description?: string;
   altText?: string;
@@ -560,6 +696,12 @@ export interface UploadedImage {
   url: string;
   width: number | null;
   height: number | null;
+  /**
+   * Clockwise degrees the file's own EXIF orientation asks for, so the
+   * uploader can pre-fill it. A suggestion, not a decision — the preview shows
+   * the turned result and it can be overridden before publishing.
+   */
+  rotation?: number;
 }
 
 export type UpdateGalleryItemInput = Partial<CreateGalleryItemInput> & {

@@ -8,6 +8,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import { randomBytes } from 'crypto';
 import { promises as fs } from 'fs';
 import { extname, join } from 'path';
+import { Rotation, suggestRotation } from './exif';
 
 const UPLOAD_DIR = join(process.cwd(), 'uploads');
 
@@ -16,6 +17,13 @@ export interface StoredImage {
   /** Null on the local-disk fallback, which doesn't decode the image. */
   width: number | null;
   height: number | null;
+  /**
+   * Clockwise degrees the file's own EXIF says it needs, for the uploader to
+   * pre-fill. A suggestion, not a decision: the admin sees the turned preview
+   * and can override it before publishing. Always 0 for a format that carries
+   * no orientation tag.
+   */
+  rotation: Rotation;
 }
 
 @Injectable()
@@ -57,10 +65,17 @@ export class UploadsService {
               reject(new InternalServerErrorException('Image upload failed'));
               return;
             }
-            resolve({
-              url: result.secure_url,
+            const stored = {
               width: result.width ?? null,
               height: result.height ?? null,
+            };
+            resolve({
+              url: result.secure_url,
+              ...stored,
+              // Compared against the dimensions Cloudinary reports, so a host
+              // that already honoured the tag on ingest does not get the
+              // turn applied a second time.
+              rotation: suggestRotation(file.buffer, stored),
             });
           },
         );
@@ -78,6 +93,11 @@ export class UploadsService {
       (process.env.NODE_ENV === 'production'
         ? 'https://stiff-i3nq.onrender.com'
         : 'http://localhost:4000');
-    return { url: `${appUrl}/uploads/${name}`, width: null, height: null };
+    return {
+      url: `${appUrl}/uploads/${name}`,
+      width: null,
+      height: null,
+      rotation: suggestRotation(file.buffer),
+    };
   }
 }
