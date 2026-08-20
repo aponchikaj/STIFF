@@ -28,6 +28,16 @@ export class Product {
   @Column({ type: 'text', array: true, default: '{}' })
   images: string[];
 
+  /**
+   * Descriptions of `images`, aligned by index.
+   *
+   * A shorter array simply means the trailing photos have no description yet —
+   * the alternative, rewriting `images` as jsonb objects, would break every
+   * branch and every stored row that reads it as text[].
+   */
+  @Column({ type: 'text', array: true, default: '{}' })
+  imageAlts: string[];
+
   @Column({ type: 'varchar', nullable: true })
   category: string | null;
 

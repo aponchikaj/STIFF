@@ -14,6 +14,7 @@ import { MinusIcon, PlusIcon, XIcon } from "./icons";
 import { useSession } from "./providers";
 import { ProductImage } from "./product-image";
 import { btnSolid, labelCls, Loading } from "./ui";
+import { variantLabel } from "@/lib/checkout";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -192,7 +193,7 @@ export function CartDrawer({
                           </button>
                         </div>
                         <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-muted">
-                          {item.size || "One size"}
+                          {variantLabel(item.variant?.color, item.size) || "One size"}
                         </p>
                         <div className="mt-auto flex items-center justify-between gap-2">
                           <div className="flex items-center">

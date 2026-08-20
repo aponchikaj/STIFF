@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { productsApi } from "@/lib/api";
 import type { ProductDetail } from "@/lib/api";
 import { DropCountdown } from "@/components/drop-countdown";
+import { colourways, galleryFor, hasColourways } from "@/lib/checkout";
 import { useContent } from "@/lib/content";
 import { formatPrice } from "@/lib/format";
 import { useAsync } from "@/lib/hooks";
@@ -41,7 +42,12 @@ export function ProductView({
   const lowStockThreshold = Number(storefront.text("lowStockThreshold", "3"));
   const lowStockLabel = storefront.text("lowStockLabel", "Only {n} left");
   const { shopEnabled } = useSession();
-  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(
+    null,
+  );
+  // Lives here rather than in the controls, because picking a colour changes
+  // the photographs as well as the sizes.
+  const [colour, setColour] = useState("");
   const { data: product, loading, error } = useAsync(
     () => productsApi.getProduct(slug),
     [slug],
@@ -51,6 +57,24 @@ export function ProductView({
     () => productsApi.listProducts({ pageSize: 5, sort: "popular" }),
     [slug],
   );
+
+  // First in-stock colour, so the page never opens on a sold-out colourway.
+  // Runs on the product rather than in a state initialiser because `product`
+  // arrives from a fetch when there is no server-rendered `initial`.
+  const colours = useMemo(
+    () => (product ? colourways(product) : []),
+    [product],
+  );
+  useEffect(() => {
+    if (!product || !hasColourways(product)) return;
+    setColour((current) => {
+      if (colours.some((c) => c.color === current && c.stock > 0)) {
+        return current;
+      }
+      const firstAvailable = colours.find((c) => c.stock > 0 && c.isActive);
+      return (firstAvailable ?? colours[0])?.color ?? "";
+    });
+  }, [product, colours]);
 
   if (!shopEnabled) return <ShopClosed />;
 
@@ -78,7 +102,11 @@ export function ProductView({
     );
   }
 
-  const gallery = product.images.length > 0 ? product.images : [null];
+  // A colourway with its own shoot replaces the product's photographs; one
+  // without falls back to them. `[null]` keeps the empty-state placeholder.
+  const shots = galleryFor(product, colour);
+  const gallery: ({ src: string; alt: string } | null)[] =
+    shots.length > 0 ? shots : [null];
   const shareSubject = productShareSubject(product);
   const relatedItems = (related?.items ?? [])
     .filter((p) => p.id !== product.id)
@@ -87,26 +115,30 @@ export function ProductView({
   return (
     <>
       {lightbox && (
-        <Lightbox src={lightbox} onClose={() => setLightbox(null)} />
+        <Lightbox
+          src={lightbox.src}
+          alt={lightbox.alt}
+          onClose={() => setLightbox(null)}
+        />
       )}
       <section className="mx-auto grid w-full max-w-4xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-14">
         {/* Mobile: swipeable snap carousel; desktop: stacked scroll gallery */}
         <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto lg:flex-col lg:overflow-visible">
-          {gallery.map((src, i) => (
+          {gallery.map((shot, i) => (
             <div
-              key={i}
+              key={shot ? `${colour}-${shot.src}` : i}
               className="w-[70%] max-w-[340px] shrink-0 snap-center sm:w-[45%] lg:w-full lg:max-w-none"
             >
               <button
                 type="button"
-                aria-label={src ? "Open full-size image" : undefined}
-                disabled={!src}
-                onClick={() => src && setLightbox(src)}
+                aria-label={shot ? `Zoom: ${shot.alt}` : undefined}
+                disabled={!shot}
+                onClick={() => shot && setLightbox(shot)}
                 className="group block w-full cursor-zoom-in overflow-hidden rounded-[2px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted disabled:cursor-default"
               >
                 <ProductImage
-                  src={src}
-                  alt={`${product.name} — view ${i + 1}`}
+                  src={shot?.src ?? null}
+                  alt={shot?.alt ?? ""}
                   sizes="(min-width: 1024px) 400px, (min-width: 640px) 45vw, 70vw"
                   priority={i === 0}
                   fit="detail"
@@ -154,7 +186,11 @@ export function ProductView({
             />
             {shareSubject && <ShareButton subject={shareSubject} />}
           </div>
-          <ProductControls product={product} />
+          <ProductControls
+            product={product}
+            colour={colour}
+            onColourChange={setColour}
+          />
         </div>
       </section>
 

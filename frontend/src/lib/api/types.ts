@@ -70,6 +70,12 @@ export interface UserStats {
 export interface ProductVariant {
   id: string;
   size: string;
+  /** Colourway label. Empty for a product sold in one colour. */
+  color: string;
+  /** Swatch fill `#rrggbb`, or null to show the label instead of a chip. */
+  colorHex: string | null;
+  /** Photographs of this colourway; empty falls back to the product's own. */
+  images: string[];
   sku: string | null;
   stock: number;
   /** Added to the product price for this size. */
@@ -87,6 +93,8 @@ export interface Product {
   description: string;
   priceCents: number;
   images: string[];
+  /** Descriptions of `images`, aligned by index. May be shorter. */
+  imageAlts: string[];
   category: string | null;
   /** Denormalised labels for browsing; `variants` is the source of truth. */
   sizes: string[];
@@ -157,6 +165,9 @@ export interface CartItem {
   userId: string;
   productId: string;
   product: Product;
+  /** The exact row this line buys — colour and size together. */
+  variantId: string | null;
+  variant?: ProductVariant | null;
   quantity: number;
   size: string;
   createdAt: string;
@@ -191,6 +202,8 @@ export interface OrderItem {
   unitPriceCents: number;
   quantity: number;
   size: string;
+  /** Snapshot of the colourway, empty for a one-colour product. */
+  color?: string;
 }
 
 export interface Order {
@@ -448,6 +461,9 @@ export interface LoginInput {
 export interface VariantInput {
   id?: string;
   size: string;
+  color?: string;
+  colorHex?: string | null;
+  images?: string[];
   sku?: string;
   stock: number;
   priceDeltaCents?: number;
@@ -459,6 +475,7 @@ export interface CreateProductInput {
   description?: string;
   priceCents: number;
   images?: string[];
+  imageAlts?: string[];
   category?: string;
   /** The full set of buyable sizes. Replaces the old sizes + stock pair. */
   variants?: VariantInput[];

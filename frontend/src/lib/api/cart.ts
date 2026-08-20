@@ -11,14 +11,20 @@ export function getCart(): Promise<CartView> {
   return apiFetch("/cart");
 }
 
+/**
+ * `variantId` is the real argument — it names the exact colour and size.
+ *
+ * `size` rides along so a line still reads correctly if the variant is later
+ * deleted, and so a link that predates colourways keeps working.
+ */
 export function addToCart(
   productId: string,
   quantity: number,
-  size?: string,
+  options: { variantId?: string; size?: string; color?: string } = {},
 ): Promise<CartView> {
   return apiFetch("/cart/items", {
     method: "POST",
-    body: { productId, quantity, size },
+    body: { productId, quantity, ...options },
   });
 }
 
@@ -55,7 +61,9 @@ export function checkout(data: {
 export function buyNow(data: {
   productId: string;
   quantity: number;
+  variantId?: string;
   size?: string;
+  color?: string;
   shippingAddress: ShippingAddress;
   shippingMethod: ShippingMethod;
   paymentMethod: PaymentMethod;

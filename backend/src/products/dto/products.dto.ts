@@ -16,7 +16,13 @@ import {
 } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
-/** One buyable size. `size` is empty for a product sold in a single size. */
+/**
+ * One buyable colour-and-size.
+ *
+ * `size` is empty for a product sold in a single size, `color` for one sold in
+ * a single colour — both are labels, not flags, so the same row shape covers a
+ * plain tee and a four-colourway jacket.
+ */
 export class VariantDto {
   @IsOptional()
   @IsUUID()
@@ -26,6 +32,23 @@ export class VariantDto {
   @IsString()
   @MaxLength(20)
   size?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  color?: string;
+
+  /** `#rrggbb`; anything else is stored as null rather than rejected. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(7)
+  colorHex?: string | null;
+
+  /** Photographs of this colourway. Empty falls back to the product's own. */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
 
   @IsOptional()
   @IsString()
@@ -66,6 +89,13 @@ export class CreateProductDto {
   @IsArray()
   @IsString({ each: true })
   images?: string[];
+
+  /** Descriptions of `images`, aligned by index. */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(300, { each: true })
+  imageAlts?: string[];
 
   @IsOptional()
   @IsString()
@@ -118,6 +148,13 @@ export class UpdateProductDto {
   @IsArray()
   @IsString({ each: true })
   images?: string[];
+
+  /** Descriptions of `images`, aligned by index. */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(300, { each: true })
+  imageAlts?: string[];
 
   @IsOptional()
   @IsString()

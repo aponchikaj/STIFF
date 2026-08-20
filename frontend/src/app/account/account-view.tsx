@@ -9,6 +9,7 @@ import { formatDate, formatPrice, shortId } from "@/lib/format";
 import { errorMessage, useAsync } from "@/lib/hooks";
 import { Reveal } from "@/components/motion";
 import { useSession } from "@/components/providers";
+import { variantLabel } from "@/lib/checkout";
 import {
   btnGhostSm,
   btnOutline,
@@ -409,7 +410,9 @@ function Orders() {
                 >
                   <span className="truncate">
                     {item.quantity} × {item.productName}
-                    {item.size ? ` (${item.size})` : ""}
+                    {variantLabel(item.color, item.size)
+                      ? ` (${variantLabel(item.color, item.size)})`
+                      : ""}
                   </span>
                   <span>{formatPrice(item.unitPriceCents * item.quantity)}</span>
                 </li>
