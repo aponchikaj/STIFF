@@ -1,6 +1,19 @@
-# Database dumps taken before schema changes — real gallery content, not source
+# Database dumps taken before schema changes — real content, not source.
+# These contain the users table; keep them off the laptop long-term.
+# Take one with ./scripts/db-backup.sh
+backups/
 pg_dump_backup_*.sql
 *.dump
 
 # OS
 .DS_Store
+
+# Build output and dependencies.
+#
+# Each app has its own .gitignore, but those only exist on branches that carry
+# the app — staff/ lives on `staff` alone. Ignoring here too means a checkout
+# of main with a stale staff/ directory on disk cannot have its build output
+# swept into a commit.
+node_modules/
+.next/
+dist/

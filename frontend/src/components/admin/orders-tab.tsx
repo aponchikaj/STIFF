@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { adminApi } from "@/lib/api";
 import type { Order, OrderStatus } from "@/lib/api";
+import { paymentLabel, SHIPPING_LABELS } from "@/lib/checkout";
 import { formatDate, formatPrice, shortId } from "@/lib/format";
 import { errorMessage } from "@/lib/hooks";
 import { XIcon } from "../icons";
@@ -19,7 +20,8 @@ import {
 const COLUMNS: { status: OrderStatus; label: string }[] = [
   { status: "pending", label: "Created" },
   { status: "paid", label: "Paid" },
-  { status: "shipped", label: "Shipped" },
+  { status: "packed", label: "Packed" },
+  { status: "shipped", label: "Out" },
   { status: "delivered", label: "Delivered" },
   { status: "cancelled", label: "Cancelled" },
 ];
@@ -34,6 +36,7 @@ type Board = Record<OrderStatus, Order[]>;
 const EMPTY_BOARD: Board = {
   pending: [],
   paid: [],
+  packed: [],
   shipped: [],
   delivered: [],
   cancelled: [],
@@ -162,7 +165,7 @@ export function OrdersTab() {
       {loading ? (
         <Loading label="Loading board" />
       ) : (
-        <div className="-mx-4 mt-4 flex snap-x gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0 xl:grid xl:grid-cols-5 xl:overflow-visible">
+        <div className="-mx-4 mt-4 flex snap-x gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0 xl:grid xl:grid-cols-6 xl:overflow-visible">
           {COLUMNS.map(({ status, label }) => {
             const canDropHere =
               dragging !== null && dragging.status !== status;
@@ -279,6 +282,31 @@ function OrderDetails({
 }) {
   const [date, setDate] = useState(order.createdAt.slice(0, 10));
   const [note, setNote] = useState<string | null>(null);
+  const [carrier, setCarrier] = useState(order.trackingCarrier ?? "");
+  const [trackingNumber, setTrackingNumber] = useState(
+    order.trackingNumber ?? "",
+  );
+  const [trackingUrl, setTrackingUrl] = useState(order.trackingUrl ?? "");
+  const [savingTracking, setSavingTracking] = useState(false);
+
+  async function saveTracking() {
+    setSavingTracking(true);
+    setNote(null);
+    try {
+      await adminApi.setOrderTracking(order.id, {
+        trackingCarrier: carrier,
+        trackingNumber,
+        trackingUrl,
+      });
+      setNote(
+        "Tracking saved. It goes out with the email when you mark this shipped.",
+      );
+    } catch (err) {
+      setNote(errorMessage(err));
+    } finally {
+      setSavingTracking(false);
+    }
+  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -345,6 +373,19 @@ function OrderDetails({
           </li>
         </ul>
 
+        <p className="mt-3 text-xs leading-6 text-muted">
+          {order.paymentMethod
+            ? paymentLabel(order.paymentMethod)
+            : "Payment —"}
+          {" · "}
+          {order.shippingMethod
+            ? (SHIPPING_LABELS[order.shippingMethod] ?? order.shippingMethod)
+            : "Shipping —"}
+          {(order.shippingCents ?? 0) > 0
+            ? ` (${formatPrice(order.shippingCents ?? 0)})`
+            : ""}
+        </p>
+
         {address && (
           <p className="mt-3 text-xs leading-6 text-muted">
             Ship to:{" "}
@@ -362,6 +403,41 @@ function OrderDetails({
               .join(", ")}
           </p>
         )}
+
+        <div className="mt-5 flex flex-col gap-3 border-t border-subtle pt-4">
+          <span className={labelCls}>Tracking</span>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <input
+              aria-label="Carrier"
+              value={carrier}
+              placeholder="Carrier"
+              onChange={(e) => setCarrier(e.target.value)}
+              className={inputCls}
+            />
+            <input
+              aria-label="Tracking number"
+              value={trackingNumber}
+              placeholder="Tracking number"
+              onChange={(e) => setTrackingNumber(e.target.value)}
+              className={inputCls}
+            />
+          </div>
+          <input
+            aria-label="Tracking URL"
+            value={trackingUrl}
+            placeholder="https://carrier.example/track/..."
+            onChange={(e) => setTrackingUrl(e.target.value)}
+            className={inputCls}
+          />
+          <button
+            type="button"
+            disabled={savingTracking}
+            onClick={saveTracking}
+            className={`${btnGhostSm} self-start`}
+          >
+            {savingTracking ? "Saving…" : "Save tracking"}
+          </button>
+        </div>
 
         <div className="mt-5 flex flex-col gap-4 border-t border-subtle pt-4">
           <div className="flex flex-wrap items-center gap-2">

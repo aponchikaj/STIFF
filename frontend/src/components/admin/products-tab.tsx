@@ -19,14 +19,33 @@ import {
   textareaCls,
 } from "../ui";
 
+/** One row of the variants editor. Strings because they come from inputs. */
+interface VariantRow {
+  id?: string;
+  size: string;
+  sku: string;
+  stock: string;
+  priceDelta: string;
+  isActive: boolean;
+}
+
+function blankVariant(size = ""): VariantRow {
+  return { size, sku: "", stock: "0", priceDelta: "0", isActive: true };
+}
+
+const DEFAULT_VARIANTS: VariantRow[] = ["S", "M", "L", "XL"].map(blankVariant);
+
 const EMPTY = {
   name: "",
   category: "",
   price: "",
-  stock: "",
-  sizes: "S, M, L, XL",
   description: "",
   images: [] as string[],
+  variants: DEFAULT_VARIANTS,
+  publishAt: "",
+  preorderEnabled: false,
+  preorderShipsAt: "",
+  preorderLimit: "",
 };
 
 export function ProductsTab() {
@@ -56,13 +75,46 @@ export function ProductsTab() {
       name: product.name,
       category: product.category ?? "",
       price: String(product.priceCents / 100),
-      stock: String(product.stock),
-      sizes: product.sizes.join(", "),
       description: product.description,
       images: product.images,
+      // datetime-local wants no timezone suffix.
+      publishAt: product.publishAt
+        ? new Date(product.publishAt).toISOString().slice(0, 16)
+        : "",
+      preorderEnabled: product.preorderEnabled ?? false,
+      preorderShipsAt: product.preorderShipsAt ?? "",
+      preorderLimit: product.preorderLimit ? String(product.preorderLimit) : "",
+      variants:
+        product.variants.length > 0
+          ? product.variants.map((v) => ({
+              id: v.id,
+              size: v.size,
+              sku: v.sku ?? "",
+              stock: String(v.stock),
+              priceDelta: String(v.priceDeltaCents / 100),
+              isActive: v.isActive,
+            }))
+          : [blankVariant()],
     });
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function patchVariant(index: number, next: Partial<VariantRow>) {
+    setForm((f) => ({
+      ...f,
+      variants: f.variants.map((v, i) => (i === index ? { ...v, ...next } : v)),
+    }));
+  }
+
+  function moveVariant(from: number, to: number) {
+    setForm((f) => {
+      if (to < 0 || to >= f.variants.length) return f;
+      const variants = [...f.variants];
+      const [moved] = variants.splice(from, 1);
+      variants.splice(to, 0, moved);
+      return { ...f, variants };
+    });
   }
 
   function closeForm() {
@@ -96,13 +148,23 @@ export function ProductsTab() {
       name: form.name,
       category: form.category || undefined,
       priceCents: Math.round(Number(form.price) * 100),
-      stock: Number(form.stock) || 0,
-      sizes: form.sizes
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
+      // The backend derives `sizes` and the stock total from these.
+      variants: form.variants.map((v) => ({
+        id: v.id,
+        size: v.size.trim(),
+        sku: v.sku.trim() || undefined,
+        stock: Number(v.stock) || 0,
+        priceDeltaCents: Math.round(Number(v.priceDelta) * 100) || 0,
+        isActive: v.isActive,
+      })),
       description: form.description || undefined,
       images: form.images,
+      publishAt: form.publishAt
+        ? new Date(form.publishAt).toISOString()
+        : null,
+      preorderEnabled: form.preorderEnabled,
+      preorderShipsAt: form.preorderShipsAt || undefined,
+      preorderLimit: Number(form.preorderLimit) || 0,
     };
     try {
       if (editingId) {
@@ -185,27 +247,8 @@ export function ProductsTab() {
                 className={inputCls}
               />
             </Field>
-            <Field id="p-stock" label="Stock">
-              <input
-                id="p-stock"
-                required
-                type="number"
-                min="0"
-                value={form.stock}
-                onChange={(e) => setForm({ ...form, stock: e.target.value })}
-                className={inputCls}
-              />
-            </Field>
           </div>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Field id="p-sizes" label="Sizes (comma separated)">
-              <input
-                id="p-sizes"
-                value={form.sizes}
-                onChange={(e) => setForm({ ...form, sizes: e.target.value })}
-                className={inputCls}
-              />
-            </Field>
+          <div className="grid gap-4">
             <Field id="p-description" label="Description">
               <textarea
                 id="p-description"
@@ -218,6 +261,209 @@ export function ProductsTab() {
               />
             </Field>
           </div>
+
+          <fieldset className="border border-subtle p-4">
+            <legend className="px-1 text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
+              Sizes and stock
+            </legend>
+            <p className="text-xs text-muted">
+              One row per size. Leave a single row with an empty size for a
+              product sold in one size. Price adjust is added to the price
+              above — use it when a size costs more.
+            </p>
+
+            <div className="mt-3 flex flex-col gap-2">
+              {form.variants.map((variant, i) => (
+                <div
+                  key={i}
+                  className="grid grid-cols-2 items-end gap-2 border-t border-subtle pt-3 sm:grid-cols-[5rem_1fr_5rem_6rem_auto]"
+                >
+                  <Field id={`v-size-${i}`} label="Size">
+                    <input
+                      id={`v-size-${i}`}
+                      value={variant.size}
+                      placeholder="M"
+                      onChange={(e) => patchVariant(i, { size: e.target.value })}
+                      className={inputCls}
+                    />
+                  </Field>
+                  <Field id={`v-sku-${i}`} label="SKU">
+                    <input
+                      id={`v-sku-${i}`}
+                      value={variant.sku}
+                      placeholder="optional"
+                      onChange={(e) => patchVariant(i, { sku: e.target.value })}
+                      className={inputCls}
+                    />
+                  </Field>
+                  <Field id={`v-stock-${i}`} label="Stock">
+                    <input
+                      id={`v-stock-${i}`}
+                      type="number"
+                      min="0"
+                      value={variant.stock}
+                      onChange={(e) => patchVariant(i, { stock: e.target.value })}
+                      className={inputCls}
+                    />
+                  </Field>
+                  <Field id={`v-delta-${i}`} label="Price adjust">
+                    <input
+                      id={`v-delta-${i}`}
+                      type="number"
+                      step="0.01"
+                      value={variant.priceDelta}
+                      onChange={(e) =>
+                        patchVariant(i, { priceDelta: e.target.value })
+                      }
+                      className={inputCls}
+                    />
+                  </Field>
+                  <div className="flex items-center gap-1 pb-1">
+                    <button
+                      type="button"
+                      className={btnGhostSm}
+                      aria-pressed={variant.isActive}
+                      title={
+                        variant.isActive
+                          ? "Selling — click to retire this size"
+                          : "Retired — click to sell it again"
+                      }
+                      onClick={() =>
+                        patchVariant(i, { isActive: !variant.isActive })
+                      }
+                    >
+                      {variant.isActive ? "Selling" : "Retired"}
+                    </button>
+                    <button
+                      type="button"
+                      className={btnGhostSm}
+                      disabled={i === 0}
+                      aria-label={`Move ${variant.size || "row"} up`}
+                      onClick={() => moveVariant(i, i - 1)}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className={btnGhostSm}
+                      disabled={i === form.variants.length - 1}
+                      aria-label={`Move ${variant.size || "row"} down`}
+                      onClick={() => moveVariant(i, i + 1)}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      className={btnGhostSm}
+                      disabled={form.variants.length === 1}
+                      aria-label={`Remove ${variant.size || "row"}`}
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          variants: f.variants.filter((_, j) => j !== i),
+                        }))
+                      }
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                className={btnGhostSm}
+                onClick={() =>
+                  setForm((f) => ({
+                    ...f,
+                    variants: [...f.variants, blankVariant()],
+                  }))
+                }
+              >
+                Add size
+              </button>
+              <p className="text-xs text-muted">
+                Total stock:{" "}
+                <span className="font-bold text-foreground">
+                  {form.variants.reduce(
+                    (sum, v) => sum + (Number(v.stock) || 0),
+                    0,
+                  )}
+                </span>
+              </p>
+            </div>
+          </fieldset>
+
+
+          <fieldset className="border border-subtle p-4">
+            <legend className="px-1 text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
+              Drop and pre-orders
+            </legend>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field id="p-publish" label="Go live at">
+                <input
+                  id="p-publish"
+                  type="datetime-local"
+                  value={form.publishAt}
+                  onChange={(e) =>
+                    setForm({ ...form, publishAt: e.target.value })
+                  }
+                  className={inputCls}
+                />
+              </Field>
+              <div className="flex items-end pb-1">
+                <p className="text-xs leading-6 text-muted">
+                  Leave empty to publish as soon as the product is active.
+                  Shoppers cannot see it before this moment even if it is.
+                </p>
+              </div>
+            </div>
+
+            <label className="mt-4 flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={form.preorderEnabled}
+                onChange={(e) =>
+                  setForm({ ...form, preorderEnabled: e.target.checked })
+                }
+                className="size-4"
+              />
+              Take pre-orders once a size sells out
+            </label>
+
+            {form.preorderEnabled && (
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <Field id="p-pre-limit" label="Extra units per size">
+                  <input
+                    id="p-pre-limit"
+                    type="number"
+                    min="0"
+                    value={form.preorderLimit}
+                    onChange={(e) =>
+                      setForm({ ...form, preorderLimit: e.target.value })
+                    }
+                    className={inputCls}
+                  />
+                </Field>
+                <Field id="p-pre-ships" label="Ships from">
+                  <input
+                    id="p-pre-ships"
+                    type="date"
+                    value={form.preorderShipsAt}
+                    onChange={(e) =>
+                      setForm({ ...form, preorderShipsAt: e.target.value })
+                    }
+                    className={inputCls}
+                  />
+                </Field>
+                <p className="text-xs leading-6 text-muted sm:col-span-2">
+                  0 extra units means no pre-orders — it never means unlimited.
+                </p>
+              </div>
+            )}
+          </fieldset>
 
           <div>
             <p className={labelCls}>Images</p>
@@ -326,8 +572,15 @@ export function ProductsTab() {
                 {product.category ?? "—"} · {formatPrice(product.priceCents)}
               </p>
               <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted">
-                Stock {product.stock} · ♥ {product.likeCount} · 💬{" "}
-                {product.commentCount}
+                {product.variants.some((v) => v.size)
+                  ? product.variants
+                      .map(
+                        (v) =>
+                          `${v.size} ${v.stock}${v.isActive ? "" : " (retired)"}`,
+                      )
+                      .join(" · ")
+                  : `Stock ${product.stock}`}{" "}
+                · ♥ {product.likeCount} · 💬 {product.commentCount}
               </p>
               <div className="mt-auto flex gap-3 pt-1.5">
                 <button

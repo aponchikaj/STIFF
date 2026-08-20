@@ -12,6 +12,8 @@ import { IntroOverlay } from "@/components/intro-overlay";
 import { MarqueeBand } from "@/components/marquee-band";
 import { Magnetic, Parallax, Reveal } from "@/components/motion";
 import { ProductCarousel } from "@/components/product-carousel";
+import { SectionNo } from "@/components/section-no";
+import { contentList, contentText, fetchContent } from "@/lib/content-server";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
@@ -21,7 +23,39 @@ const outlineBtn =
 const solidBtn =
   "flex h-12 items-center rounded-[2px] bg-foreground px-8 text-xs font-bold uppercase tracking-[0.2em] text-background transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
-export default function Home() {
+const VALUES = [
+  {
+    title: "Essential",
+    body: "Every piece earns its place. If it doesn't add anything, it doesn't ship.",
+  },
+  {
+    title: "Heavy",
+    body: "Weight is a feature. Thick cotton, dense embroidery, hardware that clicks.",
+  },
+  {
+    title: "Ours",
+    body: "Designed and worn in Tbilisi first. The asterisk is the spark.",
+  },
+];
+
+export default async function Home() {
+  const [valuesCopy, joinCopy] = await Promise.all([
+    fetchContent("home-values"),
+    fetchContent("home-join"),
+  ]);
+  const valuesEyebrow = contentText(
+    valuesCopy,
+    "eyebrow",
+    "The rules we live by",
+  );
+  const values = contentList(valuesCopy, "items", VALUES);
+  const joinTitle = contentText(joinCopy, "title", "Never miss a drop");
+  const joinBody = contentText(
+    joinCopy,
+    "body",
+    "Make an account to get notified the second a drop lands, track your orders, and have your say in the comments.",
+  );
+
   return (
     <>
       <IntroOverlay />
@@ -37,7 +71,7 @@ export default function Home() {
           <Reveal className="flex flex-wrap items-end justify-between gap-x-4 gap-y-5">
             <div>
               <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
-                01 — The drop
+                <SectionNo n={1} /> — The drop
               </p>
               <h2 className="mt-2 text-3xl uppercase tracking-tight sm:text-5xl">
                 Latest pieces
@@ -62,7 +96,7 @@ export default function Home() {
           <Reveal className="flex flex-wrap items-end justify-between gap-x-4 gap-y-5">
             <div>
               <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
-                02 — Most wanted
+                <SectionNo n={2} /> — Most wanted
               </p>
               <h2 className="mt-2 text-3xl uppercase tracking-tight sm:text-5xl">
                 What everyone likes
@@ -81,7 +115,7 @@ export default function Home() {
         <section aria-label="Categories" className="border-t border-subtle">
           <Reveal className="w-full px-4 pb-8 pt-16 sm:px-6">
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
-              03 — Shop by category
+              <SectionNo n={3} /> — Shop by category
             </p>
           </Reveal>
           <CategoryRows />
@@ -96,7 +130,7 @@ export default function Home() {
         <Reveal className="flex flex-wrap items-end justify-between gap-x-4 gap-y-5">
           <div>
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
-              04 — The archive
+              <SectionNo n={4} /> — The archive
             </p>
             <h2 className="mt-2 text-3xl uppercase tracking-tight sm:text-5xl">
               Worn, shot, kept
@@ -116,7 +150,7 @@ export default function Home() {
         <Parallax range={28} className="mx-auto w-full max-w-3xl px-4 py-24 text-center sm:px-6 sm:py-32">
           <Reveal>
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
-              05 — The idea
+              <SectionNo n={5} /> — The idea
             </p>
             <div className="mt-4">
               <AboutTeaser />
@@ -137,24 +171,11 @@ export default function Home() {
       >
         <Reveal>
           <p className="text-center text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
-            06 — The rules we live by
+            <SectionNo n={6} /> — {valuesEyebrow}
           </p>
         </Reveal>
         <div className="mt-10 grid gap-10 sm:grid-cols-3">
-          {[
-            {
-              title: "Essential",
-              body: "Every piece earns its place. If it doesn't add anything, it doesn't ship.",
-            },
-            {
-              title: "Heavy",
-              body: "Weight is a feature. Thick cotton, dense embroidery, hardware that clicks.",
-            },
-            {
-              title: "Ours",
-              body: "Designed and worn in Tbilisi first. The asterisk is the spark.",
-            },
-          ].map((value, i) => (
+          {values.map((value, i) => (
             <Reveal
               key={value.title}
               delay={i * 0.08}
@@ -184,11 +205,10 @@ export default function Home() {
       <section className="mx-auto w-full max-w-3xl px-4 py-24 text-center sm:px-6 sm:py-28">
         <Reveal>
           <h2 className="text-4xl uppercase leading-none tracking-tight sm:text-6xl">
-            Never miss a drop
+            {joinTitle}
           </h2>
           <p className="mx-auto mt-6 max-w-xl text-sm leading-7 text-muted">
-            Make an account to get notified the second a drop lands, track
-            your orders, and have your say in the comments.
+            {joinBody}
           </p>
           <DropSignup />
           <div className="mt-8 flex flex-wrap justify-center gap-3">

@@ -3,18 +3,27 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { authApi, profileApi } from "@/lib/api";
-import type { OrderStatus } from "@/lib/api";
+import { authApi, customersApi, profileApi } from "@/lib/api";
+import type { OrderStatus, UserAddress } from "@/lib/api";
 import { formatDate, formatPrice, shortId } from "@/lib/format";
 import { errorMessage, useAsync } from "@/lib/hooks";
 import { Reveal } from "@/components/motion";
 import { useSession } from "@/components/providers";
-import { btnGhostSm, btnOutline, Loading } from "@/components/ui";
+import {
+  btnGhostSm,
+  btnOutline,
+  btnSolidSm,
+  Field,
+  inputCls,
+  Loading,
+  selectCls,
+} from "@/components/ui";
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
   pending: "Pending",
   paid: "Paid",
-  shipped: "Shipped",
+  packed: "Packed",
+  shipped: "Out",
   delivered: "Delivered",
   cancelled: "Cancelled",
 };
@@ -45,6 +54,7 @@ export function AccountView() {
         <Stats />
       </Reveal>
       <Reveal delay={0.1}>
+        <Addresses />
         <Orders />
       </Reveal>
     </div>
@@ -148,6 +158,211 @@ function Stats() {
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+/**
+ * Saved delivery addresses.
+ *
+ * Exactly one is the default and checkout preselects it; the server keeps that
+ * true, including when the default is the one being deleted.
+ */
+function Addresses() {
+  const { data, reload } = useAsync(() => customersApi.listAddresses(), []);
+  const { data: regionData } = useAsync(() => customersApi.getRegions(), []);
+  const regions = regionData?.regions ?? ["Tbilisi"];
+  const addresses = data ?? [];
+
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  async function save(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    setBusy(true);
+    setNote(null);
+    try {
+      await customersApi.createAddress({
+        label: String(form.get("label") ?? ""),
+        firstName: String(form.get("firstName") ?? ""),
+        lastName: String(form.get("lastName") ?? ""),
+        line1: String(form.get("line1") ?? ""),
+        city: String(form.get("city") ?? ""),
+        region: String(form.get("region") ?? ""),
+        postalCode: String(form.get("postalCode") ?? ""),
+        phone: String(form.get("phone") ?? ""),
+        isDefault: form.get("isDefault") === "on",
+      });
+      setOpen(false);
+      reload();
+    } catch (err) {
+      setNote(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(id: string) {
+    try {
+      await customersApi.deleteAddress(id);
+      reload();
+    } catch (err) {
+      setNote(errorMessage(err));
+    }
+  }
+
+  async function makeDefault(address: UserAddress) {
+    try {
+      await customersApi.updateAddress(address.id, {
+        firstName: address.firstName,
+        lastName: address.lastName,
+        line1: address.line1,
+        city: address.city,
+        region: address.region ?? undefined,
+        postalCode: address.postalCode ?? undefined,
+        phone: address.phone,
+        label: address.label,
+        isDefault: true,
+      });
+      reload();
+    } catch (err) {
+      setNote(errorMessage(err));
+    }
+  }
+
+  return (
+    <section aria-label="Addresses">
+      <h2 className="text-2xl uppercase tracking-tight sm:text-4xl">
+        Addresses
+      </h2>
+
+      {addresses.length === 0 && !open && (
+        <p className="mt-4 text-sm text-muted">
+          Save an address and checkout fills itself in next time.
+        </p>
+      )}
+
+      {addresses.length > 0 && (
+        <ul className="mt-6 border-t border-subtle">
+          {addresses.map((address) => (
+            <li
+              key={address.id}
+              className="flex flex-wrap items-start justify-between gap-3 border-b border-subtle py-4"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-bold uppercase tracking-wide">
+                  {address.label || "Address"}
+                  {address.isDefault && (
+                    <span className="ml-2 text-[10px] tracking-[0.2em] text-muted">
+                      DEFAULT
+                    </span>
+                  )}
+                </p>
+                <p className="mt-1 text-xs leading-6 text-muted">
+                  {[
+                    `${address.firstName} ${address.lastName}`.trim(),
+                    address.line1,
+                    address.city,
+                    address.region,
+                    address.postalCode,
+                    address.phone,
+                  ]
+                    .filter(Boolean)
+                    .join(", ")}
+                </p>
+              </div>
+              <div className="flex gap-1">
+                {!address.isDefault && (
+                  <button
+                    type="button"
+                    onClick={() => makeDefault(address)}
+                    className={btnGhostSm}
+                  >
+                    Make default
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => remove(address.id)}
+                  className={btnGhostSm}
+                >
+                  Remove
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {note && <p className="mt-3 text-xs text-muted">{note}</p>}
+
+      {open ? (
+        <form onSubmit={save} className="mt-6 flex flex-col gap-4 border border-subtle p-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field id="a-label" label="Label">
+              <input id="a-label" name="label" placeholder="Home" className={inputCls} />
+            </Field>
+            <Field id="a-phone" label="Phone">
+              <input
+                id="a-phone"
+                name="phone"
+                type="tel"
+                required
+                placeholder="555 12 34 56"
+                className={inputCls}
+              />
+            </Field>
+            <Field id="a-first" label="Name">
+              <input id="a-first" name="firstName" required className={inputCls} />
+            </Field>
+            <Field id="a-last" label="Last name">
+              <input id="a-last" name="lastName" required className={inputCls} />
+            </Field>
+          </div>
+          <Field id="a-line1" label="Address">
+            <input id="a-line1" name="line1" required className={inputCls} />
+          </Field>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field id="a-city" label="City">
+              <input id="a-city" name="city" required className={inputCls} />
+            </Field>
+            <Field id="a-region" label="Region">
+              <select id="a-region" name="region" defaultValue="Tbilisi" className={selectCls}>
+                {regions.map((region: string) => (
+                  <option key={region} value={region}>
+                    {region}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field id="a-post" label="Postcode (optional)">
+              <input id="a-post" name="postalCode" inputMode="numeric" className={inputCls} />
+            </Field>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-muted">
+            <input type="checkbox" name="isDefault" className="size-4" />
+            Use this by default
+          </label>
+          <div className="flex gap-2">
+            <button type="submit" disabled={busy} className={btnSolidSm}>
+              {busy ? "Saving…" : "Save address"}
+            </button>
+            <button type="button" onClick={() => setOpen(false)} className={btnGhostSm}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className={`${btnGhostSm} mt-4`}
+        >
+          Add an address
+        </button>
+      )}
     </section>
   );
 }

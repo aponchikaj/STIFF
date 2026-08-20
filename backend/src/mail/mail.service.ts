@@ -2,6 +2,19 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 
+/**
+ * Minimal HTML escaping for values interpolated into email bodies.
+ *
+ * Customer-supplied text (return reasons, names) reaches these templates, and
+ * a stray `<` would otherwise break the markup or worse.
+ */
+function esc(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -49,8 +62,6 @@ export class MailService {
     reply: string,
     original: string,
   ): Promise<void> {
-    const esc = (s: string) =>
-      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const html = `
 <div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#000;">
   <p style="font-size:28px;font-weight:900;letter-spacing:-1px;margin:0;">* STIFF</p>
@@ -114,6 +125,7 @@ export class MailService {
       id: string;
       createdAt: Date;
       totalCents: number;
+      paymentMethod?: string;
       items: {
         productName: string;
         size: string;
@@ -130,6 +142,12 @@ export class MailService {
       } | null;
     },
   ): Promise<void> {
+    const payNote =
+      order.paymentMethod === 'bank_transfer'
+        ? 'Pay by bank transfer — we will follow up with the account details. The order stays pending until we confirm it.'
+        : order.paymentMethod === 'cod'
+          ? 'Pay on delivery, or when you pick it up.'
+          : '';
     const money = (cents: number) => `${(cents / 100).toFixed(2)} GEL`;
     const shortId = order.id.slice(0, 8).toUpperCase();
     const cell =
@@ -165,7 +183,7 @@ export class MailService {
   <p style="font-size:28px;font-weight:900;letter-spacing:-1px;margin:0;">* STIFF</p>
   <p style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#52525b;margin:6px 0 28px;">Order confirmation</p>
   <p style="font-size:14px;line-height:1.6;margin:0 0 20px;">
-    Thanks for your order. It's confirmed and paid — we'll notify you at every step until it's at your door.
+    Thanks for your order. We have it — you'll get another email whenever the status changes.
   </p>
   <table style="width:100%;border-collapse:collapse;margin:0 0 4px;">
     <tr>
@@ -182,6 +200,7 @@ export class MailService {
       <td style="padding:14px 0;font-size:16px;font-weight:900;text-align:right;">${money(order.totalCents)}</td>
     </tr>
   </table>
+  ${payNote ? `<p style="font-size:12px;line-height:1.6;color:#52525b;margin:16px 0 0;">${payNote}</p>` : ''}
   ${address ? `<p style="font-size:12px;line-height:1.6;color:#52525b;margin:16px 0 0;">Ship to: ${address}</p>` : ''}
   <a href="${this.frontendUrl}/account" style="display:inline-block;margin-top:28px;padding:14px 28px;background:#000;color:#fff;font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;text-decoration:none;">Track my order</a>
   <p style="font-size:11px;color:#a1a1aa;margin-top:32px;">STIFF — essential clothing, Tbilisi. Questions? Just reply to this email.</p>
@@ -189,10 +208,143 @@ export class MailService {
 
     await this.send(
       email,
-      `Order #${shortId} confirmed — STIFF`,
+      `Order #${shortId} received — STIFF`,
       html,
       `${this.frontendUrl}/account`,
     );
+  }
+
+  async sendOrderStatus(
+    email: string,
+    order: {
+      id: string;
+      status: string;
+      totalCents: number;
+      trackingCarrier?: string | null;
+      trackingNumber?: string | null;
+      trackingUrl?: string | null;
+    },
+  ): Promise<void> {
+    const shortId = order.id.slice(0, 8).toUpperCase();
+    const copy: Record<string, { subject: string; body: string }> = {
+      pending: {
+        subject: `Order #${shortId} received — STIFF`,
+        body: 'We have your order and will update you as it moves.',
+      },
+      paid: {
+        subject: `Order #${shortId} paid — STIFF`,
+        body: 'Payment received. We are getting it ready.',
+      },
+      packed: {
+        subject: `Order #${shortId} packed — STIFF`,
+        body: 'Your order is packed and waiting to go out.',
+      },
+      shipped: {
+        subject: `Order #${shortId} is out — STIFF`,
+        body: order.trackingNumber
+          ? `Your order is on its way${order.trackingCarrier ? ` with ${esc(order.trackingCarrier)}` : ''}. Tracking number ${esc(order.trackingNumber)}.`
+          : 'Your order is out for delivery.',
+      },
+      delivered: {
+        subject: `Order #${shortId} delivered — STIFF`,
+        body: 'Your order was delivered. Thank you for buying from STIFF.',
+      },
+      cancelled: {
+        subject: `Order #${shortId} cancelled — STIFF`,
+        body: 'Your order was cancelled. If that was a surprise, reply to this email.',
+      },
+    };
+    const msg = copy[order.status] ?? {
+      subject: `Order #${shortId} update — STIFF`,
+      body: `Your order is now ${order.status}.`,
+    };
+    // The carrier's own page when we have it, otherwise the order itself.
+    const trackHref =
+      order.trackingUrl ?? `${this.frontendUrl}/orders/${order.id}`;
+    const html = `
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#000;">
+  <p style="font-size:28px;font-weight:900;letter-spacing:-1px;margin:0;">* STIFF</p>
+  <p style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#52525b;margin:6px 0 28px;">Order update</p>
+  <p style="font-size:16px;font-weight:bold;margin:0 0 8px;">#${shortId}</p>
+  <p style="font-size:14px;line-height:1.7;margin:0 0 24px;">${msg.body}</p>
+  <a href="${trackHref}" style="display:inline-block;padding:14px 28px;background:#000;color:#fff;font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;text-decoration:none;">${order.trackingUrl ? 'Track the parcel' : 'View my order'}</a>
+  <p style="font-size:11px;color:#a1a1aa;margin-top:32px;">STIFF — essential clothing, Tbilisi. Questions? Just reply to this email.</p>
+</div>`;
+    await this.send(email, msg.subject, html, trackHref);
+  }
+
+  async sendReturnUpdate(
+    email: string,
+    order: { id: string },
+    request: { status: string; resolutionNote?: string; refundCents?: number },
+  ): Promise<void> {
+    if (!email) return;
+    const shortId = order.id.slice(0, 8).toUpperCase();
+    const copy: Record<string, { subject: string; body: string }> = {
+      requested: {
+        subject: `Return requested — order #${shortId}`,
+        body: 'We have your return request. We will look at it and come back to you.',
+      },
+      approved: {
+        subject: `Return approved — order #${shortId}`,
+        body: 'Your return is approved. Send the pieces back unworn with tags on, and we will refund once they reach us.',
+      },
+      rejected: {
+        subject: `Return not accepted — order #${shortId}`,
+        body: 'We could not accept this return.',
+      },
+      received: {
+        subject: `Return received — order #${shortId}`,
+        body: 'Your return arrived with us. The refund is next.',
+      },
+      refunded: {
+        subject: `Refund sent — order #${shortId}`,
+        body: 'Your refund is on its way back to you.',
+      },
+    };
+    const msg = copy[request.status] ?? {
+      subject: `Return update — order #${shortId}`,
+      body: `Your return is now ${request.status}.`,
+    };
+    const note = request.resolutionNote?.trim()
+      ? `<p style="font-size:14px;line-height:1.7;white-space:pre-line;margin:0 0 24px;border-left:2px solid #e4e4e7;padding-left:12px;">${esc(request.resolutionNote)}</p>`
+      : '';
+    const amount =
+      request.status === 'refunded' && request.refundCents
+        ? `<p style="font-size:14px;margin:0 0 24px;">Refunded: <strong>${(request.refundCents / 100).toFixed(2)} GEL</strong></p>`
+        : '';
+    const link = `${this.frontendUrl}/orders/${order.id}`;
+    const html = `
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#000;">
+  <p style="font-size:28px;font-weight:900;letter-spacing:-1px;margin:0;">* STIFF</p>
+  <p style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#52525b;margin:6px 0 28px;">Return update</p>
+  <p style="font-size:16px;font-weight:bold;margin:0 0 8px;">#${shortId}</p>
+  <p style="font-size:14px;line-height:1.7;margin:0 0 16px;">${msg.body}</p>
+  ${note}
+  ${amount}
+  <a href="${link}" style="display:inline-block;padding:14px 28px;background:#000;color:#fff;font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;text-decoration:none;">View my order</a>
+  <p style="font-size:11px;color:#a1a1aa;margin-top:32px;">STIFF — essential clothing, Tbilisi. Questions? Just reply to this email.</p>
+</div>`;
+    await this.send(email, msg.subject, html, link);
+  }
+
+  async sendBackInStock(
+    email: string,
+    label: string,
+    productSlug: string,
+  ): Promise<void> {
+    if (!email) return;
+    const link = `${this.frontendUrl}/clothing/${productSlug}`;
+    const html = `
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#000;">
+  <p style="font-size:28px;font-weight:900;letter-spacing:-1px;margin:0;">* STIFF</p>
+  <p style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#52525b;margin:6px 0 28px;">Back in stock</p>
+  <p style="font-size:16px;font-weight:bold;margin:0 0 8px;">${esc(label)}</p>
+  <p style="font-size:14px;line-height:1.7;margin:0 0 24px;">You asked us to tell you when this came back. Small runs sell out fast — it may not last.</p>
+  <a href="${link}" style="display:inline-block;padding:14px 28px;background:#000;color:#fff;font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;text-decoration:none;">Take a look</a>
+  <p style="font-size:11px;color:#a1a1aa;margin-top:32px;">STIFF — essential clothing, Tbilisi. You are only told once per restock.</p>
+</div>`;
+    await this.send(email, `${label} is back — STIFF`, html, link);
   }
 
   private async send(

@@ -5,17 +5,21 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cartApi } from "@/lib/api";
-import { formatPrice } from "@/lib/format";
+import { priceForSize, stockForSize } from "@/lib/checkout";
+import { availability } from "@/lib/preorder";
+import { useContent } from "@/lib/content";
+import { formatDate, formatPrice } from "@/lib/format";
 import type { ProductDetail } from "@/lib/api";
 import { errorMessage } from "@/lib/hooks";
 import { MinusIcon, PlusIcon } from "./icons";
 import { Magnetic } from "./motion";
+import { StockAlertButton } from "./stock-alert-button";
 import { useSession } from "./providers";
 import { btnOutline, btnSolid, labelCls } from "./ui";
 
 export function ProductControls({ product }: { product: ProductDetail }) {
   const router = useRouter();
-  const { user, refreshBadges } = useSession();
+  const { refreshBadges } = useSession();
   const [size, setSize] = useState<string | null>(
     product.sizes.length === 1 ? product.sizes[0] : null,
   );
@@ -26,8 +30,34 @@ export function ProductControls({ product }: { product: ProductDetail }) {
   const [showStickyBar, setShowStickyBar] = useState(false);
   const ctaRef = useRef<HTMLDivElement>(null);
 
-  const soldOut = product.stock === 0;
-  const maxQty = Math.min(Math.max(product.stock, 1), 9);
+  // Threshold and wording are admin-editable (Content -> Storefront thresholds),
+  // so urgency copy can be tuned without a deploy.
+  const storefront = useContent("storefront");
+  const lowStockThreshold = Number(storefront.text("lowStockThreshold", "3"));
+  const lowStockLabel = storefront.text("lowStockLabel", "Only {n} left");
+
+  const soldOut =
+    product.sizes.length === 0
+      ? product.stock === 0
+      : product.sizes.every((s) => stockForSize(product, s) === 0);
+  const available = stockForSize(product, size);
+  const unitPrice = priceForSize(product, size);
+  const selectedVariant =
+    product.variants.find((v) => v.size === (size ?? "")) ?? null;
+
+  // What the server would allow: real stock first, then whatever pre-order
+  // capacity is left.
+  const offer = selectedVariant
+    ? availability(selectedVariant, product)
+    : null;
+  const isPreorder = offer?.kind === "preorder";
+
+  /** Only worth saying when the number is small enough to actually pressure. */
+  function lowStock(qty: number): boolean {
+    return lowStockThreshold > 0 && qty > 0 && qty <= lowStockThreshold;
+  }
+  const sizeSoldOut = product.sizes.length > 0 && !!size && available === 0;
+  const maxQty = Math.min(Math.max(available, 1), 9);
 
   useEffect(() => {
     setMounted(true);
@@ -46,10 +76,8 @@ export function ProductControls({ product }: { product: ProductDetail }) {
   }, [soldOut]);
 
   async function addToCart(goToCart: boolean) {
-    if (!user) {
-      router.push(`/login?next=${encodeURIComponent(`/clothing/${product.slug}`)}`);
-      return;
-    }
+    // No login wall. Guests get a cart keyed to the `stiff_cart` cookie, and
+    // signing in later folds it into the account.
     if (product.sizes.length > 0 && !size) {
       setMessage("Pick a size first.");
       return;
@@ -91,24 +119,57 @@ export function ProductControls({ product }: { product: ProductDetail }) {
             aria-label="Size"
             className="mt-3 flex flex-wrap gap-2"
           >
-            {product.sizes.map((s) => (
-              <button
-                key={s}
-                type="button"
-                role="radio"
-                aria-checked={size === s}
-                onClick={() => setSize(s)}
-                className={`flex h-11 min-w-11 items-center justify-center rounded-[2px] border px-4 text-xs font-medium uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted ${
-                  size === s
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-subtle text-muted hover:border-foreground hover:text-foreground"
-                }`}
-              >
-                {s}
-              </button>
-            ))}
+            {product.sizes.map((s) => {
+              const qty = stockForSize(product, s);
+              const out = qty === 0;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  role="radio"
+                  aria-checked={size === s}
+                  disabled={out}
+                  onClick={() => {
+                    setSize(s);
+                    setQuantity((q) => Math.min(q, Math.min(Math.max(qty, 1), 9)));
+                  }}
+                  className={`flex h-11 min-w-11 items-center justify-center rounded-[2px] border px-4 text-xs font-medium uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted disabled:cursor-not-allowed disabled:opacity-40 ${
+                    size === s
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-subtle text-muted hover:border-foreground hover:text-foreground"
+                  }`}
+                >
+                  {s}
+                </button>
+              );
+            })}
           </div>
+          {size && lowStock(available) && (
+            <p
+              aria-live="polite"
+              className="mt-2 text-[11px] font-medium uppercase tracking-[0.15em]"
+            >
+              {lowStockLabel.replace("{n}", String(available))} in {size}
+            </p>
+          )}
         </>
+      )}
+
+      {isPreorder && offer.kind === "preorder" && (
+        <p className="mt-4 border border-foreground p-3 text-xs leading-6">
+          Made to order.{" "}
+          {offer.shipsAt
+            ? `Ships from ${formatDate(offer.shipsAt)}.`
+            : "We'll confirm a ship date by email."}{" "}
+          {offer.max} left in this run.
+        </p>
+      )}
+
+      {selectedVariant && available === 0 && !isPreorder && (
+        <StockAlertButton
+          variant={selectedVariant}
+          productName={product.name}
+        />
       )}
 
       {!soldOut && (
@@ -144,14 +205,20 @@ export function ProductControls({ product }: { product: ProductDetail }) {
         <Magnetic className="inline-block">
           <button
             type="button"
-            disabled={busy || soldOut}
+            disabled={busy || soldOut || sizeSoldOut}
             onClick={() => addToCart(false)}
             className={btnSolid}
           >
-            {soldOut ? "Sold out" : busy ? "Adding…" : "Add to cart"}
+            {isPreorder
+              ? "Pre-order"
+              : soldOut || sizeSoldOut
+              ? "Sold out"
+              : busy
+                ? "Adding…"
+                : "Add to cart"}
           </button>
         </Magnetic>
-        {!soldOut && (
+        {!soldOut && !sizeSoldOut && (
           <button
             type="button"
             disabled={busy}
@@ -164,8 +231,8 @@ export function ProductControls({ product }: { product: ProductDetail }) {
       </div>
       <p aria-live="polite" className="mt-4 min-h-5 text-xs text-muted">
         {message}
-        {!message && product.stock > 0 && product.stock <= 5 && (
-          <>Only {product.stock} left in stock.</>
+        {!message && available > 0 && available <= 5 && (
+          <>Only {available} left in stock.</>
         )}
       </p>
 
@@ -181,7 +248,7 @@ export function ProductControls({ product }: { product: ProductDetail }) {
                   {product.name}
                 </p>
                 <p className="text-xs text-muted">
-                  {formatPrice(product.priceCents)}
+                  {formatPrice(unitPrice)}
                   {size ? ` · ${size}` : ""}
                 </p>
               </div>

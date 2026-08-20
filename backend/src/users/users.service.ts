@@ -22,7 +22,7 @@ import {
 import { SafeUser, toSafeUser, User, UserRole } from './user.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
 
-const REVENUE_STATUSES = ['paid', 'shipped', 'delivered'];
+const REVENUE_STATUSES = ['paid', 'packed', 'shipped', 'delivered'];
 
 export interface UserStats {
   totalSpentCents: number;

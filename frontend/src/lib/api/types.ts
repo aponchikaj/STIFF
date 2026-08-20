@@ -6,6 +6,7 @@ export type ReactionType = "like" | "dislike";
 export type OrderStatus =
   | "pending"
   | "paid"
+  | "packed"
   | "shipped"
   | "delivered"
   | "cancelled";
@@ -14,7 +15,16 @@ export type NotificationType =
   | "comment_reply"
   | "broadcast"
   | "system";
-export type ContentKey = "about" | "contact-info" | "features";
+/** Keys declared by the backend content registry (`content.registry.ts`). */
+export type ContentKey =
+  | "features"
+  | "storefront"
+  | "home-hero"
+  | "home-values"
+  | "home-join"
+  | "about"
+  | "contact-info"
+  | "rules";
 
 export interface SiteFeatures {
   shopEnabled: boolean;
@@ -57,6 +67,19 @@ export interface UserStats {
   memberSince: string;
 }
 
+export interface ProductVariant {
+  id: string;
+  size: string;
+  sku: string | null;
+  stock: number;
+  /** Added to the product price for this size. */
+  priceDeltaCents: number;
+  position: number;
+  isActive: boolean;
+  /** Units already promised against stock that does not exist yet. */
+  preorderedCount?: number;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -65,9 +88,17 @@ export interface Product {
   priceCents: number;
   images: string[];
   category: string | null;
+  /** Denormalised labels for browsing; `variants` is the source of truth. */
   sizes: string[];
+  /** Sum of every variant's stock. */
   stock: number;
+  variants: ProductVariant[];
   isActive: boolean;
+  /** When the drop opens. Null means it is live now. */
+  publishAt?: string | null;
+  preorderEnabled?: boolean;
+  preorderShipsAt?: string | null;
+  preorderLimit?: number;
   likeCount: number;
   dislikeCount: number;
   commentCount: number;
@@ -144,6 +175,8 @@ export interface ShippingAddress {
   line1?: string;
   line2?: string;
   city?: string;
+  /** One of the eleven Georgian regions. */
+  region?: string;
   postalCode?: string;
   country?: string;
   phone?: string;
@@ -166,7 +199,22 @@ export interface Order {
   status: OrderStatus;
   totalCents: number;
   currency: string;
+  paymentMethod?: PaymentMethodKey;
+  guestEmail?: string | null;
+  subtotalCents?: number;
+  discountCode?: string | null;
+  discountCents?: number;
+  giftCardCode?: string | null;
+  giftCardCents?: number;
+  trackingCarrier?: string | null;
+  trackingNumber?: string | null;
+  trackingUrl?: string | null;
+  deliveredAt?: string | null;
+  cancelledAt?: string | null;
+  cancelledBy?: "customer" | "admin" | null;
   paymentIntentId: string | null;
+  shippingMethod?: "pickup" | "tbilisi" | "regions";
+  shippingCents?: number;
   shippingAddress: ShippingAddress | null;
   items: OrderItem[];
   createdAt: string;
@@ -232,7 +280,32 @@ export interface ContactMessage {
 export interface SiteContent {
   key: string;
   value: Record<string, unknown>;
-  updatedAt: string;
+  /** Null when the block has never been saved and is showing shipped copy. */
+  updatedAt: string | null;
+}
+
+export interface ContentListItem {
+  title: string;
+  body: string;
+}
+
+export type ContentFieldType = "text" | "textarea" | "boolean" | "list";
+
+export interface ContentField {
+  key: string;
+  label: string;
+  type: ContentFieldType;
+  default: string | boolean | ContentListItem[];
+  hint?: string;
+  maxLength?: number;
+}
+
+export interface ContentBlock {
+  key: ContentKey;
+  label: string;
+  group: string;
+  description?: string;
+  fields: ContentField[];
 }
 
 export interface AnalyticsOverview {
@@ -372,18 +445,35 @@ export interface LoginInput {
   password: string;
 }
 
+export interface VariantInput {
+  id?: string;
+  size: string;
+  sku?: string;
+  stock: number;
+  priceDeltaCents?: number;
+  isActive?: boolean;
+}
+
 export interface CreateProductInput {
   name: string;
   description?: string;
   priceCents: number;
   images?: string[];
   category?: string;
+  /** The full set of buyable sizes. Replaces the old sizes + stock pair. */
+  variants?: VariantInput[];
+  /** Legacy shape, still accepted so an older admin build keeps working. */
   sizes?: string[];
   stock?: number;
 }
 
 export interface UpdateProductInput extends Partial<CreateProductInput> {
   isActive?: boolean;
+  /** When the drop opens. Null publishes as soon as it is active. */
+  publishAt?: string | null;
+  preorderEnabled?: boolean;
+  preorderShipsAt?: string;
+  preorderLimit?: number;
 }
 
 export interface CreateGalleryItemInput {
@@ -423,4 +513,130 @@ export interface ContactInput {
   email: string;
   subject?: string;
   message: string;
+}
+
+// ---------- payments ----------
+
+export type PaymentMethodKey =
+  | "cod"
+  | "bank_transfer"
+  | "card_tbc"
+  | "card_bog";
+
+export interface PaymentAvailability {
+  method: PaymentMethodKey;
+  label: string;
+  note: string;
+  /** False renders the option disabled rather than hiding it. */
+  available: boolean;
+  /** True when choosing this will not really move money. */
+  testMode: boolean;
+}
+
+/** What the buyer has to do next, returned alongside a placed order. */
+export type PaymentStart =
+  | { kind: "on_delivery" }
+  | { kind: "instructions"; heading: string; lines: string[] }
+  | { kind: "redirect"; url: string; reference: string }
+  | { kind: "simulated"; reference: string };
+
+export interface PlacedOrder {
+  order: Order;
+  payment: PaymentStart;
+}
+
+// ---------- returns ----------
+
+export type ReturnStatus =
+  | "requested"
+  | "approved"
+  | "rejected"
+  | "received"
+  | "refunded";
+
+export interface ReturnRequestItem {
+  id: string;
+  orderItemId: string;
+  quantity: number;
+}
+
+export interface ReturnRequest {
+  id: string;
+  orderId: string;
+  status: ReturnStatus;
+  reason: string;
+  resolutionNote: string;
+  refundCents: number;
+  resolvedAt: string | null;
+  items: ReturnRequestItem[];
+  order?: Order;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Whether the receipt page should offer the return button, and why not. */
+export interface ReturnEligibility {
+  allowed: boolean;
+  reason?: string;
+  closesAt?: string;
+  openRequestId?: string;
+}
+
+// ---------- promotions ----------
+
+export type DiscountKind = "percent" | "fixed" | "free_shipping";
+
+/** What an order costs, from the one engine that decides it. */
+export interface PriceBreakdown {
+  subtotalCents: number;
+  discountCents: number;
+  shippingCents: number;
+  giftCardCents: number;
+  totalCents: number;
+}
+
+export interface DiscountCode {
+  id: string;
+  code: string;
+  kind: DiscountKind;
+  value: number;
+  minSubtotalCents: number;
+  usageLimit: number | null;
+  perUserLimit: number | null;
+  usedCount: number;
+  startsAt: string | null;
+  expiresAt: string | null;
+  isActive: boolean;
+  note: string;
+  createdAt: string;
+}
+
+export interface GiftCard {
+  id: string;
+  code: string;
+  initialCents: number;
+  remainingCents: number;
+  isActive: boolean;
+  expiresAt: string | null;
+  note: string;
+  createdAt: string;
+}
+
+// ---------- customer conveniences ----------
+
+export interface UserAddress {
+  id: string;
+  label: string;
+  firstName: string;
+  lastName: string;
+  line1: string;
+  line2: string | null;
+  city: string;
+  region: string | null;
+  postalCode: string | null;
+  country: string;
+  /** Normalised to +995XXXXXXXXX. */
+  phone: string;
+  isDefault: boolean;
+  createdAt: string;
 }
