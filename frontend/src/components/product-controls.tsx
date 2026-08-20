@@ -2,10 +2,17 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cartApi } from "@/lib/api";
-import { priceForSize, stockForSize } from "@/lib/checkout";
+import {
+  colourways,
+  findVariant,
+  hasColourways,
+  priceForSize,
+  sizesForColour,
+  stockForSize,
+} from "@/lib/checkout";
 import { availability } from "@/lib/preorder";
 import { useContent } from "@/lib/content";
 import { formatDate, formatPrice } from "@/lib/format";
@@ -17,11 +24,27 @@ import { StockAlertButton } from "./stock-alert-button";
 import { useSession } from "./providers";
 import { btnOutline, btnSolid, labelCls } from "./ui";
 
-export function ProductControls({ product }: { product: ProductDetail }) {
+export function ProductControls({
+  product,
+  colour,
+  onColourChange,
+}: {
+  product: ProductDetail;
+  /** Lifted so the gallery can swap to the colourway's own photographs. */
+  colour: string;
+  onColourChange: (colour: string) => void;
+}) {
   const router = useRouter();
   const { refreshBadges } = useSession();
+  const colours = useMemo(() => colourways(product), [product]);
+  const multiColour = hasColourways(product);
+  const sizes = useMemo(
+    () => sizesForColour(product, colour).filter((s) => s !== ""),
+    [product, colour],
+  );
+
   const [size, setSize] = useState<string | null>(
-    product.sizes.length === 1 ? product.sizes[0] : null,
+    sizes.length === 1 ? sizes[0] : null,
   );
   const [quantity, setQuantity] = useState(1);
   const [busy, setBusy] = useState(false);
@@ -37,31 +60,39 @@ export function ProductControls({ product }: { product: ProductDetail }) {
   const lowStockLabel = storefront.text("lowStockLabel", "Only {n} left");
 
   const soldOut =
-    product.sizes.length === 0
-      ? product.stock === 0
-      : product.sizes.every((s) => stockForSize(product, s) === 0);
-  const available = stockForSize(product, size);
-  const unitPrice = priceForSize(product, size);
-  const selectedVariant =
-    product.variants.find((v) => v.size === (size ?? "")) ?? null;
+    sizes.length === 0
+      ? stockForSize(product, "", colour) === 0
+      : sizes.every((s) => stockForSize(product, s, colour) === 0);
+  const available = stockForSize(product, size, colour);
+  const unitPrice = priceForSize(product, size, colour);
+  const selectedVariant = findVariant(product, size ?? "", colour);
 
   // What the server would allow: real stock first, then whatever pre-order
   // capacity is left.
-  const offer = selectedVariant
-    ? availability(selectedVariant, product)
-    : null;
+  const offer = selectedVariant ? availability(selectedVariant, product) : null;
   const isPreorder = offer?.kind === "preorder";
 
   /** Only worth saying when the number is small enough to actually pressure. */
   function lowStock(qty: number): boolean {
     return lowStockThreshold > 0 && qty > 0 && qty <= lowStockThreshold;
   }
-  const sizeSoldOut = product.sizes.length > 0 && !!size && available === 0;
+  const sizeSoldOut = sizes.length > 0 && !!size && available === 0;
   const maxQty = Math.min(Math.max(available, 1), 9);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // A colour change can invalidate the chosen size — the Bone run may stop at
+  // L. Keep it when the new colour also has it, drop it when it does not,
+  // rather than leaving a selection that cannot be bought.
+  useEffect(() => {
+    setSize((current) => {
+      if (current && sizes.includes(current)) return current;
+      return sizes.length === 1 ? sizes[0] : null;
+    });
+    setQuantity(1);
+  }, [sizes]);
 
   // Sticky buy bar appears once the main CTA scrolls out of view.
   useEffect(() => {
@@ -78,14 +109,24 @@ export function ProductControls({ product }: { product: ProductDetail }) {
   async function addToCart(goToCart: boolean) {
     // No login wall. Guests get a cart keyed to the `stiff_cart` cookie, and
     // signing in later folds it into the account.
-    if (product.sizes.length > 0 && !size) {
+    if (sizes.length > 0 && !size) {
       setMessage("Pick a size first.");
+      return;
+    }
+    if (!selectedVariant) {
+      setMessage("That combination isn't available.");
       return;
     }
     setBusy(true);
     setMessage(null);
     try {
-      await cartApi.addToCart(product.id, quantity, size ?? undefined);
+      // The variant id, not the labels: it names the exact colour and size, so
+      // two colourways sharing a size label cannot be confused for each other.
+      await cartApi.addToCart(product.id, quantity, {
+        variantId: selectedVariant.id,
+        size: size ?? undefined,
+        color: colour || undefined,
+      });
       await refreshBadges();
       if (goToCart) {
         router.push("/cart");
@@ -111,16 +152,64 @@ export function ProductControls({ product }: { product: ProductDetail }) {
 
   return (
     <div className="mt-8">
-      {product.sizes.length > 0 && (
+      {multiColour && (
         <>
-          <p className={labelCls}>Size</p>
+          <p className={labelCls}>
+            Colour{colour ? <span className="text-muted"> — {colour}</span> : null}
+          </p>
+          <div
+            role="radiogroup"
+            aria-label="Colour"
+            className="mt-3 flex flex-wrap gap-2"
+          >
+            {colours.map((way) => {
+              const out = way.stock === 0 || !way.isActive;
+              const selected = way.color === colour;
+              return (
+                <button
+                  key={way.color}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  aria-label={out ? `${way.color} — sold out` : way.color}
+                  disabled={!way.isActive}
+                  onClick={() => onColourChange(way.color)}
+                  title={way.color}
+                  className={`flex h-11 items-center gap-2 rounded-[2px] border px-3 text-xs font-medium uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted disabled:cursor-not-allowed disabled:opacity-40 ${
+                    selected
+                      ? "border-foreground text-foreground"
+                      : "border-subtle text-muted hover:border-foreground hover:text-foreground"
+                  }`}
+                >
+                  {way.colorHex && (
+                    <span
+                      aria-hidden
+                      style={{ backgroundColor: way.colorHex }}
+                      className={`size-5 shrink-0 rounded-full border border-subtle ${
+                        out ? "opacity-40" : ""
+                      }`}
+                    />
+                  )}
+                  <span className={out ? "line-through" : undefined}>
+                    {way.color}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {sizes.length > 0 && (
+        <>
+          <p className={`${labelCls} ${multiColour ? "mt-6" : ""}`}>Size</p>
           <div
             role="radiogroup"
             aria-label="Size"
             className="mt-3 flex flex-wrap gap-2"
           >
-            {product.sizes.map((s) => {
-              const qty = stockForSize(product, s);
+            {sizes.map((s) => {
+              const qty = stockForSize(product, s, colour);
               const out = qty === 0;
               return (
                 <button
@@ -249,7 +338,9 @@ export function ProductControls({ product }: { product: ProductDetail }) {
                 </p>
                 <p className="text-xs text-muted">
                   {formatPrice(unitPrice)}
-                  {size ? ` · ${size}` : ""}
+                  {[colour, size].filter(Boolean).length > 0
+                    ? ` · ${[colour, size].filter(Boolean).join(" · ")}`
+                    : ""}
                 </p>
               </div>
               <button

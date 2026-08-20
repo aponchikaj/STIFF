@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { adminApi, productsApi } from "@/lib/api";
 import type { Product } from "@/lib/api";
+import { variantLabel } from "@/lib/checkout";
 import { formatPrice } from "@/lib/format";
 import { errorMessage, useAsync } from "@/lib/hooks";
 import { imageUrl } from "@/lib/image";
@@ -23,17 +24,33 @@ import {
 interface VariantRow {
   id?: string;
   size: string;
+  /** Empty for a product sold in one colour — most of them. */
+  color: string;
+  colorHex: string;
+  /** Photos of this colourway. Empty falls back to the product's own. */
+  images: string[];
   sku: string;
   stock: string;
   priceDelta: string;
   isActive: boolean;
 }
 
-function blankVariant(size = ""): VariantRow {
-  return { size, sku: "", stock: "0", priceDelta: "0", isActive: true };
+function blankVariant(size = "", color = ""): VariantRow {
+  return {
+    size,
+    color,
+    colorHex: "",
+    images: [],
+    sku: "",
+    stock: "0",
+    priceDelta: "0",
+    isActive: true,
+  };
 }
 
-const DEFAULT_VARIANTS: VariantRow[] = ["S", "M", "L", "XL"].map(blankVariant);
+const DEFAULT_VARIANTS: VariantRow[] = ["S", "M", "L", "XL"].map((s) =>
+  blankVariant(s),
+);
 
 const EMPTY = {
   name: "",
@@ -41,6 +58,7 @@ const EMPTY = {
   price: "",
   description: "",
   images: [] as string[],
+  imageAlts: [] as string[],
   variants: DEFAULT_VARIANTS,
   publishAt: "",
   preorderEnabled: false,
@@ -77,6 +95,7 @@ export function ProductsTab() {
       price: String(product.priceCents / 100),
       description: product.description,
       images: product.images,
+      imageAlts: product.images.map((_, i) => product.imageAlts?.[i] ?? ""),
       // datetime-local wants no timezone suffix.
       publishAt: product.publishAt
         ? new Date(product.publishAt).toISOString().slice(0, 16)
@@ -89,6 +108,9 @@ export function ProductsTab() {
           ? product.variants.map((v) => ({
               id: v.id,
               size: v.size,
+              color: v.color ?? "",
+              colorHex: v.colorHex ?? "",
+              images: v.images ?? [],
               sku: v.sku ?? "",
               stock: String(v.stock),
               priceDelta: String(v.priceDeltaCents / 100),
@@ -105,6 +127,71 @@ export function ProductsTab() {
       ...f,
       variants: f.variants.map((v, i) => (i === index ? { ...v, ...next } : v)),
     }));
+  }
+
+  /**
+   * Photos belong to a colourway, not to one of its size rows.
+   *
+   * The column lives on the variant because that is what an order line points
+   * at, so setting it writes the same list onto every row of the colour —
+   * otherwise the shopper would see different pictures depending on which
+   * size happened to be selected.
+   */
+  function setColourImages(color: string, images: string[]) {
+    setForm((f) => ({
+      ...f,
+      variants: f.variants.map((v) =>
+        v.color.trim() === color ? { ...v, images } : v,
+      ),
+    }));
+  }
+
+  /** Every named colour in the form, first-seen order. */
+  function namedColours(rows: VariantRow[]): string[] {
+    return [
+      ...new Set(rows.map((v) => v.color.trim()).filter((c) => c !== "")),
+    ];
+  }
+
+  /** Repeats the current size set under a new colour, ready to be renamed. */
+  function addColour() {
+    setForm((f) => {
+      const sizes = [...new Set(f.variants.map((v) => v.size.trim()))];
+      const existing = namedColours(f.variants);
+      const name = `Colour ${existing.length + 1}`;
+      return {
+        ...f,
+        variants: [...f.variants, ...sizes.map((size) => blankVariant(size, name))],
+      };
+    });
+  }
+
+  async function uploadColourImages(color: string, files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    setNote(null);
+    try {
+      const added: string[] = [];
+      for (const file of Array.from(files)) {
+        const { url } = await adminApi.uploadImage(file);
+        added.push(url);
+      }
+      setForm((f) => {
+        const current =
+          f.variants.find((v) => v.color.trim() === color)?.images ?? [];
+        const images = [...current, ...added];
+        return {
+          ...f,
+          variants: f.variants.map((v) =>
+            v.color.trim() === color ? { ...v, images } : v,
+          ),
+        };
+      });
+    } catch (err) {
+      setNote(errorMessage(err));
+    } finally {
+      setUploading(false);
+    }
   }
 
   function moveVariant(from: number, to: number) {
@@ -130,7 +217,12 @@ export function ProductsTab() {
     try {
       for (const file of Array.from(files)) {
         const { url } = await adminApi.uploadImage(file);
-        setForm((f) => ({ ...f, images: [...f.images, url] }));
+        // Alts grow with the images so index N never describes photo N-1.
+        setForm((f) => ({
+          ...f,
+          images: [...f.images, url],
+          imageAlts: [...f.imageAlts, ""],
+        }));
       }
     } catch (err) {
       setNote(errorMessage(err));
@@ -152,6 +244,9 @@ export function ProductsTab() {
       variants: form.variants.map((v) => ({
         id: v.id,
         size: v.size.trim(),
+        color: v.color.trim(),
+        colorHex: v.colorHex.trim() || null,
+        images: v.images,
         sku: v.sku.trim() || undefined,
         stock: Number(v.stock) || 0,
         priceDeltaCents: Math.round(Number(v.priceDelta) * 100) || 0,
@@ -159,6 +254,7 @@ export function ProductsTab() {
       })),
       description: form.description || undefined,
       images: form.images,
+      imageAlts: form.images.map((_, i) => form.imageAlts[i] ?? ""),
       publishAt: form.publishAt
         ? new Date(form.publishAt).toISOString()
         : null,
@@ -264,20 +360,53 @@ export function ProductsTab() {
 
           <fieldset className="border border-subtle p-4">
             <legend className="px-1 text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
-              Sizes and stock
+              Colours, sizes and stock
             </legend>
-            <p className="text-xs text-muted">
-              One row per size. Leave a single row with an empty size for a
-              product sold in one size. Price adjust is added to the price
-              above — use it when a size costs more.
+            <p className="text-xs leading-6 text-muted">
+              One row per colour and size — that pair is what gets bought, and
+              what holds stock. Leave colour empty for a piece sold in one
+              colour, and size empty for one sold in one size. Price adjust is
+              added to the price above, for when a size costs more.
+            </p>
+            <p className="mt-1 text-xs leading-6 text-muted">
+              Never make a second product for a second colour: it splits the
+              likes, comments and archive links of one garment in half.
             </p>
 
             <div className="mt-3 flex flex-col gap-2">
               {form.variants.map((variant, i) => (
                 <div
                   key={i}
-                  className="grid grid-cols-2 items-end gap-2 border-t border-subtle pt-3 sm:grid-cols-[5rem_1fr_5rem_6rem_auto]"
+                  className="grid grid-cols-2 items-end gap-2 border-t border-subtle pt-3 sm:grid-cols-[7rem_3rem_5rem_1fr_5rem_6rem_auto]"
                 >
+                  <Field id={`v-color-${i}`} label="Colour">
+                    <input
+                      id={`v-color-${i}`}
+                      value={variant.color}
+                      placeholder="one colour"
+                      onChange={(e) =>
+                        patchVariant(i, { color: e.target.value })
+                      }
+                      className={inputCls}
+                    />
+                  </Field>
+                  <Field id={`v-hex-${i}`} label="Swatch">
+                    <input
+                      id={`v-hex-${i}`}
+                      type="color"
+                      value={variant.colorHex || "#000000"}
+                      disabled={!variant.color.trim()}
+                      title={
+                        variant.color.trim()
+                          ? "Swatch shown in the colour picker"
+                          : "Name the colour first"
+                      }
+                      onChange={(e) =>
+                        patchVariant(i, { colorHex: e.target.value })
+                      }
+                      className="h-11 w-full cursor-pointer rounded-[2px] border border-subtle bg-surface p-1 disabled:cursor-not-allowed disabled:opacity-40"
+                    />
+                  </Field>
                   <Field id={`v-size-${i}`} label="Size">
                     <input
                       id={`v-size-${i}`}
@@ -371,19 +500,29 @@ export function ProductsTab() {
               ))}
             </div>
 
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <button
-                type="button"
-                className={btnGhostSm}
-                onClick={() =>
-                  setForm((f) => ({
-                    ...f,
-                    variants: [...f.variants, blankVariant()],
-                  }))
-                }
-              >
-                Add size
-              </button>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  className={btnGhostSm}
+                  onClick={() =>
+                    setForm((f) => ({
+                      ...f,
+                      variants: [...f.variants, blankVariant()],
+                    }))
+                  }
+                >
+                  Add size
+                </button>
+                <button
+                  type="button"
+                  className={btnGhostSm}
+                  onClick={addColour}
+                  title="Repeats the sizes above under a new colour"
+                >
+                  Add colour
+                </button>
+              </div>
               <p className="text-xs text-muted">
                 Total stock:{" "}
                 <span className="font-bold text-foreground">
@@ -394,6 +533,77 @@ export function ProductsTab() {
                 </span>
               </p>
             </div>
+
+            {namedColours(form.variants).length > 0 && (
+              <div className="mt-5 border-t border-subtle pt-4">
+                <p className={labelCls}>Photos per colour</p>
+                <p className="mt-1 text-xs leading-6 text-muted">
+                  A colour with its own photos shows those instead of the
+                  product images below — not as well as them. Leave a colour
+                  empty to use the product photos.
+                </p>
+                <div className="mt-3 flex flex-col gap-4">
+                  {namedColours(form.variants).map((color) => {
+                    const images =
+                      form.variants.find((v) => v.color.trim() === color)
+                        ?.images ?? [];
+                    return (
+                      <div key={color}>
+                        <p className="text-[11px] font-medium uppercase tracking-[0.15em]">
+                          {color}
+                          <span className="ml-2 text-muted">
+                            {images.length === 0
+                              ? "using product photos"
+                              : `${images.length} photo${images.length === 1 ? "" : "s"}`}
+                          </span>
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {images.map((url, index) => (
+                            <div key={`${url}-${index}`} className="relative">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={imageUrl(url, 160)}
+                                alt={`${color} — photo ${index + 1}`}
+                                loading="lazy"
+                                decoding="async"
+                                className="size-16 rounded-[2px] bg-surface object-cover"
+                              />
+                              <button
+                                type="button"
+                                aria-label={`Remove ${color} photo ${index + 1}`}
+                                onClick={() =>
+                                  setColourImages(
+                                    color,
+                                    images.filter((_, i) => i !== index),
+                                  )
+                                }
+                                className="absolute right-1 top-1 flex size-5 items-center justify-center rounded-[2px] bg-foreground text-[10px] font-bold text-background"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                          <label
+                            className={`${btnOutline} h-16 w-16 cursor-pointer flex-col text-center text-[10px]`}
+                          >
+                            {uploading ? "…" : "+ Add"}
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              multiple
+                              onChange={(e) =>
+                                uploadColourImages(color, e.target.files)
+                              }
+                              className="sr-only"
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </fieldset>
 
 
@@ -467,13 +677,17 @@ export function ProductsTab() {
 
           <div>
             <p className={labelCls}>Images</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {form.images.map((url) => (
-                <div key={url} className="relative">
+            <p className="mt-1 text-xs text-muted">
+              Describe each photo. Screen readers and Google both read it, and
+              it is what shows if the image fails to load.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-3">
+              {form.images.map((url, index) => (
+                <div key={`${url}-${index}`} className="relative w-40">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={imageUrl(url, 160)}
-                    alt=""
+                    alt={form.imageAlts[index] || ""}
                     loading="lazy"
                     decoding="async"
                     className="size-20 rounded-[2px] bg-surface object-cover"
@@ -484,13 +698,31 @@ export function ProductsTab() {
                     onClick={() =>
                       setForm((f) => ({
                         ...f,
-                        images: f.images.filter((u) => u !== url),
+                        images: f.images.filter((_, i) => i !== index),
+                        imageAlts: f.imageAlts.filter((_, i) => i !== index),
                       }))
                     }
-                    className="absolute right-1 top-1 flex size-5 items-center justify-center rounded-[2px] bg-foreground text-[10px] font-bold text-background"
+                    className="absolute left-[3.75rem] top-1 flex size-5 items-center justify-center rounded-[2px] bg-foreground text-[10px] font-bold text-background"
                   >
                     ×
                   </button>
+                  <label className="sr-only" htmlFor={`p-alt-${index}`}>
+                    Description for photo {index + 1}
+                  </label>
+                  <input
+                    id={`p-alt-${index}`}
+                    value={form.imageAlts[index] ?? ""}
+                    maxLength={300}
+                    placeholder="Bone jacket, front"
+                    onChange={(e) =>
+                      setForm((f) => {
+                        const imageAlts = [...f.imageAlts];
+                        imageAlts[index] = e.target.value;
+                        return { ...f, imageAlts };
+                      })
+                    }
+                    className={`${inputCls} mt-1.5 text-[11px]`}
+                  />
                 </div>
               ))}
               <label
@@ -572,11 +804,13 @@ export function ProductsTab() {
                 {product.category ?? "—"} · {formatPrice(product.priceCents)}
               </p>
               <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted">
-                {product.variants.some((v) => v.size)
+                {product.variants.some((v) => v.size || v.color)
                   ? product.variants
                       .map(
                         (v) =>
-                          `${v.size} ${v.stock}${v.isActive ? "" : " (retired)"}`,
+                          `${variantLabel(v.color, v.size) || "One size"} ${v.stock}${
+                            v.isActive ? "" : " (retired)"
+                          }`,
                       )
                       .join(" · ")
                   : `Stock ${product.stock}`}{" "}

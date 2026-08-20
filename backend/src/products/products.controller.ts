@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -16,13 +17,19 @@ import { User } from '../users/user.entity';
 import {
   CreateProductDto,
   ListProductsQueryDto,
+  RateFitDto,
   UpdateProductDto,
 } from './dto/products.dto';
+import { FitService } from './fit.service';
+import { isFitValue } from './fit';
 import { ProductsService } from './products.service';
 
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly fitService: FitService,
+  ) {}
 
   @Public()
   @Get()
@@ -34,6 +41,32 @@ export class ProductsController {
   @Get(':idOrSlug')
   getOne(@Param('idOrSlug') idOrSlug: string, @CurrentUser() user?: User) {
     return this.productsService.getByIdOrSlug(idOrSlug, user);
+  }
+
+  /**
+   * Record how this piece fits.
+   *
+   * Signed in and having bought it — the service enforces the second part.
+   * Both are the point: a fit rating from someone who never wore the garment
+   * is worth less than no rating at all.
+   */
+  @Post(':id/fit')
+  rateFit(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RateFitDto,
+    @CurrentUser() user: User,
+  ) {
+    // The DTO already restricts the value; this narrows it for the compiler
+    // rather than casting.
+    if (!isFitValue(dto.value)) {
+      throw new BadRequestException('Unknown fit value');
+    }
+    return this.fitService.rate(id, user.id, dto.value);
+  }
+
+  @Delete(':id/fit')
+  clearFit(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: User) {
+    return this.fitService.remove(id, user.id);
   }
 
   @Post()

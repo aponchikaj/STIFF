@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { authApi } from "@/lib/api";
 import { errorMessage } from "@/lib/hooks";
+import { mergeLocalWishlist } from "@/lib/wishlist";
 import { useSession } from "@/components/providers";
 import { btnSolid, Field, inputCls } from "@/components/ui";
 
@@ -25,6 +26,9 @@ export function RegisterForm({ defaultEmail = "" }: { defaultEmail?: string }) {
         password: String(data.get("password") ?? ""),
       });
       setUser(user);
+      // Hand over anything saved while signed out, the same way the guest
+      // cart is folded in. Awaited so the account page shows it immediately.
+      await mergeLocalWishlist();
       router.push("/account");
     } catch (err) {
       setError(errorMessage(err));

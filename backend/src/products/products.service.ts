@@ -18,8 +18,26 @@ import {
 import { Product } from './product.entity';
 import { isLive } from './preorder';
 import { ProductVariant } from './product-variant.entity';
-import { ONE_SIZE, type VariantInput, normalizeVariants } from './stock';
+import {
+  NO_COLOUR,
+  ONE_SIZE,
+  type VariantInput,
+  normalizeVariants,
+} from './stock';
+import { FitService, type FitReport } from './fit.service';
 import { VariantsService } from './variants.service';
+
+/**
+ * Keeps `imageAlts` index-aligned with `images`.
+ *
+ * Longer than the photo list means the admin removed a picture and its
+ * description is now describing someone else's — so the tail is dropped rather
+ * than left to shift every alt by one.
+ */
+function trimAlts(alts: string[] | undefined, images: string[]): string[] {
+  if (!alts) return [];
+  return alts.slice(0, images.length).map((alt) => alt.trim().slice(0, 300));
+}
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -28,8 +46,24 @@ export type ProductWithVariants = Product & {
   variants: ProductVariant[];
 };
 
+/** A shot from the archive that features this piece. */
+export interface ArchiveShot {
+  id: string;
+  slug: string;
+  title: string;
+  altText: string | null;
+  imageUrl: string;
+  width: number | null;
+  height: number | null;
+  rotation: number;
+}
+
 export type ProductWithReaction = ProductWithVariants & {
   myReaction: ReactionType | null;
+  /** How it fits, from the people who bought it. */
+  fit: FitReport;
+  /** "Seen in the archive" — ties the two halves of the site together. */
+  archiveShots: ArchiveShot[];
 };
 
 /**
@@ -43,9 +77,15 @@ function variantSizes(
   fallback: string[] = [],
 ): string[] {
   if (dto.variants !== undefined) {
-    return normalizeVariants(dto.variants)
-      .map((v) => v.size)
-      .filter((size) => size !== ONE_SIZE);
+    // Deduplicated: with colourways the same size appears once per colour, and
+    // the label list is about which sizes exist, not how many rows hold them.
+    return [
+      ...new Set(
+        normalizeVariants(dto.variants)
+          .map((v) => v.size)
+          .filter((size) => size !== ONE_SIZE),
+      ),
+    ];
   }
   if (dto.sizes !== undefined) return dto.sizes;
   return fallback;
@@ -66,10 +106,11 @@ function variantsFrom(
 
   const sizes = dto.sizes ?? fallbackSizes;
   if (sizes.length === 0) {
-    return [{ size: ONE_SIZE, stock: dto.stock ?? 0 }];
+    return [{ size: ONE_SIZE, color: NO_COLOUR, stock: dto.stock ?? 0 }];
   }
   return sizes.map((size, i) => ({
     size,
+    color: NO_COLOUR,
     stock: i === 0 ? (dto.stock ?? 0) : 0,
   }));
 }
@@ -86,6 +127,7 @@ export class ProductsService {
     @InjectRepository(OrderItem)
     private readonly orderItemRepo: Repository<OrderItem>,
     private readonly variantsService: VariantsService,
+    private readonly fitService: FitService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -102,6 +144,9 @@ export class ProductsService {
       qb.andWhere(
         '(product."publishAt" IS NULL OR product."publishAt" <= now())',
       );
+    }
+    if (query.ids && query.ids.length > 0) {
+      qb.andWhere('product.id IN (:...ids)', { ids: query.ids });
     }
     if (query.search) {
       qb.andWhere(
@@ -177,8 +222,13 @@ export class ProductsService {
       });
       myReaction = reaction?.type ?? null;
     }
-    const variants = await this.variantsService.listFor(product.id);
-    return { ...product, variants, myReaction };
+    // Three independent reads, so they go together rather than in sequence.
+    const [variants, fit, archiveShots] = await Promise.all([
+      this.variantsService.listFor(product.id),
+      this.fitService.reportFor(product, user?.id),
+      this.fitService.archiveShotsFor(product.id) as Promise<ArchiveShot[]>,
+    ]);
+    return { ...product, variants, myReaction, fit, archiveShots };
   }
 
   async findById(id: string): Promise<Product | null> {
@@ -195,6 +245,7 @@ export class ProductsService {
           description: dto.description ?? '',
           priceCents: dto.priceCents,
           images: dto.images ?? [],
+          imageAlts: trimAlts(dto.imageAlts, dto.images ?? []),
           category: dto.category ?? null,
           sizes: variantSizes(dto),
           stock: 0,
@@ -232,6 +283,9 @@ export class ProductsService {
       if (dto.description !== undefined) product.description = dto.description;
       if (dto.priceCents !== undefined) product.priceCents = dto.priceCents;
       if (dto.images !== undefined) product.images = dto.images;
+      if (dto.imageAlts !== undefined) {
+        product.imageAlts = trimAlts(dto.imageAlts, product.images);
+      }
       if (dto.category !== undefined) product.category = dto.category;
       if (dto.isActive !== undefined) product.isActive = dto.isActive;
       if (dto.publishAt !== undefined) {

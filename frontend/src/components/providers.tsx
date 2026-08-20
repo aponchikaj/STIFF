@@ -9,6 +9,7 @@ import {
 } from "react";
 import { authApi, cartApi, contentApi, notificationsApi } from "@/lib/api";
 import type { SafeUser } from "@/lib/api";
+import { clearLocalWishlist } from "@/lib/wishlist";
 
 interface SessionState {
   user: SafeUser | null;
@@ -97,6 +98,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
     } catch {
       // clearing local state is what matters
     }
+    // Not the previous account's list to hand to whoever signs in next.
+    clearLocalWishlist();
     setUser(null);
   }, []);
 

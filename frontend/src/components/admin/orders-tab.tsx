@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { adminApi } from "@/lib/api";
 import type { Order, OrderStatus } from "@/lib/api";
-import { paymentLabel, SHIPPING_LABELS } from "@/lib/checkout";
+import { SHIPPING_LABELS, paymentLabel, variantLabel } from "@/lib/checkout";
 import { formatDate, formatPrice, shortId } from "@/lib/format";
 import { errorMessage } from "@/lib/hooks";
 import { XIcon } from "../icons";
@@ -360,7 +360,9 @@ function OrderDetails({
             >
               <span className="min-w-0 truncate">
                 {item.quantity} × {item.productName}
-                {item.size ? ` (${item.size})` : ""}
+                {variantLabel(item.color, item.size)
+                  ? ` (${variantLabel(item.color, item.size)})`
+                  : ""}
               </span>
               <span className="shrink-0 font-bold">
                 {formatPrice(item.unitPriceCents * item.quantity)}

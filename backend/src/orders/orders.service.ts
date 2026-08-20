@@ -17,7 +17,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { ProductVariant } from '../products/product-variant.entity';
 import { Product } from '../products/product.entity';
 import { isPreorderLine } from '../products/preorder';
-import { ONE_SIZE, priceForSize } from '../products/stock';
+import { NO_COLOUR, ONE_SIZE, priceForSize } from '../products/stock';
 import {
   isGeorgiaRegion,
   normalizeGeorgianPhone,
@@ -85,12 +85,27 @@ export interface PlacedOrder {
   payment: PaymentStart;
 }
 
-/** Product price plus this size's delta — e.g. XXL costing more. */
+/** Product price plus this variant's delta — e.g. XXL costing more. */
 function unitPrice(line: LineToOrder): number {
   return priceForSize(
     { priceCents: line.product.priceCents, variants: [line.variant] },
     line.size,
+    // Matched on the variant's own colour: looking up by size alone would miss
+    // a colourway row and silently charge the base price.
+    line.variant.color,
   );
+}
+
+/**
+ * What the buyer sees on the line, and in a "not enough stock" message.
+ *
+ * Colour first, because that is what someone picked before the size.
+ */
+function lineLabel(line: LineToOrder): string {
+  const parts = [line.variant.color, line.size].filter(Boolean);
+  return parts.length > 0
+    ? `${line.product.name} (${parts.join(', ')})`
+    : line.product.name;
 }
 
 function buyerCartOwner(buyer: Buyer): CartOwner {
@@ -150,16 +165,20 @@ export class OrdersService {
       throw new NotFoundException('Product not found');
     }
     const size = dto.size ?? ONE_SIZE;
-    const variant = await this.dataSource
-      .getRepository(ProductVariant)
-      .findOne({ where: { productId: product.id, size } });
+    const variant = dto.variantId
+      ? await this.dataSource.getRepository(ProductVariant).findOne({
+          where: { id: dto.variantId, productId: product.id },
+        })
+      : await this.dataSource.getRepository(ProductVariant).findOne({
+          where: { productId: product.id, size, color: dto.color ?? NO_COLOUR },
+        });
     if (!variant || !variant.isActive) {
-      throw new BadRequestException('Size not available for this product');
+      throw new BadRequestException('That option is not available');
     }
 
     const placed = await this.placeOrder(
       buyer,
-      [{ product, variant, quantity: dto.quantity, size }],
+      [{ product, variant, quantity: dto.quantity, size: variant.size }],
       dto,
       false,
     );
@@ -219,9 +238,7 @@ export class OrdersService {
             `${line.product.name} is no longer available`,
           );
         }
-        const label = line.size
-          ? `${line.product.name} (${line.size})`
-          : line.product.name;
+        const label = lineLabel(line);
 
         // A pre-order line has no stock to take, so it books capacity instead.
         if (isPreorderLine(line.variant, line.product)) {
@@ -307,10 +324,14 @@ export class OrdersService {
             productId: line.product.id,
             variantId: line.variant.id,
             productName: line.product.name,
-            productImage: line.product.images[0] ?? null,
+            // The colourway's own photo when it has one, so the receipt shows
+            // what was actually bought rather than the default colour.
+            productImage:
+              line.variant.images[0] ?? line.product.images[0] ?? null,
             unitPriceCents: unitPrice(line),
             quantity: line.quantity,
             size: line.size,
+            color: line.variant.color,
             isPreorder: line.isPreorder === true,
           }),
         ),

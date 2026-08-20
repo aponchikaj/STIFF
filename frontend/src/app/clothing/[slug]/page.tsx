@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ProductDetail } from "@/lib/api";
 import { DETAIL_WIDTHS, imageSrcSet, imageUrl } from "@/lib/image";
 import { serverApiBase, SITE_URL } from "@/lib/site";
+import { productJsonLd } from "@/lib/product-schema";
 import { ProductView } from "./product-view";
 
 async function fetchProduct(slug: string): Promise<ProductDetail | null> {
@@ -51,30 +52,7 @@ export default async function ProductPage({
   // Deduped with generateMetadata's call by Next's fetch cache.
   const product = await fetchProduct(slug);
 
-  const jsonLd = product
-    ? {
-        "@context": "https://schema.org",
-        "@type": "Product",
-        name: product.name,
-        description: product.description || undefined,
-        image:
-          product.images.length > 0
-            ? product.images.map((src) => imageUrl(src, 1200, "detail"))
-            : undefined,
-        url: `${SITE_URL}/clothing/${product.slug}`,
-        brand: { "@type": "Brand", name: "STIFF" },
-        offers: {
-          "@type": "Offer",
-          priceCurrency: "GEL",
-          price: (product.priceCents / 100).toFixed(2),
-          availability:
-            product.stock > 0
-              ? "https://schema.org/InStock"
-              : "https://schema.org/OutOfStock",
-          url: `${SITE_URL}/clothing/${product.slug}`,
-        },
-      }
-    : null;
+  const jsonLd = product ? productJsonLd(product) : null;
 
   const hero = product?.images[0];
 

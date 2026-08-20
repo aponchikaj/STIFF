@@ -12,12 +12,15 @@ import { CustomersController } from './customers.controller';
 import { StockAlert } from './stock-alert.entity';
 import { StockAlertsService } from './stock-alerts.service';
 import { UserAddress } from './user-address.entity';
+import { WishlistItem } from './wishlist-item.entity';
+import { WishlistService } from './wishlist.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       UserAddress,
       StockAlert,
+      WishlistItem,
       ProductVariant,
       Product,
       OrderItem,
@@ -27,7 +30,17 @@ import { UserAddress } from './user-address.entity';
     MailModule,
   ],
   controllers: [CustomersController],
-  providers: [AddressesService, StockAlertsService, CrossSellService],
-  exports: [AddressesService, StockAlertsService, CrossSellService],
+  providers: [
+    AddressesService,
+    StockAlertsService,
+    CrossSellService,
+    WishlistService,
+  ],
+  exports: [
+    AddressesService,
+    StockAlertsService,
+    CrossSellService,
+    WishlistService,
+  ],
 })
 export class CustomersModule {}

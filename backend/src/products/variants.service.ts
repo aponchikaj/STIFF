@@ -4,11 +4,13 @@ import { EntityManager, In, Repository } from 'typeorm';
 import { ProductVariant } from './product-variant.entity';
 import { Product } from './product.entity';
 import {
+  NO_COLOUR,
   NormalizedVariant,
   ONE_SIZE,
   VariantInput,
   normalizeVariants,
   sumStock,
+  variantKey,
 } from './stock';
 
 @Injectable()
@@ -45,10 +47,10 @@ export class VariantsService {
   /**
    * Replaces a product's variants with exactly what the admin submitted.
    *
-   * Rows are matched by size rather than id, so an admin can retype a form
-   * without orphaning stock. A size that disappears is deleted only when
-   * nothing references it; otherwise it is deactivated, because deleting it
-   * would blank the size on historical order lines.
+   * Rows are matched by (colour, size) rather than id, so an admin can retype
+   * a form without orphaning stock. A variant that disappears is deleted only
+   * when nothing references it; otherwise it is deactivated, because deleting
+   * it would blank the size on historical order lines.
    */
   async replaceFor(
     manager: EntityManager,
@@ -59,25 +61,33 @@ export class VariantsService {
     const existing = await repo.find({ where: { productId: product.id } });
     const wanted = this.normalizeOrDefault(input, existing);
 
-    const bySize = new Map(existing.map((v) => [v.size, v]));
+    const byKey = new Map(
+      existing.map((v) => [variantKey(v.color ?? NO_COLOUR, v.size), v]),
+    );
     const kept: ProductVariant[] = [];
 
     for (const next of wanted) {
-      const current = bySize.get(next.size);
+      const key = variantKey(next.color, next.size);
+      const current = byKey.get(key);
       if (current) {
         current.sku = next.sku;
         current.stock = next.stock;
         current.priceDeltaCents = next.priceDeltaCents;
         current.position = next.position;
         current.isActive = next.isActive;
+        current.colorHex = next.colorHex;
+        current.images = next.images;
         kept.push(await repo.save(current));
-        bySize.delete(next.size);
+        byKey.delete(key);
       } else {
         kept.push(
           await repo.save(
             repo.create({
               productId: product.id,
               size: next.size,
+              color: next.color,
+              colorHex: next.colorHex,
+              images: next.images,
               sku: next.sku,
               stock: next.stock,
               priceDeltaCents: next.priceDeltaCents,
@@ -90,7 +100,7 @@ export class VariantsService {
     }
 
     // Whatever the admin dropped.
-    for (const orphan of bySize.values()) {
+    for (const orphan of byKey.values()) {
       const referenced = await manager.query<{ count: string }[]>(
         `SELECT COUNT(*)::text AS count FROM "order_items" WHERE "variantId" = $1`,
         [orphan.id],
@@ -119,10 +129,15 @@ export class VariantsService {
     const wanted = normalizeVariants(input);
     if (wanted.length > 0) return wanted;
 
-    const carried = existing.find((v) => v.size === ONE_SIZE);
+    const carried = existing.find(
+      (v) => v.size === ONE_SIZE && (v.color ?? NO_COLOUR) === NO_COLOUR,
+    );
     return [
       {
         size: ONE_SIZE,
+        color: NO_COLOUR,
+        colorHex: null,
+        images: [],
         sku: carried?.sku ?? null,
         stock: carried?.stock ?? 0,
         priceDeltaCents: 0,
@@ -226,14 +241,19 @@ export class VariantsService {
     );
   }
 
-  /** Resolves the variant a shopper asked for, by product and size label. */
+  /** Resolves the variant a shopper asked for, by product, colour and size. */
   async findFor(
     manager: EntityManager,
     productId: string,
     size: string | null | undefined,
+    color?: string | null,
   ): Promise<ProductVariant | null> {
     return manager.getRepository(ProductVariant).findOne({
-      where: { productId, size: size ?? ONE_SIZE },
+      where: {
+        productId,
+        size: size ?? ONE_SIZE,
+        color: color ?? NO_COLOUR,
+      },
     });
   }
 }

@@ -1,5 +1,6 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsIn,
@@ -16,7 +17,13 @@ import {
 } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
-/** One buyable size. `size` is empty for a product sold in a single size. */
+/**
+ * One buyable colour-and-size.
+ *
+ * `size` is empty for a product sold in a single size, `color` for one sold in
+ * a single colour — both are labels, not flags, so the same row shape covers a
+ * plain tee and a four-colourway jacket.
+ */
 export class VariantDto {
   @IsOptional()
   @IsUUID()
@@ -26,6 +33,23 @@ export class VariantDto {
   @IsString()
   @MaxLength(20)
   size?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  color?: string;
+
+  /** `#rrggbb`; anything else is stored as null rather than rejected. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(7)
+  colorHex?: string | null;
+
+  /** Photographs of this colourway. Empty falls back to the product's own. */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
 
   @IsOptional()
   @IsString()
@@ -66,6 +90,13 @@ export class CreateProductDto {
   @IsArray()
   @IsString({ each: true })
   images?: string[];
+
+  /** Descriptions of `images`, aligned by index. */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(300, { each: true })
+  imageAlts?: string[];
 
   @IsOptional()
   @IsString()
@@ -118,6 +149,13 @@ export class UpdateProductDto {
   @IsArray()
   @IsString({ each: true })
   images?: string[];
+
+  /** Descriptions of `images`, aligned by index. */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(300, { each: true })
+  imageAlts?: string[];
 
   @IsOptional()
   @IsString()
@@ -173,9 +211,36 @@ export class UpdateProductDto {
   preorderLimit?: number;
 }
 
+/** -1 runs small, 0 true to size, 1 runs large. */
+export class RateFitDto {
+  @IsInt()
+  @IsIn([-1, 0, 1])
+  value: number;
+}
+
 export type ProductSort = 'newest' | 'price_asc' | 'price_desc' | 'popular';
 
 export class ListProductsQueryDto extends PaginationDto {
+  /**
+   * Fetch an explicit set, in one request.
+   *
+   * What "recently viewed" needs: the browser holds a list of ids and wants
+   * the cards for them. Comma-separated because it rides in a query string.
+   */
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string'
+      ? value
+          .split(',')
+          .map((id) => id.trim())
+          .filter(Boolean)
+      : value,
+  )
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @ArrayMaxSize(24)
+  ids?: string[];
+
   @IsOptional()
   @IsString()
   search?: string;

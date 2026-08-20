@@ -108,10 +108,21 @@ export class BuyNowDto extends CheckoutDto {
   @Max(99)
   quantity: number;
 
+  /** The exact row to buy. Authoritative when present — see `AddCartItemDto`. */
+  @IsOptional()
+  @IsUUID()
+  variantId?: string;
+
   @IsOptional()
   @IsString()
   @MaxLength(20)
   size?: string;
+
+  /** Ignored when `variantId` is given. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  color?: string;
 }
 
 export class ListOrdersQueryDto extends PaginationDto {

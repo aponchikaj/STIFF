@@ -44,6 +44,18 @@ export class CreateGalleryItemDto {
   @MinLength(1)
   imageUrl: string;
 
+  /**
+   * The pieces worn in this shot.
+   *
+   * Absent leaves the links alone; an empty array clears them — the usual
+   * distinction between "not mentioned" and "set to nothing".
+   */
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @ArrayMaxSize(20)
+  productIds?: string[];
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -67,6 +79,18 @@ export class CreateGalleryItemDto {
 }
 
 export class UpdateGalleryItemDto {
+  /**
+   * The pieces worn in this shot.
+   *
+   * Absent leaves the links alone; an empty array clears them — the usual
+   * distinction between "not mentioned" and "set to nothing".
+   */
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @ArrayMaxSize(20)
+  productIds?: string[];
+
   @IsOptional()
   @IsString()
   @MinLength(1)
