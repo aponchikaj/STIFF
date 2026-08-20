@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AuthShell } from "@/components/auth-shell";
+import { safeNext } from "@/lib/safe-next";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = {
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const { next } = await searchParams;
-  const target = typeof next === "string" && next.startsWith("/") ? next : "/account";
+  const target = safeNext(next);
 
   return (
     <AuthShell

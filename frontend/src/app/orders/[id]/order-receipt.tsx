@@ -58,21 +58,37 @@ export function OrderReceipt({ id }: { id: string }) {
 
   if (loading) return <Loading label="Loading order" />;
   if (error || !order) {
+    // The order exists but now belongs to an account — which is what happens
+    // to a guest order once its email is verified. Whoever is holding this
+    // link needs a way in, not a dead end.
+    const needsSignIn = /sign in/i.test(error ?? "");
     return (
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 py-24 text-center">
         <h1 className="text-4xl uppercase tracking-tight sm:text-6xl">
-          Not found
+          {needsSignIn ? "Sign in" : "Not found"}
         </h1>
         <p className="text-sm leading-7 text-muted">
-          We can&apos;t find that order. Check the link from your confirmation
-          email — or sign in, if you placed it with an account.
+          {needsSignIn
+            ? "This order is linked to an account now. Sign in with the email you ordered with and it will be in your order history."
+            : "We can't find that order. Check the link from your confirmation email — or sign in, if you placed it with an account."}
         </p>
-        <Link href="/" className={btnOutline}>
-          Back home
+        <Link
+          href={
+            needsSignIn
+              ? `/login?next=${encodeURIComponent(`/orders/${id}`)}`
+              : "/"
+          }
+          className={btnOutline}
+        >
+          {needsSignIn ? "Sign in" : "Back home"}
         </Link>
       </div>
     );
   }
+
+  // A guest order: no account owns it, and the only ways back are this link
+  // and the invoice email.
+  const isGuestOrder = !order.userId && !!order.guestEmail;
 
   const cancelled = order.status === "cancelled";
   const stepIndex = STEPS.indexOf(order.status as (typeof STEPS)[number]);
@@ -105,6 +121,36 @@ export function OrderReceipt({ id }: { id: string }) {
           {cancelled ? "Cancelled" : STATUS_LABEL[order.status] ?? order.status}
         </h1>
       </Reveal>
+
+      {isGuestOrder && (
+        // Offered here because this is the one moment the order is in front of
+        // them. Afterwards the only ways back are this link and the invoice
+        // email, and both are easy to lose.
+        <div className="mt-6 border border-subtle p-4">
+          <p className="text-xs leading-6 text-muted">
+            You ordered as a guest. Make an account with{" "}
+            <span className="font-medium text-foreground">
+              {order.guestEmail}
+            </span>{" "}
+            and this order moves into your history as soon as you verify the
+            address — no need to keep this link.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <Link
+              href={`/register?next=${encodeURIComponent(`/orders/${id}`)}`}
+              className={btnGhostSm}
+            >
+              Create account
+            </Link>
+            <Link
+              href={`/login?next=${encodeURIComponent(`/orders/${id}`)}`}
+              className={btnGhostSm}
+            >
+              I already have one
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Progress */}
       {!cancelled && (

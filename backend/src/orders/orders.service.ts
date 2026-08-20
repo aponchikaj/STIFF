@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  UnauthorizedException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -412,7 +413,16 @@ export class OrdersService {
     if (!order) throw new NotFoundException('Order not found');
 
     if (!user) {
-      if (order.userId !== null) throw new NotFoundException('Order not found');
+      // An order that belongs to an account is not readable anonymously, even
+      // by the uuid — but saying "not found" to someone holding a valid
+      // receipt link is a lie that costs them the order. They already have an
+      // unguessable id, so confirming it exists tells them nothing new; what
+      // they need is to be told which door to use.
+      if (order.userId !== null) {
+        throw new UnauthorizedException(
+          'This order belongs to an account. Sign in to view it.',
+        );
+      }
       return order;
     }
     if (order.userId !== user.id && user.role !== 'admin') {
