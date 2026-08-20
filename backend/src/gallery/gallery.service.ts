@@ -8,10 +8,22 @@ import { Repository } from 'typeorm';
 import { Comment } from '../comments/comment.entity';
 import { Paginated, paginate } from '../common/types/paginated';
 import { padNumber, slugify } from '../common/utils/slug';
-import { FitService } from '../products/fit.service';
-import { Product } from '../products/product.entity';
+import { FitService, ProductInShot } from '../products/fit.service';
 import { Reaction, ReactionType } from '../reactions/reaction.entity';
 import { User } from '../users/user.entity';
+import {
+  afterCursor,
+  decodeCursor,
+  encodeCursor,
+  GallerySort,
+  orderingFor,
+} from './cursor';
+import { GalleryCredit } from './gallery-credit.entity';
+import { GalleryShoot } from './gallery-shoot.entity';
+import { GalleryTag } from './gallery-tag.entity';
+import { PlaceholderService } from './placeholder.service';
+import { ShootsService } from './shoots.service';
+import { TagsService } from './tags.service';
 import {
   BulkGalleryItemDto,
   CreateGalleryItemDto,
@@ -33,10 +45,28 @@ export type GalleryNeighbour = Pick<
   | 'rotation'
 >;
 
+/** A shot as the grid renders it: enough to filter by and label with. */
+export type GalleryItemWithTags = GalleryItem & { tags: GalleryTag[] };
+
+/**
+ * A page of the archive.
+ *
+ * `total` still answers "how far through am I"; `nextCursor` is how the next
+ * page is actually asked for. Null means this was the last one.
+ */
+export interface PaginatedShots extends Paginated<GalleryItemWithTags> {
+  nextCursor: string | null;
+}
+
 export type GalleryItemWithReaction = GalleryItem & {
   myReaction: ReactionType | null;
-  /** The pieces worn in this shot — "shop the look", the other direction. */
-  products: Product[];
+  /** The pieces worn in this shot, with their pins. "Shop the look". */
+  products: ProductInShot[];
+  tags: GalleryTag[];
+  /** This frame's credits, falling back to its shoot's. */
+  credits: GalleryCredit[];
+  /** The shoot it came out of, or null for the archive that predates shoots. */
+  shoot: GalleryShoot | null;
   /** 1-based position in the public archive ordering. */
   position: number;
   total: number;
@@ -67,36 +97,123 @@ export class GalleryService {
     private readonly commentRepo: Repository<Comment>,
     @InjectRepository(Reaction)
     private readonly reactionRepo: Repository<Reaction>,
+    @InjectRepository(GalleryShoot)
+    private readonly shootRepo: Repository<GalleryShoot>,
     private readonly fitService: FitService,
+    private readonly shootsService: ShootsService,
+    private readonly tagsService: TagsService,
+    private readonly placeholders: PlaceholderService,
   ) {}
 
-  async list(
-    query: ListGalleryQueryDto,
-    user?: User,
-  ): Promise<Paginated<GalleryItem>> {
+  async list(query: ListGalleryQueryDto, user?: User): Promise<PaginatedShots> {
+    const sort: GallerySort = query.sort ?? 'order';
     const qb = this.galleryRepo.createQueryBuilder('item');
+
     if (!(user?.role === 'admin' && query.includeArchived)) {
       qb.andWhere('item.isArchived = false');
     }
-    switch (query.sort) {
-      case 'newest':
-        qb.orderBy('item.createdAt', 'DESC');
-        break;
-      case 'popular':
-        qb.orderBy('item.likeCount', 'DESC').addOrderBy(
-          'item.createdAt',
-          'DESC',
-        );
-        break;
-      default:
-        qb.orderBy('item.sortOrder', 'ASC').addOrderBy(
-          'item.createdAt',
-          'DESC',
-        );
+
+    if (query.shoot) {
+      qb.andWhere(
+        `item."shootId" IN (SELECT "id" FROM "gallery_shoots" WHERE "slug" = :shootSlug${
+          user?.role === 'admin' ? '' : ' AND "isPublished" = true'
+        })`,
+        { shootSlug: query.shoot },
+      );
     }
-    qb.skip(query.skip).take(query.pageSize);
-    const [items, total] = await qb.getManyAndCount();
-    return paginate(items, total, query.page, query.pageSize);
+
+    // Several tags narrow rather than widen: "summer" and "tbilisi" means
+    // both, which is the only reading that makes a second filter useful.
+    // One EXISTS per tag, because a join would multiply the rows instead.
+    (query.tag ?? []).forEach((slug, index) => {
+      qb.andWhere(
+        `EXISTS (
+           SELECT 1 FROM "gallery_item_tags" link
+           JOIN "gallery_tags" tag ON tag."id" = link."tagId"
+           WHERE link."galleryItemId" = item."id" AND tag."slug" = :tagSlug${index}
+         )`,
+        { [`tagSlug${index}`]: slug },
+      );
+    });
+
+    // Split before the cursor clause is added. `total` means "how big is this
+    // archive", and counting through the cursor would answer "how much of it
+    // is left" instead: the number would shrink with every page, and a grid
+    // that says "31 of 25" is worse than one that says nothing.
+    const countQb = qb.clone();
+
+    const ordering = orderingFor(sort);
+    ordering.forEach(([column, direction], index) => {
+      if (index === 0) qb.orderBy(column, direction);
+      else qb.addOrderBy(column, direction);
+    });
+
+    // A cursor supersedes `page`. Anything unreadable falls through to offset
+    // paging from page 1, which is what a stale bookmark should do.
+    const cursor = decodeCursor(query.cursor, sort);
+    if (cursor) {
+      const { clause, params } = afterCursor(cursor);
+      qb.andWhere(clause, params);
+    } else {
+      qb.skip(query.skip);
+    }
+    qb.take(query.pageSize);
+
+    const [items, total] = await Promise.all([
+      qb.getMany(),
+      countQb.getCount(),
+    ]);
+    const withTags = await this.attachTags(items);
+
+    return {
+      ...paginate(withTags, total, query.page, query.pageSize),
+      nextCursor:
+        items.length < query.pageSize
+          ? null
+          : await this.mintCursor(items[items.length - 1], sort),
+    };
+  }
+
+  /**
+   * A cursor for the row just handed out.
+   *
+   * The timestamp is re-read as text rather than taken off the loaded entity:
+   * `createdAt` is microsecond-precision in Postgres and millisecond-precision
+   * in JavaScript, so the round-tripped value compares as strictly earlier
+   * than the row it came from and hands the same shot out again on the next
+   * page. Same trap as `orderPredicate` below, same fix.
+   */
+  private async mintCursor(
+    last: GalleryItem,
+    sort: GallerySort,
+  ): Promise<string | null> {
+    const row = await this.galleryRepo
+      .createQueryBuilder('item')
+      .select(
+        `to_char(item."createdAt", 'YYYY-MM-DD"T"HH24:MI:SS.US')`,
+        'createdAt',
+      )
+      .where('item."id" = :id', { id: last.id })
+      .getRawOne<{ createdAt: string }>();
+    if (!row) return null;
+
+    return encodeCursor({
+      sort,
+      sortOrder: last.sortOrder,
+      likeCount: last.likeCount,
+      createdAt: row.createdAt,
+      id: last.id,
+    });
+  }
+
+  /** One query for the whole page rather than one per shot. */
+  private async attachTags(
+    items: GalleryItem[],
+  ): Promise<GalleryItemWithTags[]> {
+    const byItem = await this.tagsService.tagsForMany(
+      items.map((item) => item.id),
+    );
+    return items.map((item) => ({ ...item, tags: byItem.get(item.id) ?? [] }));
   }
 
   /**
@@ -135,15 +252,32 @@ export class GalleryService {
       myReaction = reaction?.type ?? null;
     }
 
-    const [position, total, prev, next, products] = await Promise.all([
-      this.positionOf(item),
-      this.galleryRepo.count({ where: { isArchived: false } }),
-      this.neighbour(item, 'prev'),
-      this.neighbour(item, 'next'),
-      this.fitService.productsFor(id),
-    ]);
+    const [position, total, prev, next, products, tags, credits, shoot] =
+      await Promise.all([
+        this.positionOf(item),
+        this.galleryRepo.count({ where: { isArchived: false } }),
+        this.neighbour(item, 'prev'),
+        this.neighbour(item, 'next'),
+        this.fitService.productsFor(id),
+        this.tagsService.tagsFor(id),
+        this.shootsService.creditsForItem(id, item.shootId),
+        item.shootId
+          ? this.shootRepo.findOne({ where: { id: item.shootId } })
+          : Promise.resolve(null),
+      ]);
 
-    return { ...item, myReaction, position, total, prev, next, products };
+    return {
+      ...item,
+      myReaction,
+      position,
+      total,
+      prev,
+      next,
+      products,
+      tags,
+      credits,
+      shoot,
+    };
   }
 
   /**
@@ -222,12 +356,40 @@ export class GalleryService {
       height: dto.height ?? null,
       rotation: dto.rotation ?? 0,
       sortOrder: dto.sortOrder ?? 0,
+      shootId: dto.shootId ?? null,
     });
     const saved = await this.galleryRepo.save(item);
-    if (dto.productIds !== undefined) {
-      await this.fitService.setProductsFor(saved.id, dto.productIds);
-    }
+    await this.applyLinks(saved.id, dto);
+    // Not awaited into the response: a shot is published whether or not
+    // Cloudinary answers, and the placeholder is a nicety.
+    void this.placeholders.refresh(saved);
     return saved;
+  }
+
+  /**
+   * The links a shot carries: what is worn in it, what it is tagged with, and
+   * who made it.
+   *
+   * Absent leaves each alone; an empty array clears it. That distinction is
+   * what lets the admin panel save one section of the editor without wiping
+   * the sections it did not render.
+   */
+  private async applyLinks(
+    galleryItemId: string,
+    dto: CreateGalleryItemDto | UpdateGalleryItemDto,
+  ): Promise<void> {
+    // `productTags` carries pins, `productIds` is the shorthand without them.
+    // Both mean "these pieces"; the fuller one wins when both are sent.
+    const tags = dto.productTags ?? dto.productIds;
+    if (tags !== undefined) {
+      await this.fitService.setProductsFor(galleryItemId, tags);
+    }
+    if (dto.tagIds !== undefined) {
+      await this.tagsService.setTagsFor(galleryItemId, dto.tagIds);
+    }
+    if (dto.credits !== undefined) {
+      await this.shootsService.setCredits({ galleryItemId }, dto.credits);
+    }
   }
 
   /**
@@ -275,7 +437,9 @@ export class GalleryService {
       );
     }
 
-    return this.galleryRepo.save(rows);
+    const saved = await this.galleryRepo.save(rows);
+    void Promise.all(saved.map((row) => this.placeholders.refresh(row)));
+    return saved;
   }
 
   /**
@@ -328,6 +492,11 @@ export class GalleryService {
     if (slug !== undefined && slug !== item.slug) {
       await this.assertSlugFree(slug, id);
     }
+    const rotated =
+      dto.rotation !== undefined && dto.rotation !== item.rotation;
+    const replaced =
+      dto.imageUrl !== undefined && dto.imageUrl !== item.imageUrl;
+
     if (slug !== undefined) item.slug = slug;
     if (dto.title !== undefined) item.title = dto.title;
     if (dto.description !== undefined) item.description = dto.description;
@@ -338,12 +507,14 @@ export class GalleryService {
     if (dto.rotation !== undefined) item.rotation = dto.rotation;
     if (dto.sortOrder !== undefined) item.sortOrder = dto.sortOrder;
     if (dto.isArchived !== undefined) item.isArchived = dto.isArchived;
+    if (dto.shootId !== undefined) item.shootId = dto.shootId;
 
     const saved = await this.galleryRepo.save(item);
-    // Absent leaves the links alone; an empty array clears them.
-    if (dto.productIds !== undefined) {
-      await this.fitService.setProductsFor(id, dto.productIds);
-    }
+    await this.applyLinks(id, dto);
+    // The placeholder is made from the delivered frame, so a rotate or a
+    // re-upload invalidates it: a blur built from the stored pixels sits
+    // sideways behind an upright photograph.
+    if (rotated || replaced) void this.placeholders.refresh(saved);
     return saved;
   }
 

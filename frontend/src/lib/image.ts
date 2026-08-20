@@ -104,3 +104,47 @@ export function imageBlurUrl(src: string): string | null {
   const [, base, rest] = match;
   return `${base}f_auto,q_auto:low,c_limit,w_24,e_blur:400/${rest}`;
 }
+
+/**
+ * Wallpaper crops.
+ *
+ * A phone screen is roughly 9:19.5 and a photograph is 3:4, so this is a crop,
+ * not a resize — `g_auto` lets Cloudinary decide what to keep rather than
+ * taking the middle and cutting off a head.
+ *
+ * `fl_attachment` sets `Content-Disposition: attachment`, which is what makes
+ * a plain link download instead of navigating. The `download` attribute cannot
+ * do this: browsers ignore it cross-origin, and the images live on Cloudinary.
+ */
+export const WALLPAPER_SIZES = [
+  { label: "Phone", width: 1170, height: 2532 },
+  { label: "Phone XL", width: 1290, height: 2796 },
+  { label: "Desktop", width: 2560, height: 1440 },
+] as const;
+
+export type WallpaperSize = (typeof WALLPAPER_SIZES)[number];
+
+/** Null when the image isn't on Cloudinary and so can't be cropped for one. */
+export function wallpaperUrl(
+  src: string,
+  size: WallpaperSize,
+  filename: string,
+  rotation: number = 0,
+): string | null {
+  const match = CLOUDINARY_UPLOAD.exec(src);
+  if (!match) return null;
+  const [, base, rest] = match;
+  const angle =
+    rotation === 90 || rotation === 180 || rotation === 270
+      ? `a_${rotation}/`
+      : "";
+  // The filename reaches a Content-Disposition header, so it is reduced to
+  // characters that cannot terminate one.
+  const safeName =
+    filename
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "stiff";
+  return `${base}${angle}c_fill,g_auto,w_${size.width},h_${size.height},f_jpg,q_auto:good,fl_attachment:${safeName}/${rest}`;
+}

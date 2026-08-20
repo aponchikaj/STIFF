@@ -6,7 +6,11 @@ import { FitService } from '../products/fit.service';
 import { Reaction } from '../reactions/reaction.entity';
 import { User } from '../users/user.entity';
 import { GalleryItem } from './gallery-item.entity';
+import { GalleryShoot } from './gallery-shoot.entity';
 import { GalleryService } from './gallery.service';
+import { PlaceholderService } from './placeholder.service';
+import { ShootsService } from './shoots.service';
+import { TagsService } from './tags.service';
 
 /**
  * A shot with sensible defaults — tests override only the field under test.
@@ -24,6 +28,9 @@ function shot(overrides: Partial<GalleryItem> = {}): GalleryItem {
     rotation: 0,
     sortOrder: 0,
     isArchived: false,
+    shootId: null,
+    shoot: null,
+    blurDataUrl: null,
     likeCount: 0,
     dislikeCount: 0,
     commentCount: 0,
@@ -98,12 +105,37 @@ describe('GalleryService', () => {
           useValue: { delete: jest.fn(), findOne: jest.fn() },
         },
         {
-          // Only reached for the product links on a decorated item, which
-          // these cases do not assert on.
+          provide: getRepositoryToken(GalleryShoot),
+          useValue: { findOne: jest.fn().mockResolvedValue(null) },
+        },
+        {
+          // Only reached for the links on a decorated item, which these cases
+          // do not assert on.
           provide: FitService,
           useValue: {
             productsFor: jest.fn().mockResolvedValue([]),
             setProductsFor: jest.fn(),
+          },
+        },
+        {
+          provide: ShootsService,
+          useValue: {
+            creditsForItem: jest.fn().mockResolvedValue([]),
+            setCredits: jest.fn(),
+          },
+        },
+        {
+          // Fire-and-forget from create/update; a stub keeps these cases from
+          // reaching out to Cloudinary.
+          provide: PlaceholderService,
+          useValue: { refresh: jest.fn().mockResolvedValue(undefined) },
+        },
+        {
+          provide: TagsService,
+          useValue: {
+            tagsFor: jest.fn().mockResolvedValue([]),
+            tagsForMany: jest.fn().mockResolvedValue(new Map()),
+            setTagsFor: jest.fn(),
           },
         },
       ],
