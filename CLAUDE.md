@@ -24,11 +24,82 @@ Monorepo for the STIFF brand project. Two independent apps, each with its own
 - `npm run test:e2e` — e2e tests
 - `npm run lint` — ESLint (flat config)
 
-## Branches
+## Branches — two products, one repo
 
-Branches `stage`, `pre-prod`, and `main` exist, but there is no mandatory
-promotion pipeline. Push to whichever branch the user names — "push to main"
-means push directly to `main`, no intermediate steps required.
+There are two deployed sites and one shared NestJS backend, and the branches
+exist to keep them apart. **Which branch a change belongs on is decided by
+which site it is for, not by how big it is.**
+
+| Branch | Carries | Deploys to |
+|---|---|---|
+| `main` | `frontend/` + `backend/` | stiff.ge (production shop) |
+| `stage`, `pre-prod` | same as `main` | stage.stiff.ge, pre-prod.stiff.ge (behind the Basic-auth gate) |
+| `staff` | everything in `main` **plus** `staff/` | staff.stiff.ge |
+| `coming-soon` | the original holding page | historical — do not build on it |
+
+`staff` is a **superset** of `main`, not a sibling of it. The staff workspace
+needs the same backend the shop does, because one Nest app serves both:
+`/api/*` is the shop and `/api/staff/*` is the workspace. That is why
+`backend/src/staff/` lives on every branch while `staff/` — the staff Next.js
+app — lives only on `staff`.
+
+### Where to put a change
+
+- **Shop work** — anything in `frontend/`, or in `backend/` outside
+  `src/staff/`: products, cart, orders, promotions, returns, gallery, collab.
+  → commit on **`main`** (or `stage` / `pre-prod` when the user names those).
+- **Staff workspace work** — anything in `staff/`, or in `backend/src/staff/`:
+  chat, tasks, notes, people, roles.
+  → commit on **`staff`**.
+
+Never author shop work on `staff`. It will reach staff.stiff.ge and never reach
+stiff.ge, and moving it later means rewriting history.
+
+### Keeping `staff` current
+
+`staff` takes shop work by merging, never by having it authored there:
+
+```bash
+git checkout staff
+git merge main
+```
+
+Do this whenever `main` moves, so staff.stiff.ge is not running a months-old
+backend. The reverse direction never happens — `staff` is never merged into
+`main`, or the staff app would land on stiff.ge.
+
+### Promotion
+
+There is no mandatory pipeline. `stage` and `pre-prod` are independent deploys
+for testing, not gates. Push to whichever branch the user names — "push to
+main" means push directly to `main`.
+
+To move the shop forward everywhere:
+
+```bash
+git checkout main && git push origin main
+git checkout stage    && git merge main && git push origin stage
+git checkout pre-prod && git merge main && git push origin pre-prod
+git checkout staff    && git merge main && git push origin staff
+```
+
+### Migrations are shared
+
+Every branch runs against the **same** hosted Supabase database, so a migration
+merged anywhere is live everywhere. Two consequences:
+
+- A migration must be safe for a branch that does not have the code for it yet.
+  Add columns with defaults; do not drop something a deployed branch still
+  reads.
+- Migration timestamps must keep increasing across branches. Check
+  `backend/src/migrations/` on `main` before choosing one, not just the branch
+  you are on.
+
+### Pushing workflows
+
+`.github/workflows/` needs a token with the `workflow` scope. Without it the
+push is rejected with *"refusing to allow a Personal Access Token to create or
+update workflow"* — the fix is on the token, not the branch.
 
 ## Conventions
 
