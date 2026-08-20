@@ -46,6 +46,8 @@ export function checkout(data: {
   paymentMethod: PaymentMethod;
   /** Required when nobody is signed in. */
   email?: string;
+  discountCode?: string;
+  giftCardCode?: string;
 }): Promise<PlacedOrder> {
   return apiFetch("/orders/checkout", { method: "POST", body: data });
 }
@@ -59,6 +61,8 @@ export function buyNow(data: {
   paymentMethod: PaymentMethod;
   /** Required when nobody is signed in. */
   email?: string;
+  discountCode?: string;
+  giftCardCode?: string;
 }): Promise<PlacedOrder> {
   return apiFetch("/orders/buy-now", { method: "POST", body: data });
 }

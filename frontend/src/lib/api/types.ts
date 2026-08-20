@@ -192,6 +192,11 @@ export interface Order {
   currency: string;
   paymentMethod?: PaymentMethodKey;
   guestEmail?: string | null;
+  subtotalCents?: number;
+  discountCode?: string | null;
+  discountCents?: number;
+  giftCardCode?: string | null;
+  giftCardCents?: number;
   trackingCarrier?: string | null;
   trackingNumber?: string | null;
   trackingUrl?: string | null;
@@ -550,4 +555,44 @@ export interface ReturnEligibility {
   reason?: string;
   closesAt?: string;
   openRequestId?: string;
+}
+
+// ---------- promotions ----------
+
+export type DiscountKind = "percent" | "fixed" | "free_shipping";
+
+/** What an order costs, from the one engine that decides it. */
+export interface PriceBreakdown {
+  subtotalCents: number;
+  discountCents: number;
+  shippingCents: number;
+  giftCardCents: number;
+  totalCents: number;
+}
+
+export interface DiscountCode {
+  id: string;
+  code: string;
+  kind: DiscountKind;
+  value: number;
+  minSubtotalCents: number;
+  usageLimit: number | null;
+  perUserLimit: number | null;
+  usedCount: number;
+  startsAt: string | null;
+  expiresAt: string | null;
+  isActive: boolean;
+  note: string;
+  createdAt: string;
+}
+
+export interface GiftCard {
+  id: string;
+  code: string;
+  initialCents: number;
+  remainingCents: number;
+  isActive: boolean;
+  expiresAt: string | null;
+  note: string;
+  createdAt: string;
 }

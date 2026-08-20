@@ -10,6 +10,7 @@ import { CartItem } from '../cart/cart-item.entity';
 import { CartOwner, ownerWhere } from '../cart/cart-owner';
 import type { PaymentStart } from '../payments/payment.types';
 import { PaymentsService } from '../payments/payments.service';
+import { PromotionsService } from '../promotions/promotions.service';
 import { Paginated, paginate } from '../common/types/paginated';
 import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -20,7 +21,8 @@ import { VariantsService } from '../products/variants.service';
 import { User } from '../users/user.entity';
 import {
   PAYMENT_METHODS,
-  SHIPPING_FEES_CENTS,
+  parseThresholdCents,
+  shippingAfterThreshold,
   SHIPPING_METHODS,
   type ShippingMethod,
 } from './checkout.constants';
@@ -33,6 +35,7 @@ import {
 } from './dto/orders.dto';
 import { OrderItem } from './order-item.entity';
 import { Order, OrderStatus } from './order.entity';
+import { ContentService } from '../content/content.service';
 import { canCancel } from '../returns/return-rules';
 
 const STATUS_MESSAGES: Record<OrderStatus, string> = {
@@ -97,6 +100,8 @@ export class OrdersService {
     private readonly mailService: MailService,
     private readonly paymentsService: PaymentsService,
     private readonly variantsService: VariantsService,
+    private readonly promotionsService: PromotionsService,
+    private readonly contentService: ContentService,
   ) {}
 
   async checkout(buyer: Buyer, dto: CheckoutDto): Promise<PlacedOrder> {
@@ -192,7 +197,12 @@ export class OrdersService {
     }
 
     const address = this.normalizeAddress(shippingMethod, dto.shippingAddress);
-    const shippingCents = SHIPPING_FEES_CENTS[shippingMethod];
+    // Read at checkout, not cached, so raising the bar mid-drop takes effect
+    // for the next order rather than the next deploy.
+    const storefront = await this.contentService.get('storefront');
+    const threshold = parseThresholdCents(
+      storefront.value.freeShippingThresholdCents as string | undefined,
+    );
 
     return this.dataSource.transaction(async (manager) => {
       for (const line of lines) {
@@ -215,20 +225,56 @@ export class OrdersService {
         0,
       );
 
+      const shippingCents = shippingAfterThreshold(
+        shippingMethod,
+        subtotalCents,
+        threshold,
+      );
+
+      // Codes are re-resolved here rather than trusted from the cart preview:
+      // between quoting and paying, a code can expire, hit its cap, or have
+      // its last balance spent by someone else.
+      const redeemer = {
+        userId: buyer.kind === 'user' ? buyer.user.id : null,
+        email: buyerEmail(buyer),
+      };
+      const { breakdown, resolved } = await this.promotionsService.quote({
+        subtotalCents,
+        shippingCents,
+        discountCode: dto.discountCode,
+        giftCardCode: dto.giftCardCode,
+        redeemer,
+      });
+
       const order = await manager.save(
         manager.create(Order, {
           userId: buyer.kind === 'user' ? buyer.user.id : null,
           guestEmail: buyer.kind === 'guest' ? buyer.email : null,
           status: 'pending',
-          totalCents: subtotalCents + shippingCents,
+          subtotalCents: breakdown.subtotalCents,
+          discountCode: resolved.discount?.code.code ?? null,
+          discountCents: breakdown.discountCents,
+          giftCardCode: resolved.giftCard?.code ?? null,
+          giftCardCents: breakdown.giftCardCents,
+          totalCents: breakdown.totalCents,
           currency: 'gel',
           paymentMethod,
           paymentIntentId: null,
           shippingMethod,
-          shippingCents,
+          shippingCents: breakdown.shippingCents,
           shippingAddress: address,
         }),
       );
+
+      // Inside the transaction: the gift-card debit is guarded the same way
+      // stock is, so two orders spending the last of one balance cannot both
+      // succeed, and a failure rolls the whole checkout back.
+      await this.promotionsService.commit(manager, {
+        orderId: order.id,
+        redeemer,
+        resolved,
+        breakdown,
+      });
 
       await manager.save(
         lines.map((line) =>
@@ -383,6 +429,14 @@ export class OrdersService {
         order.deliveredAt = new Date();
       }
       if (enteringCancelled) {
+        if (order.giftCardCode && order.giftCardCents > 0) {
+          await this.promotionsService.refundGiftCard(
+            manager,
+            order.id,
+            order.giftCardCode,
+            order.giftCardCents,
+          );
+        }
         order.cancelledAt = new Date();
         order.cancelledBy = 'admin';
       } else if (leavingCancelled) {
@@ -427,6 +481,16 @@ export class OrdersService {
           item.quantity,
         );
         await this.variantsService.syncTotal(manager, item.productId);
+      }
+      // Money the card paid goes back onto the card, not into a refund the
+      // shop has to process by hand.
+      if (order.giftCardCode && order.giftCardCents > 0) {
+        await this.promotionsService.refundGiftCard(
+          manager,
+          order.id,
+          order.giftCardCode,
+          order.giftCardCents,
+        );
       }
       order.status = 'cancelled';
       order.cancelledAt = new Date();

@@ -70,6 +70,14 @@ export const CONTENT_BLOCKS: ContentBlock[] = [
         maxLength: 60,
       },
       {
+        key: 'freeShippingThresholdCents',
+        label: 'Free shipping over',
+        type: 'text',
+        hint: 'Order subtotal, in minor units, above which delivery is free. 0 turns it off.',
+        default: '0',
+        maxLength: 9,
+      },
+      {
         key: 'returnWindowDays',
         label: 'Returns window (days)',
         type: 'text',

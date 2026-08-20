@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { cartApi } from "@/lib/api";
 import type { CartView } from "@/lib/api";
+import { useContent } from "@/lib/content";
 import { formatPrice } from "@/lib/format";
 import { errorMessage } from "@/lib/hooks";
 import { MinusIcon, PlusIcon, XIcon } from "./icons";
@@ -243,12 +244,7 @@ export function CartDrawer({
                     {formatPrice(cart.subtotalCents)}
                   </p>
                 </div>
-                <div className="mt-3">
-                  <div className="h-1 w-full bg-foreground" />
-                  <p className="mt-1.5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted">
-                    Free shipping — on every order
-                  </p>
-                </div>
+                <FreeShippingMeter subtotalCents={cart.subtotalCents} />
                 <Link
                   href="/cart"
                   onClick={onClose}
@@ -263,5 +259,45 @@ export function CartDrawer({
       )}
     </AnimatePresence>,
     document.body,
+  );
+}
+
+/**
+ * Progress toward free delivery.
+ *
+ * Replaces a hardcoded "Free shipping — on every order" line that was simply
+ * untrue: checkout charges 5 GEL in Tbilisi and 10 to the regions. The
+ * threshold is admin-editable under Content, and 0 means the shop is not
+ * running the offer — in which case this says nothing rather than inventing a
+ * promise.
+ */
+function FreeShippingMeter({ subtotalCents }: { subtotalCents: number }) {
+  const storefront = useContent("storefront");
+  const threshold = Number(
+    storefront.text("freeShippingThresholdCents", "0"),
+  );
+
+  if (!Number.isFinite(threshold) || threshold <= 0) return null;
+
+  const reached = subtotalCents >= threshold;
+  const pct = Math.min(100, Math.round((subtotalCents / threshold) * 100));
+
+  return (
+    <div className="mt-3">
+      <div className="h-1 w-full bg-subtle">
+        <div
+          className="h-1 bg-foreground transition-[width] duration-300"
+          style={{ width: `${reached ? 100 : pct}%` }}
+        />
+      </div>
+      <p
+        aria-live="polite"
+        className="mt-1.5 text-[10px] font-medium uppercase tracking-[0.2em] text-muted"
+      >
+        {reached
+          ? "Free delivery unlocked"
+          : `${formatPrice(threshold - subtotalCents)} away from free delivery`}
+      </p>
+    </div>
   );
 }

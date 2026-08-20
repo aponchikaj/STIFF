@@ -59,6 +59,29 @@ export class Order {
   })
   status: OrderStatus;
 
+  /**
+   * Goods only, before any discount, shipping or gift card.
+   *
+   * Stored rather than derived: the variant prices behind it can change, and a
+   * historical order has to still add up years later.
+   */
+  @Column({ type: 'int', default: 0 })
+  subtotalCents: number;
+
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  discountCode: string | null;
+
+  @Column({ type: 'int', default: 0 })
+  discountCents: number;
+
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  giftCardCode: string | null;
+
+  /** How much of the total the card paid — refunded back onto it on cancel. */
+  @Column({ type: 'int', default: 0 })
+  giftCardCents: number;
+
+  /** What was actually charged: subtotal - discount + shipping - gift card. */
   @Column('int')
   totalCents: number;
 

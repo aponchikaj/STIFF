@@ -27,3 +27,24 @@ export const ORDER_STATUSES = [
   'delivered',
   'cancelled',
 ] as const;
+
+/**
+ * Shipping after a free-over-X threshold is applied.
+ *
+ * Pickup is already free and unaffected. A threshold of 0 is off, which is the
+ * shipped default — it only starts mattering once someone sets it.
+ */
+export function shippingAfterThreshold(
+  method: ShippingMethod,
+  subtotalCents: number,
+  thresholdCents: number,
+): number {
+  const base = SHIPPING_FEES_CENTS[method];
+  if (thresholdCents <= 0) return base;
+  return subtotalCents >= thresholdCents ? 0 : base;
+}
+
+export function parseThresholdCents(raw: string | undefined): number {
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
