@@ -5,7 +5,12 @@ import { useEffect, useMemo, useState } from "react";
 import { productsApi } from "@/lib/api";
 import type { ProductDetail } from "@/lib/api";
 import { DropCountdown } from "@/components/drop-countdown";
-import { colourways, galleryFor, hasColourways } from "@/lib/checkout";
+import {
+  colourways,
+  galleryFor,
+  hasColourways,
+  pickableVariants,
+} from "@/lib/checkout";
 import { useContent } from "@/lib/content";
 import { formatPrice } from "@/lib/format";
 import { useAsync } from "@/lib/hooks";
@@ -26,6 +31,27 @@ import { SaveButton } from "@/components/save-button";
 import { ShareButton } from "@/components/share-button";
 import { productShareSubject } from "@/lib/share-subject";
 import { btnOutline, Loading } from "@/components/ui";
+
+/**
+ * What the piece costs, honestly.
+ *
+ * Sizes can carry a price delta, so a single number is only true when they all
+ * agree — otherwise this reads "from N". Printing the base price while
+ * checkout charges more for the selected size is exactly the mismatch that
+ * turns into a complaint, and this shop has had that bug once already.
+ */
+function priceRange(
+  product: ProductDetail,
+  colour: string,
+): string {
+  const prices = pickableVariants(product, hasColourways(product) ? colour : null)
+    .map((v) => product.priceCents + (v.priceDeltaCents ?? 0));
+  if (prices.length === 0) return formatPrice(product.priceCents);
+
+  const low = Math.min(...prices);
+  const high = Math.max(...prices);
+  return low === high ? formatPrice(low) : `From ${formatPrice(low)}`;
+}
 
 /**
  * Headline scarcity, across every size.
@@ -163,7 +189,7 @@ export function ProductView({
           </h1>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
             <p className="text-lg text-muted">
-              {formatPrice(product.priceCents)}
+              {priceRange(product, colour)}
             </p>
             {product.publishAt && (
               <DropCountdown publishAt={product.publishAt} />

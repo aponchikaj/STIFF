@@ -11,8 +11,9 @@ import { imageSrcSet, imageUrl, DETAIL_WIDTHS, asRotation } from "@/lib/image";
  * pointer-up would make the thing impossible to use.
  *
  * The zoom matters more here than it looks: the whole pitch of these clothes
- * is the fabric, and a 1080px render scaled to fit a phone shows none of it.
- * Zooming swaps in the full-width render so there is something to look at.
+ * is the fabric, and an image scaled to fit a phone shows none of it. The
+ * viewer already loads the widest render it can use, so zooming is reading
+ * pixels that were fetched anyway rather than asking for new ones.
  */
 
 /** Even at full screen, a capped render — 1920 covers any display worth serving. */
@@ -258,9 +259,12 @@ export function Lightbox({
           imageSrcSet(src, DETAIL_WIDTHS, "detail", asRotation(rotation)) ||
           undefined
         }
-        // At rest the browser may serve a smaller candidate; zoomed in there
-        // is no point pretending, so ask for the full width.
-        sizes={zoomed ? `${MAX_WIDTH}px` : "100vw"}
+        // Constant on purpose. Re-pointing `sizes` when the zoom changes makes
+        // the browser re-run srcset selection and decode another candidate
+        // mid-gesture, which flashes the image out; on a full-screen dialog
+        // `100vw` already selects the top candidate, so there was nothing to
+        // win by switching.
+        sizes="100vw"
         alt={alt}
         draggable={false}
         decoding="async"
