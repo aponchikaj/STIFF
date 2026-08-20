@@ -66,3 +66,8 @@ export function buyNow(data: {
 export function getOrder(id: string): Promise<Order> {
   return apiFetch(`/orders/${id}`);
 }
+
+/** Customer cancellation. Works for guests with just the order id. */
+export function cancelOrder(id: string): Promise<Order> {
+  return apiFetch(`/orders/${id}/cancel`, { method: "POST" });
+}

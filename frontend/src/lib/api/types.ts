@@ -192,6 +192,12 @@ export interface Order {
   currency: string;
   paymentMethod?: PaymentMethodKey;
   guestEmail?: string | null;
+  trackingCarrier?: string | null;
+  trackingNumber?: string | null;
+  trackingUrl?: string | null;
+  deliveredAt?: string | null;
+  cancelledAt?: string | null;
+  cancelledBy?: "customer" | "admin" | null;
   paymentIntentId: string | null;
   shippingMethod?: "pickup" | "tbilisi" | "regions";
   shippingCents?: number;
@@ -507,4 +513,41 @@ export type PaymentStart =
 export interface PlacedOrder {
   order: Order;
   payment: PaymentStart;
+}
+
+// ---------- returns ----------
+
+export type ReturnStatus =
+  | "requested"
+  | "approved"
+  | "rejected"
+  | "received"
+  | "refunded";
+
+export interface ReturnRequestItem {
+  id: string;
+  orderItemId: string;
+  quantity: number;
+}
+
+export interface ReturnRequest {
+  id: string;
+  orderId: string;
+  status: ReturnStatus;
+  reason: string;
+  resolutionNote: string;
+  refundCents: number;
+  resolvedAt: string | null;
+  items: ReturnRequestItem[];
+  order?: Order;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Whether the receipt page should offer the return button, and why not. */
+export interface ReturnEligibility {
+  allowed: boolean;
+  reason?: string;
+  closesAt?: string;
+  openRequestId?: string;
 }

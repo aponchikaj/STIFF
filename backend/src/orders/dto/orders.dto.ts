@@ -128,3 +128,21 @@ export class UpdateOrderDateDto {
   @Matches(/^\d{4}-\d{2}-\d{2}$/)
   date: string;
 }
+
+export class UpdateTrackingDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  trackingCarrier?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  trackingNumber?: string;
+
+  /** The carrier's own page. Replaces the generic link in status emails. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  trackingUrl?: string;
+}

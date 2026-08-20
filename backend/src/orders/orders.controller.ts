@@ -30,12 +30,18 @@ import {
   ListOrdersQueryDto,
   UpdateOrderDateDto,
   UpdateOrderStatusDto,
+  UpdateTrackingDto,
 } from './dto/orders.dto';
+import { ContentService } from '../content/content.service';
+import { parseCancellableStatuses } from '../returns/return-rules';
 import { Buyer, OrdersService } from './orders.service';
 
 @Controller('orders')
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    private readonly ordersService: OrdersService,
+    private readonly contentService: ContentService,
+  ) {}
 
   @Public()
   @Post('checkout')
@@ -109,6 +115,31 @@ export class OrdersController {
   getOne(@Param('id', ParseUUIDPipe) id: string, @Req() req: Request) {
     const user = (req as AuthenticatedRequest).user ?? null;
     return this.ordersService.getOne(id, user);
+  }
+
+  /**
+   * Customer cancellation. Public for the same reason the receipt is: a guest
+   * holds only the order id, and `getOne` still refuses an account order to an
+   * anonymous caller.
+   */
+  @Public()
+  @Post(':id/cancel')
+  async cancel(@Param('id', ParseUUIDPipe) id: string, @Req() req: Request) {
+    const user = (req as AuthenticatedRequest).user ?? null;
+    const content = await this.contentService.get('storefront');
+    const cancellable = parseCancellableStatuses(
+      content.value.cancelWindowStatuses as string | undefined,
+    );
+    return this.ordersService.cancelByCustomer(id, user, cancellable);
+  }
+
+  @Patch(':id/tracking')
+  @Roles('admin')
+  setTracking(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateTrackingDto,
+  ) {
+    return this.ordersService.setTracking(id, dto);
   }
 
   @Patch(':id/status')

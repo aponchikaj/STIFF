@@ -1,14 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { authApi, cartApi, paymentsApi, ApiError } from "@/lib/api";
-import type {
-  Order,
-  PaymentAvailability,
-  PaymentStart,
-  ShippingAddress,
-} from "@/lib/api";
+import type { PaymentAvailability, ShippingAddress } from "@/lib/api";
 import {
   SHIPPING_FEES_CENTS,
   SHIPPING_LABELS,
@@ -17,7 +13,7 @@ import {
   type PaymentMethod,
   type ShippingMethod,
 } from "@/lib/checkout";
-import { formatPrice, shortId } from "@/lib/format";
+import { formatPrice } from "@/lib/format";
 import { errorMessage, useAsync } from "@/lib/hooks";
 import { MinusIcon, PlusIcon, XIcon } from "@/components/icons";
 import { ShopClosed } from "@/components/if-shop";
@@ -26,7 +22,6 @@ import { useSession } from "@/components/providers";
 import { ProductImage } from "@/components/product-image";
 import {
   btnGhostSm,
-  btnOutline,
   btnSolid,
   ErrorNote,
   Field,
@@ -36,6 +31,7 @@ import {
 } from "@/components/ui";
 
 export function CartView() {
+  const router = useRouter();
   const { user, loading: sessionLoading, refreshBadges, shopEnabled } =
     useSession();
   const { data: cart, setData: setCart, loading, error, reload } = useAsync(
@@ -46,11 +42,9 @@ export function CartView() {
   const [checkingOut, setCheckingOut] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [needsVerify, setNeedsVerify] = useState(false);
-  const [order, setOrder] = useState<Order | null>(null);
   const [shippingMethod, setShippingMethod] =
     useState<ShippingMethod>("tbilisi");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cod");
-  const [payment, setPayment] = useState<PaymentStart | null>(null);
 
   // Which methods exist and which are usable is the server's call — see
   // `payments/payment.types.ts`. Hardcoding it here is what previously let the
@@ -65,75 +59,6 @@ export function CartView() {
 
   if (!shopEnabled) return <ShopClosed />;
   if (sessionLoading) return <Loading label="Loading cart" />;
-
-  if (order) {
-    return (
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 py-24 text-center">
-        <h1 className="text-4xl uppercase tracking-tight sm:text-6xl">
-          Order placed
-        </h1>
-        <p className="text-sm leading-7 text-muted">
-          Order{" "}
-          <span className="font-bold text-foreground">
-            #{shortId(order.id)}
-          </span>{" "}
-          is in — {formatPrice(order.totalCents)}, {order.items.length}{" "}
-          {order.items.length === 1 ? "item" : "items"}. You&apos;ll get an
-          email at every step.
-        </p>
-
-        {payment?.kind === "instructions" && (
-          <div className="w-full border border-subtle p-4 text-left">
-            <p className={labelCls}>{payment.heading}</p>
-            <ul className="mt-3 flex flex-col gap-1.5 text-sm text-muted">
-              {payment.lines.map((line) => (
-                <li key={line}>{line}</li>
-              ))}
-            </ul>
-            <p className="mt-3 text-xs leading-6 text-muted">
-              Your order ships once the transfer lands.
-            </p>
-          </div>
-        )}
-        {payment?.kind === "on_delivery" && (
-          <p className="text-sm leading-7 text-muted">
-            Pay when it arrives — nothing to do now.
-          </p>
-        )}
-        {payment?.kind === "simulated" && (
-          <p className="border border-foreground p-3 text-xs uppercase tracking-[0.15em]">
-            Test mode — no payment was taken
-          </p>
-        )}
-
-        {!user && (
-          <p className="text-xs leading-6 text-muted">
-            Keep this page — order{" "}
-            <span className="font-bold text-foreground">
-              #{shortId(order.id)}
-            </span>{" "}
-            is your only reference. Make an account with the same email to see
-            it in your order history.
-          </p>
-        )}
-
-        <div className="flex flex-wrap justify-center gap-3">
-          {user ? (
-            <Link href="/account" className={btnSolid}>
-              View my orders
-            </Link>
-          ) : (
-            <Link href="/register" className={btnSolid}>
-              Create an account
-            </Link>
-          )}
-          <Link href="/clothing" className={`${btnOutline} h-12 px-6`}>
-            Keep shopping
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   async function updateQuantity(itemId: string, quantity: number) {
     setBusyItem(itemId);
@@ -186,13 +111,15 @@ export function CartView() {
         // Ignored for signed-in buyers; the only way to reach a guest.
         email: user ? undefined : String(data.get("email") ?? ""),
       });
-      setOrder(placed.order);
-      setPayment(placed.payment);
       if (placed.payment.kind === "redirect") {
         window.location.href = placed.payment.url;
         return;
       }
       await refreshBadges();
+      // The receipt page is the order's permanent home — it survives a
+      // refresh, works for guests, and is what the confirmation email links
+      // to. Keeping a second copy of it inline here only invited them to drift.
+      router.push(`/orders/${placed.order.id}`);
     } catch (err) {
       if (
         err instanceof ApiError &&

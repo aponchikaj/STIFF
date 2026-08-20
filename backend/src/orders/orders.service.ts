@@ -29,9 +29,11 @@ import {
   CheckoutDto,
   ListOrdersQueryDto,
   UpdateOrderStatusDto,
+  UpdateTrackingDto,
 } from './dto/orders.dto';
 import { OrderItem } from './order-item.entity';
 import { Order, OrderStatus } from './order.entity';
+import { canCancel } from '../returns/return-rules';
 
 const STATUS_MESSAGES: Record<OrderStatus, string> = {
   pending: 'We have your order.',
@@ -375,12 +377,75 @@ export class OrdersService {
         }
         await this.variantsService.syncTotal(manager, item.productId);
       }
+      if (dto.status === 'delivered' && !order.deliveredAt) {
+        // Starts the returns window. Set once, so re-marking delivered after a
+        // correction cannot quietly extend someone's right to send it back.
+        order.deliveredAt = new Date();
+      }
+      if (enteringCancelled) {
+        order.cancelledAt = new Date();
+        order.cancelledBy = 'admin';
+      } else if (leavingCancelled) {
+        order.cancelledAt = null;
+        order.cancelledBy = null;
+      }
       order.status = dto.status;
       await manager.save(order);
     });
 
     await this.notifyStatus(order, true);
     return order;
+  }
+
+  /**
+   * Customer-initiated cancellation.
+   *
+   * Deliberately separate from the admin `updateStatus` path: the rules about
+   * when it is allowed are the customer's, and `cancelledBy` records which of
+   * the two happened — "they changed their mind" and "we could not fulfil it"
+   * need different follow-up.
+   */
+  async cancelByCustomer(
+    id: string,
+    user: User | null,
+    cancellable: OrderStatus[],
+  ): Promise<Order> {
+    const order = await this.getOne(id, user);
+    const check = canCancel(order, cancellable);
+    if (!check.allowed) {
+      throw new BadRequestException(
+        check.reason ?? 'This order cannot be cancelled.',
+      );
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+      for (const item of order.items) {
+        if (!item.productId || !item.variantId) continue;
+        await this.variantsService.increment(
+          manager,
+          item.variantId,
+          item.quantity,
+        );
+        await this.variantsService.syncTotal(manager, item.productId);
+      }
+      order.status = 'cancelled';
+      order.cancelledAt = new Date();
+      order.cancelledBy = 'customer';
+      await manager.save(order);
+    });
+
+    await this.notifyStatus(order, true);
+    return order;
+  }
+
+  /** Admin sets where the parcel is. Cleared by passing empty values. */
+  async setTracking(id: string, dto: UpdateTrackingDto): Promise<Order> {
+    const order = await this.orderRepo.findOne({ where: { id } });
+    if (!order) throw new NotFoundException('Order not found');
+    order.trackingCarrier = dto.trackingCarrier?.trim() || null;
+    order.trackingNumber = dto.trackingNumber?.trim() || null;
+    order.trackingUrl = dto.trackingUrl?.trim() || null;
+    return this.orderRepo.save(order);
   }
 
   /** Move an order to a different date/month (admin bookkeeping). */

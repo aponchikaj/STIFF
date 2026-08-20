@@ -22,6 +22,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { OrdersModule } from './orders/orders.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ProductsModule } from './products/products.module';
+import { ReturnsModule } from './returns/returns.module';
 import { ReactionsModule } from './reactions/reactions.module';
 import { SearchModule } from './search/search.module';
 import { StaffModule } from './staff/staff.module';
@@ -69,6 +70,7 @@ import { UsersModule } from './users/users.module';
     ProductsModule,
     GalleryModule,
     ReactionsModule,
+    ReturnsModule,
     CommentsModule,
     CartModule,
     OrdersModule,
