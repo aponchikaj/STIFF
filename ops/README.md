@@ -1,11 +1,11 @@
 # ops
 
-## `github-ci.yml` — the CI pipeline, not yet active
+## CI lives at `.github/workflows/ci.yml`
 
-This is a complete GitHub Actions workflow. It is parked here rather than at
-`.github/workflows/ci.yml` because pushing anything under `.github/workflows/`
-requires a token carrying the **`workflow`** scope, and pushing it without one
-fails with:
+This note records why the pipeline spent a while parked in `ops/` instead.
+
+Pushing anything under `.github/workflows/` requires a token carrying the
+**`workflow`** scope. Without it the push fails with:
 
 ```
 refusing to allow a Personal Access Token to create or update workflow
@@ -28,20 +28,15 @@ The migrations job is the important one: it proves a migration applies to an
 empty schema and rolls back cleanly *before* it can reach the shared Supabase
 database that also serves production.
 
-### Turning it on
+### If a push is ever rejected for this again
 
-Give the token the scope, then move the file:
-
-1. GitHub → Settings → Developer settings → Personal access tokens
-2. Classic → tick **`workflow`**. Fine-grained → *Repository permissions* →
-   **Workflows: Read and write** (you also need **Contents: Read and write**)
-3. Then:
+The stored credential lost the scope, or is a different token than you think.
+Note that creating a new token on GitHub does **not** change what git uses —
+the old one stays in the macOS keychain until you clear it:
 
 ```bash
-mkdir -p .github/workflows
-git mv ops/github-ci.yml .github/workflows/ci.yml
-git commit -m "Activate CI"
-git push
+printf "protocol=https\nhost=github.com\n\n" | git credential-osxkeychain erase
 ```
 
-Nothing else needs to change — the file is ready as written.
+The next push then prompts for username and token. Give it one with
+**`workflow`** ticked (classic) or **Workflows: Read and write** (fine-grained).
