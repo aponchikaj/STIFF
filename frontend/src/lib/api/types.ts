@@ -70,6 +70,12 @@ export interface UserStats {
 export interface ProductVariant {
   id: string;
   size: string;
+  /** Colourway label. Empty for a product sold in one colour. */
+  color: string;
+  /** Swatch fill `#rrggbb`, or null to show the label instead of a chip. */
+  colorHex: string | null;
+  /** Photographs of this colourway; empty falls back to the product's own. */
+  images: string[];
   sku: string | null;
   stock: number;
   /** Added to the product price for this size. */
@@ -87,6 +93,8 @@ export interface Product {
   description: string;
   priceCents: number;
   images: string[];
+  /** Descriptions of `images`, aligned by index. May be shorter. */
+  imageAlts: string[];
   category: string | null;
   /** Denormalised labels for browsing; `variants` is the source of truth. */
   sizes: string[];
@@ -106,8 +114,41 @@ export interface Product {
   updatedAt: string;
 }
 
+/** -1 runs small, 0 true to size, 1 runs large. */
+export type FitValue = -1 | 0 | 1;
+export type FitVerdict = "runs_small" | "true_to_size" | "runs_large";
+
+export interface FitReport {
+  small: number;
+  true: number;
+  large: number;
+  total: number;
+  /** Null until enough buyers have answered to mean anything. */
+  verdict: FitVerdict | null;
+  /** How many of `total` chose the winning bucket. */
+  agreeing: number | null;
+  /** This viewer's own rating. */
+  mine: FitValue | null;
+  /** Whether this viewer bought the piece and may rate it. */
+  canRate: boolean;
+}
+
+/** A shot from the archive that features this piece. */
+export interface ArchiveShot {
+  id: string;
+  slug: string;
+  title: string;
+  altText: string | null;
+  imageUrl: string;
+  width: number | null;
+  height: number | null;
+  rotation: number;
+}
+
 export interface ProductDetail extends Product {
   myReaction: ReactionType | null;
+  fit: FitReport;
+  archiveShots: ArchiveShot[];
 }
 
 export interface GalleryItem {
@@ -145,6 +186,8 @@ export type GalleryNeighbour = Pick<
 
 export interface GalleryItemDetail extends GalleryItem {
   myReaction: ReactionType | null;
+  /** The pieces worn in this shot — "shop the look". */
+  products: Product[];
   /** 1-based position in the archive, for the "042 / 057" counter. */
   position: number;
   total: number;
@@ -157,6 +200,9 @@ export interface CartItem {
   userId: string;
   productId: string;
   product: Product;
+  /** The exact row this line buys — colour and size together. */
+  variantId: string | null;
+  variant?: ProductVariant | null;
   quantity: number;
   size: string;
   createdAt: string;
@@ -191,6 +237,8 @@ export interface OrderItem {
   unitPriceCents: number;
   quantity: number;
   size: string;
+  /** Snapshot of the colourway, empty for a one-colour product. */
+  color?: string;
 }
 
 export interface Order {
@@ -229,6 +277,8 @@ export interface Comment {
   body: string;
   parentId: string | null;
   user: { id: string; username: string };
+  /** Owns a paid order containing this product. Absent on gallery comments. */
+  verifiedBuyer?: boolean;
   replies?: Comment[];
   createdAt: string;
   updatedAt: string;
@@ -422,6 +472,8 @@ export interface CollabPublicConfig {
 // ---------- request param types ----------
 
 export interface ProductListParams extends PaginationParams {
+  /** Fetch an explicit set — what "recently viewed" reads from localStorage. */
+  ids?: string[];
   search?: string;
   category?: string;
   minPrice?: number;
@@ -448,6 +500,9 @@ export interface LoginInput {
 export interface VariantInput {
   id?: string;
   size: string;
+  color?: string;
+  colorHex?: string | null;
+  images?: string[];
   sku?: string;
   stock: number;
   priceDeltaCents?: number;
@@ -459,6 +514,7 @@ export interface CreateProductInput {
   description?: string;
   priceCents: number;
   images?: string[];
+  imageAlts?: string[];
   category?: string;
   /** The full set of buyable sizes. Replaces the old sizes + stock pair. */
   variants?: VariantInput[];
@@ -478,6 +534,8 @@ export interface UpdateProductInput extends Partial<CreateProductInput> {
 
 export interface CreateGalleryItemInput {
   title: string;
+  /** The pieces worn in this shot. Omit to leave existing links alone. */
+  productIds?: string[];
   slug?: string;
   description?: string;
   altText?: string;

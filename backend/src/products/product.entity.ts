@@ -28,6 +28,16 @@ export class Product {
   @Column({ type: 'text', array: true, default: '{}' })
   images: string[];
 
+  /**
+   * Descriptions of `images`, aligned by index.
+   *
+   * A shorter array simply means the trailing photos have no description yet —
+   * the alternative, rewriting `images` as jsonb objects, would break every
+   * branch and every stored row that reads it as text[].
+   */
+  @Column({ type: 'text', array: true, default: '{}' })
+  imageAlts: string[];
+
   @Column({ type: 'varchar', nullable: true })
   category: string | null;
 
@@ -78,6 +88,22 @@ export class Product {
 
   @Column({ type: 'int', default: 0 })
   commentCount: number;
+
+  /**
+   * Fit ratings, tallied per bucket.
+   *
+   * Denormalised the same way `likeCount` is: the grid would otherwise need a
+   * grouped subquery per row. `product_fit_ratings` is the source of truth and
+   * every write recounts from it.
+   */
+  @Column({ type: 'int', default: 0 })
+  fitSmallCount: number;
+
+  @Column({ type: 'int', default: 0 })
+  fitTrueCount: number;
+
+  @Column({ type: 'int', default: 0 })
+  fitLargeCount: number;
 
   @CreateDateColumn()
   createdAt: Date;

@@ -1,4 +1,6 @@
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsEmail,
   IsOptional,
@@ -76,4 +78,12 @@ export class SubscribeStockDto {
   @IsEmail()
   @MaxLength(180)
   email?: string;
+}
+
+/** Ids carried over from a signed-out browser. */
+export class MergeWishlistDto {
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @ArrayMaxSize(200)
+  productIds: string[];
 }

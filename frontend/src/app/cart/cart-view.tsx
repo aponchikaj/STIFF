@@ -16,14 +16,7 @@ import type {
   PriceBreakdown,
   ShippingAddress,
 } from "@/lib/api";
-import {
-  SHIPPING_FEES_CENTS,
-  SHIPPING_LABELS,
-  SHIPPING_METHODS,
-  stockForSize,
-  type PaymentMethod,
-  type ShippingMethod,
-} from "@/lib/checkout";
+import { SHIPPING_FEES_CENTS, SHIPPING_LABELS, SHIPPING_METHODS, stockForSize, type PaymentMethod, type ShippingMethod, variantLabel } from "@/lib/checkout";
 import { formatPrice } from "@/lib/format";
 import { errorMessage, useAsync } from "@/lib/hooks";
 import { MinusIcon, PlusIcon, XIcon } from "@/components/icons";
@@ -262,7 +255,11 @@ export function CartView() {
           <Reveal>
             <ul className="border-t border-subtle">
               {cart.items.map((item) => {
-                const available = stockForSize(item.product, item.size);
+                const available = stockForSize(
+                  item.product,
+                  item.size,
+                  item.variant?.color,
+                );
                 return (
                   <li
                     key={item.id}
@@ -286,7 +283,7 @@ export function CartView() {
                             {item.product.name}
                           </p>
                           <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.15em] text-muted">
-                            {item.size || "One size"} ·{" "}
+                            {variantLabel(item.variant?.color, item.size) || "One size"} ·{" "}
                             {formatPrice(item.product.priceCents)} each
                           </p>
                         </div>

@@ -56,3 +56,38 @@ export function subscribeToStock(data: {
 export function getCrossSell(): Promise<{ products: Product[] }> {
   return apiFetch("/cross-sell");
 }
+
+// ---------- wishlist ----------
+
+/**
+ * Saved pieces, newest first.
+ *
+ * Private by design: there is no route that reads someone else's. A like is
+ * the public signal; this is intent, and conflating the two loses both.
+ */
+export function listWishlist(): Promise<Product[]> {
+  return apiFetch("/wishlist");
+}
+
+/** Just the ids, so a grid fills every heart in one request. */
+export function wishlistIds(): Promise<{ productIds: string[] }> {
+  return apiFetch("/wishlist/ids");
+}
+
+export function toggleWishlist(productId: string): Promise<{ saved: boolean }> {
+  return apiFetch(`/wishlist/${productId}`, { method: "POST" });
+}
+
+export function unsave(productId: string): Promise<{ success: boolean }> {
+  return apiFetch(`/wishlist/${productId}`, { method: "DELETE" });
+}
+
+/** Folds a signed-out list into the account being signed into. */
+export function mergeWishlist(
+  productIds: string[],
+): Promise<{ productIds: string[] }> {
+  return apiFetch("/wishlist/merge", {
+    method: "POST",
+    body: { productIds },
+  });
+}

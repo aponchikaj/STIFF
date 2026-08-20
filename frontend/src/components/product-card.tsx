@@ -4,6 +4,7 @@ import { formatPrice } from "@/lib/format";
 import { TILE_WIDTHS, imageSrcSet, imageUrl } from "@/lib/image";
 import { ProductImage } from "./product-image";
 import { productShareSubject } from "@/lib/share-subject";
+import { SaveButton } from "./save-button";
 import { ShareButton } from "./share-button";
 
 /** Matches the densest grid the card appears in (up to 6 columns). */
@@ -32,7 +33,9 @@ export function ProductCard({
         <div className="relative overflow-hidden">
         <ProductImage
           src={product.images[0]}
-          alt={product.name}
+          // The admin's own description when there is one; the name is a
+          // fallback, not a description of the photograph.
+          alt={product.imageAlts?.[0]?.trim() || product.name}
           sizes={sizes}
           priority={priority}
           iconClassName="size-10 text-subtle transition-transform duration-500 group-hover:rotate-[360deg] sm:size-12"
@@ -73,13 +76,14 @@ export function ProductCard({
         </div>
       </Link>
       {/* Always reachable on touch, revealed on hover on pointer devices. */}
-      {shareSubject && (
-        <ShareButton
-          subject={shareSubject}
-          variant="icon"
-          className="absolute right-2 top-2 opacity-0 focus-visible:opacity-100 group-hover:opacity-100 max-[1024px]:opacity-100"
+      <div className="absolute right-2 top-2 flex flex-col gap-2 opacity-0 focus-within:opacity-100 group-hover:opacity-100 max-[1024px]:opacity-100">
+        {shareSubject && <ShareButton subject={shareSubject} variant="icon" />}
+        <SaveButton
+          productId={product.id}
+          productName={product.name}
+          variant="overlay"
         />
-      )}
+      </div>
     </div>
   );
 }

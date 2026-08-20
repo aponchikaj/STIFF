@@ -2,8 +2,11 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinTable,
+  ManyToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { Product } from '../products/product.entity';
 
 @Entity('gallery_items')
 export class GalleryItem {
@@ -54,6 +57,21 @@ export class GalleryItem {
 
   @Column({ default: false })
   isArchived: boolean;
+
+  /**
+   * The pieces worn in this shot.
+   *
+   * Many-to-many because one photograph can show several pieces and one piece
+   * appears in several photographs — a column on either side would force a lie
+   * in one direction. This is what "Seen in the archive" reads on a product.
+   */
+  @ManyToMany(() => Product)
+  @JoinTable({
+    name: 'gallery_item_products',
+    joinColumn: { name: 'galleryItemId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'productId', referencedColumnName: 'id' },
+  })
+  products: Product[];
 
   @Column({ type: 'int', default: 0 })
   likeCount: number;

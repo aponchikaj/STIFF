@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { GalleryItem } from '../gallery/gallery-item.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { Product } from '../products/product.entity';
+import { ProductsModule } from '../products/products.module';
 import { Comment } from './comment.entity';
 import { CommentsController } from './comments.controller';
 import { CommentsService } from './comments.service';
@@ -11,6 +12,8 @@ import { CommentsService } from './comments.service';
   imports: [
     TypeOrmModule.forFeature([Comment, Product, GalleryItem]),
     NotificationsModule,
+    // For FitService.buyersAmong — the verified-buyer badge.
+    ProductsModule,
   ],
   controllers: [CommentsController],
   providers: [CommentsService],
