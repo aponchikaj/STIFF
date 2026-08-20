@@ -114,8 +114,41 @@ export interface Product {
   updatedAt: string;
 }
 
+/** -1 runs small, 0 true to size, 1 runs large. */
+export type FitValue = -1 | 0 | 1;
+export type FitVerdict = "runs_small" | "true_to_size" | "runs_large";
+
+export interface FitReport {
+  small: number;
+  true: number;
+  large: number;
+  total: number;
+  /** Null until enough buyers have answered to mean anything. */
+  verdict: FitVerdict | null;
+  /** How many of `total` chose the winning bucket. */
+  agreeing: number | null;
+  /** This viewer's own rating. */
+  mine: FitValue | null;
+  /** Whether this viewer bought the piece and may rate it. */
+  canRate: boolean;
+}
+
+/** A shot from the archive that features this piece. */
+export interface ArchiveShot {
+  id: string;
+  slug: string;
+  title: string;
+  altText: string | null;
+  imageUrl: string;
+  width: number | null;
+  height: number | null;
+  rotation: number;
+}
+
 export interface ProductDetail extends Product {
   myReaction: ReactionType | null;
+  fit: FitReport;
+  archiveShots: ArchiveShot[];
 }
 
 export interface GalleryItem {
@@ -153,6 +186,8 @@ export type GalleryNeighbour = Pick<
 
 export interface GalleryItemDetail extends GalleryItem {
   myReaction: ReactionType | null;
+  /** The pieces worn in this shot — "shop the look". */
+  products: Product[];
   /** 1-based position in the archive, for the "042 / 057" counter. */
   position: number;
   total: number;
@@ -242,6 +277,8 @@ export interface Comment {
   body: string;
   parentId: string | null;
   user: { id: string; username: string };
+  /** Owns a paid order containing this product. Absent on gallery comments. */
+  verifiedBuyer?: boolean;
   replies?: Comment[];
   createdAt: string;
   updatedAt: string;
@@ -495,6 +532,8 @@ export interface UpdateProductInput extends Partial<CreateProductInput> {
 
 export interface CreateGalleryItemInput {
   title: string;
+  /** The pieces worn in this shot. Omit to leave existing links alone. */
+  productIds?: string[];
   slug?: string;
   description?: string;
   altText?: string;

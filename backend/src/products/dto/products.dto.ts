@@ -210,6 +210,13 @@ export class UpdateProductDto {
   preorderLimit?: number;
 }
 
+/** -1 runs small, 0 true to size, 1 runs large. */
+export class RateFitDto {
+  @IsInt()
+  @IsIn([-1, 0, 1])
+  value: number;
+}
+
 export type ProductSort = 'newest' | 'price_asc' | 'price_desc' | 'popular';
 
 export class ListProductsQueryDto extends PaginationDto {

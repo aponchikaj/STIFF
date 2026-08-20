@@ -9,7 +9,9 @@ import { colourways, galleryFor, hasColourways } from "@/lib/checkout";
 import { useContent } from "@/lib/content";
 import { formatPrice } from "@/lib/format";
 import { useAsync } from "@/lib/hooks";
+import { ArchiveStrip } from "@/components/archive-strip";
 import { CommentsSection } from "@/components/comments-section";
+import { FitRating } from "@/components/fit-rating";
 import { AsteriskMark } from "@/components/asterisk-mark";
 import { ShopClosed } from "@/components/if-shop";
 import { Lightbox } from "@/components/lightbox";
@@ -191,8 +193,16 @@ export function ProductView({
             colour={colour}
             onColourChange={setColour}
           />
+          {product.fit && (
+            <FitRating productId={product.id} initial={product.fit} />
+          )}
         </div>
       </section>
+
+      <ArchiveStrip
+        shots={product.archiveShots ?? []}
+        productName={product.name}
+      />
 
       <section className="mx-auto w-full max-w-5xl px-4 pb-16 sm:px-6">
         <CommentsSection targetType="product" targetId={product.id} />

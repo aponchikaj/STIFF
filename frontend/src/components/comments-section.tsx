@@ -206,6 +206,16 @@ function CommentItem({
         <p className="text-xs font-bold uppercase tracking-wide">
           {comment.user.username}
         </p>
+        {comment.verifiedBuyer && (
+          // Changes how the whole thread reads: an opinion from someone who
+          // owns the piece is a different kind of statement.
+          <span
+            title="Bought this piece"
+            className="rounded-[2px] border border-foreground px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.15em]"
+          >
+            Bought it
+          </span>
+        )}
         <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-muted">
           {formatDate(comment.createdAt)}
         </p>

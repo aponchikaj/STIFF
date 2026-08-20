@@ -24,6 +24,7 @@ import {
   type VariantInput,
   normalizeVariants,
 } from './stock';
+import { FitService, type FitReport } from './fit.service';
 import { VariantsService } from './variants.service';
 
 /**
@@ -45,8 +46,24 @@ export type ProductWithVariants = Product & {
   variants: ProductVariant[];
 };
 
+/** A shot from the archive that features this piece. */
+export interface ArchiveShot {
+  id: string;
+  slug: string;
+  title: string;
+  altText: string | null;
+  imageUrl: string;
+  width: number | null;
+  height: number | null;
+  rotation: number;
+}
+
 export type ProductWithReaction = ProductWithVariants & {
   myReaction: ReactionType | null;
+  /** How it fits, from the people who bought it. */
+  fit: FitReport;
+  /** "Seen in the archive" — ties the two halves of the site together. */
+  archiveShots: ArchiveShot[];
 };
 
 /**
@@ -110,6 +127,7 @@ export class ProductsService {
     @InjectRepository(OrderItem)
     private readonly orderItemRepo: Repository<OrderItem>,
     private readonly variantsService: VariantsService,
+    private readonly fitService: FitService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -201,8 +219,13 @@ export class ProductsService {
       });
       myReaction = reaction?.type ?? null;
     }
-    const variants = await this.variantsService.listFor(product.id);
-    return { ...product, variants, myReaction };
+    // Three independent reads, so they go together rather than in sequence.
+    const [variants, fit, archiveShots] = await Promise.all([
+      this.variantsService.listFor(product.id),
+      this.fitService.reportFor(product, user?.id),
+      this.fitService.archiveShotsFor(product.id) as Promise<ArchiveShot[]>,
+    ]);
+    return { ...product, variants, myReaction, fit, archiveShots };
   }
 
   async findById(id: string): Promise<Product | null> {

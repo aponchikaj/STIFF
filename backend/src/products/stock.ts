@@ -189,7 +189,9 @@ export function normalizeHex(raw: unknown): string | null {
           .map((c) => c + c)
           .join('')
       : value;
-  return /^[0-9a-fA-F]{6}$/.test(expanded) ? `#${expanded.toLowerCase()}` : null;
+  return /^[0-9a-fA-F]{6}$/.test(expanded)
+    ? `#${expanded.toLowerCase()}`
+    : null;
 }
 
 /**

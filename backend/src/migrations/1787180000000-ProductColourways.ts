@@ -96,7 +96,9 @@ export class ProductColourways1787180000000 implements MigrationInterface {
     await queryRunner.query(
       `DROP INDEX IF EXISTS "UQ_cart_items_guest_variant"`,
     );
-    await queryRunner.query(`DROP INDEX IF EXISTS "UQ_cart_items_user_variant"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "UQ_cart_items_user_variant"`,
+    );
 
     // Reverting collapses colourways onto one row per size, so a product with
     // two colours in the same size would violate the old unique index. Keep
