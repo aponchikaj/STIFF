@@ -16,6 +16,22 @@ export class ContentController {
     return { blocks: CONTENT_BLOCKS };
   }
 
+  /**
+   * The drop, with its state already worked out.
+   *
+   * Declared before `@Get(':key')`, which matches any single segment and would
+   * otherwise swallow "drop" and reject it as an unknown content key.
+   *
+   * The state is resolved here rather than in the browser so every visitor
+   * gets the same answer — a wrong clock on someone's laptop should not open
+   * the drop early while the shop disagrees.
+   */
+  @Public()
+  @Get('drop')
+  drop() {
+    return this.contentService.drop();
+  }
+
   @Public()
   @Get()
   getAll() {

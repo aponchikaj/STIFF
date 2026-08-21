@@ -10,11 +10,29 @@ import {
   defaultsFor,
   findBlock,
 } from './content.registry';
+import { DropConfig, DropState, nextTransitionAt, resolveDropState } from './drop';
 import { SiteContent } from './site-content.entity';
 
 const MAX_LIST_ITEMS = 24;
 const MAX_LIST_TITLE = 120;
 const MAX_LIST_BODY = 1000;
+
+/** The drop block, plus the two things only the server can answer about it. */
+export interface ResolvedDrop extends Record<string, unknown> {
+  state: DropState;
+  /** When the page should ask again, or null when nothing is scheduled. */
+  nextTransitionAt: string | null;
+  /**
+   * The server's clock at the moment this was resolved.
+   *
+   * The browser seeds its countdown from this rather than from its own
+   * `Date.now()`, so the first client render is byte-identical to the markup
+   * the server sent. Without it, the two disagree by however long the request
+   * took and React reports a hydration mismatch on the seconds digit of every
+   * page load.
+   */
+  now: string;
+}
 
 export interface ResolvedContent {
   key: string;
@@ -68,6 +86,29 @@ export class ContentService {
         updatedAt: row?.updatedAt ?? null,
       };
     });
+  }
+
+  /**
+   * The drop block with its state resolved against the server's clock.
+   *
+   * The copy comes back whole so the hero can render any state without a
+   * second request, and the state is the server's word on which one to show.
+   */
+  async drop(): Promise<ResolvedDrop> {
+    const { value } = await this.get('home-drop');
+    const config: DropConfig = {
+      enabled: value.enabled === true,
+      soldOut: value.soldOut === true,
+      dropAt: typeof value.dropAt === 'string' ? value.dropAt : '',
+      endsAt: typeof value.endsAt === 'string' ? value.endsAt : '',
+    };
+    const now = new Date();
+    return {
+      ...value,
+      state: resolveDropState(config, now),
+      nextTransitionAt: nextTransitionAt(config, now),
+      now: now.toISOString(),
+    };
   }
 
   async upsert(

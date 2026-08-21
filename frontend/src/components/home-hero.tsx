@@ -1,15 +1,19 @@
 import Image from "next/image";
 import Link from "next/link";
-import { contentText, fetchContent } from "@/lib/content-server";
+import { contentText, fetchContent, fetchDrop } from "@/lib/content-server";
 import { DETAIL_WIDTHS, imageSrcSet, imageUrl } from "@/lib/image";
 import { AsteriskMark } from "./asterisk-mark";
+import { HeroDrop } from "./hero-drop";
 import { Magnetic } from "./motion";
 import { btnOutline, btnSolid } from "./ui";
 
 /** Conversion-focused hero. Scroll drift/spin is CSS `scroll()` timeline
  *  (compositor-only) so the main thread stays free for 120Hz scrolling. */
 export async function HomeHero({ shopEnabled }: { shopEnabled: boolean }) {
-  const copy = await fetchContent("home-hero");
+  const [copy, drop] = await Promise.all([
+    fetchContent("home-hero"),
+    fetchDrop(),
+  ]);
   const eyebrow = contentText(copy, "eyebrow", "Tbilisi — est. 2026");
   const tagline = contentText(
     copy,
@@ -79,6 +83,11 @@ export async function HomeHero({ shopEnabled }: { shopEnabled: boolean }) {
         <p className="mt-6 max-w-md text-sm leading-7 text-muted">
           {tagline}
         </p>
+
+        {/* Between the pitch and the buttons: the clock is the reason to act,
+            so it sits where the eye already is on its way to the CTA. */}
+        {drop && <HeroDrop drop={drop} />}
+
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           {shopEnabled && (
             <Magnetic className="inline-block">

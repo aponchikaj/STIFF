@@ -20,6 +20,7 @@ export type ContentKey =
   | "features"
   | "storefront"
   | "home-hero"
+  | "home-drop"
   | "home-marquee"
   | "home-sections"
   | "home-values"
@@ -27,6 +28,28 @@ export type ContentKey =
   | "about"
   | "contact-info"
   | "rules";
+
+/** The states a drop can be in. Resolved on the server, never in the browser. */
+export type DropState = "off" | "teaser" | "live" | "sold_out" | "ended";
+
+/** The drop block with its state already worked out against the server clock. */
+export interface ResolvedDrop {
+  state: DropState;
+  /** When the page should ask again; null when nothing is scheduled. */
+  nextTransitionAt: string | null;
+  /** The server's clock, so the browser can seed its countdown from it. */
+  now: string;
+  enabled: boolean;
+  soldOut: boolean;
+  name: string;
+  dropAt: string;
+  endsAt: string;
+  teaserLabel: string;
+  liveLabel: string;
+  soldOutLabel: string;
+  endedLabel: string;
+  closedBody: string;
+}
 
 export interface SiteFeatures {
   shopEnabled: boolean;

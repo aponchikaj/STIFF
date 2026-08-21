@@ -165,6 +165,87 @@ export const CONTENT_BLOCKS: ContentBlock[] = [
   },
 
   {
+    key: 'home-drop',
+    label: 'Home — drop countdown',
+    group: 'Home',
+    description:
+      'The clock in the hero. Off by default; the state is worked out from the dates, so nothing has to be flipped by hand at midnight.',
+    fields: [
+      {
+        key: 'enabled',
+        label: 'Show the countdown',
+        type: 'boolean',
+        hint: 'Off hides it completely — the hero renders as if there were no drop.',
+        default: false,
+      },
+      {
+        key: 'name',
+        label: 'Drop name',
+        type: 'text',
+        default: 'Drop 01',
+        maxLength: 60,
+      },
+      {
+        key: 'dropAt',
+        label: 'Opens',
+        type: 'datetime',
+        hint: 'Until this moment the hero counts down. Leave empty and the drop reads as already open.',
+        default: '',
+      },
+      {
+        key: 'endsAt',
+        label: 'Closes',
+        type: 'datetime',
+        hint: 'Optional. After this the hero reads as over. Leave empty to run until you switch it off.',
+        default: '',
+      },
+      {
+        key: 'soldOut',
+        label: 'Sold out',
+        type: 'boolean',
+        hint: 'Overrides the clock, for when it goes before the closing time.',
+        default: false,
+      },
+      {
+        key: 'teaserLabel',
+        label: 'Before — label',
+        type: 'text',
+        default: 'Next drop',
+        maxLength: 40,
+      },
+      {
+        key: 'liveLabel',
+        label: 'Open — label',
+        type: 'text',
+        default: 'Live now',
+        maxLength: 40,
+      },
+      {
+        key: 'soldOutLabel',
+        label: 'Sold out — label',
+        type: 'text',
+        default: 'Sold out',
+        maxLength: 40,
+      },
+      {
+        key: 'endedLabel',
+        label: 'Closed — label',
+        type: 'text',
+        default: 'That drop is over',
+        maxLength: 40,
+      },
+      {
+        key: 'closedBody',
+        label: 'Sold out / closed — line',
+        type: 'text',
+        hint: 'Shown under the label once the drop is done.',
+        default: 'Small runs, slow drops. The next one is already being cut.',
+        maxLength: 160,
+      },
+    ],
+  },
+
+  {
     key: 'home-marquee',
     label: 'Home — scrolling band',
     group: 'Home',
