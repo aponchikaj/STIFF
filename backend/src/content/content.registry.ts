@@ -10,7 +10,15 @@
  * page — no DTO change, no admin-form change, no migration.
  */
 
-export type ContentFieldType = 'text' | 'textarea' | 'boolean' | 'list';
+export type ContentFieldType =
+  | 'text'
+  | 'textarea'
+  | 'boolean'
+  | 'list'
+  /** An uploaded image. Stored as its URL; the admin form offers a file picker. */
+  | 'image'
+  /** A moment, stored as an ISO 8601 string. Empty means "not set". */
+  | 'datetime';
 
 export interface ContentField {
   key: string;
@@ -49,6 +57,13 @@ export const CONTENT_BLOCKS: ContentBlock[] = [
         key: 'shopEnabled',
         label: 'Shop is open',
         type: 'boolean',
+        default: true,
+      },
+      {
+        key: 'introOverlay',
+        label: 'Play the intro animation',
+        type: 'boolean',
+        hint: 'First visit only — it never replays for somebody who has already seen it. Traffic shows how many it plays for.',
         default: true,
       },
     ],
@@ -145,6 +160,221 @@ export const CONTENT_BLOCKS: ContentBlock[] = [
         default: '[ 41.7151° N, 44.8271° E — Tbilisi ]',
         maxLength: 80,
       },
+      {
+        key: 'image',
+        label: 'Backdrop photograph',
+        type: 'image',
+        hint: 'The full-bleed image behind the wordmark. Landscape, and dark enough for white type to sit on it.',
+        default: '/hero-cat.jpg',
+        maxLength: 500,
+      },
+    ],
+  },
+
+  {
+    key: 'home-drop',
+    label: 'Home — drop countdown',
+    group: 'Home',
+    description:
+      'The clock in the hero. Off by default; the state is worked out from the dates, so nothing has to be flipped by hand at midnight.',
+    fields: [
+      {
+        key: 'enabled',
+        label: 'Show the countdown',
+        type: 'boolean',
+        hint: 'Off hides it completely — the hero renders as if there were no drop.',
+        default: false,
+      },
+      {
+        key: 'name',
+        label: 'Drop name',
+        type: 'text',
+        default: 'Drop 01',
+        maxLength: 60,
+      },
+      {
+        key: 'dropAt',
+        label: 'Opens',
+        type: 'datetime',
+        hint: 'Until this moment the hero counts down. Leave empty and the drop reads as already open.',
+        default: '',
+      },
+      {
+        key: 'endsAt',
+        label: 'Closes',
+        type: 'datetime',
+        hint: 'Optional. After this the hero reads as over. Leave empty to run until you switch it off.',
+        default: '',
+      },
+      {
+        key: 'soldOut',
+        label: 'Sold out',
+        type: 'boolean',
+        hint: 'Overrides the clock, for when it goes before the closing time.',
+        default: false,
+      },
+      {
+        key: 'teaserLabel',
+        label: 'Before — label',
+        type: 'text',
+        default: 'Next drop',
+        maxLength: 40,
+      },
+      {
+        key: 'liveLabel',
+        label: 'Open — label',
+        type: 'text',
+        default: 'Live now',
+        maxLength: 40,
+      },
+      {
+        key: 'soldOutLabel',
+        label: 'Sold out — label',
+        type: 'text',
+        default: 'Sold out',
+        maxLength: 40,
+      },
+      {
+        key: 'endedLabel',
+        label: 'Closed — label',
+        type: 'text',
+        default: 'That drop is over',
+        maxLength: 40,
+      },
+      {
+        key: 'closedBody',
+        label: 'Sold out / closed — line',
+        type: 'text',
+        hint: 'Shown under the label once the drop is done.',
+        default: 'Small runs, slow drops. The next one is already being cut.',
+        maxLength: 160,
+      },
+    ],
+  },
+
+  {
+    key: 'home-marquee',
+    label: 'Home — scrolling band',
+    group: 'Home',
+    description:
+      'The black band that slides past above and below the page. Each word is preceded by the asterisk.',
+    fields: [
+      {
+        key: 'words',
+        label: 'Words',
+        type: 'text',
+        hint: 'Comma-separated. One word repeats; several cycle — "Stiff, Drop 01, Tbilisi".',
+        default: 'Stiff',
+        maxLength: 200,
+      },
+    ],
+  },
+
+  {
+    key: 'home-sections',
+    label: 'Home — section headings',
+    group: 'Home',
+    description:
+      'The numbered acts of the home page. Numbers are worked out as the page renders, so a section that is switched off does not leave a gap.',
+    fields: [
+      {
+        key: 'dropLabel',
+        label: 'Drop — label',
+        type: 'text',
+        default: 'The drop',
+        maxLength: 60,
+      },
+      {
+        key: 'dropHeading',
+        label: 'Drop — heading',
+        type: 'text',
+        default: 'Latest pieces',
+        maxLength: 80,
+      },
+      {
+        key: 'dropCta',
+        label: 'Drop — button',
+        type: 'text',
+        default: 'Shop all',
+        maxLength: 40,
+      },
+      {
+        key: 'wantedLabel',
+        label: 'Most wanted — label',
+        type: 'text',
+        default: 'Most wanted',
+        maxLength: 60,
+      },
+      {
+        key: 'wantedHeading',
+        label: 'Most wanted — heading',
+        type: 'text',
+        default: 'What everyone likes',
+        maxLength: 80,
+      },
+      {
+        key: 'wantedCta',
+        label: 'Most wanted — button',
+        type: 'text',
+        default: 'See all',
+        maxLength: 40,
+      },
+      {
+        key: 'categoriesLabel',
+        label: 'Categories — label',
+        type: 'text',
+        default: 'Shop by category',
+        maxLength: 60,
+      },
+      {
+        key: 'archiveLabel',
+        label: 'Archive — label',
+        type: 'text',
+        default: 'The archive',
+        maxLength: 60,
+      },
+      {
+        key: 'archiveHeading',
+        label: 'Archive — heading',
+        type: 'text',
+        default: 'Worn, shot, kept',
+        maxLength: 80,
+      },
+      {
+        key: 'archiveCta',
+        label: 'Archive — button',
+        type: 'text',
+        default: 'Full gallery',
+        maxLength: 40,
+      },
+      {
+        key: 'ideaLabel',
+        label: 'The idea — label',
+        type: 'text',
+        default: 'The idea',
+        maxLength: 60,
+      },
+      {
+        key: 'ideaCta',
+        label: 'The idea — button',
+        type: 'text',
+        default: 'Our story',
+        maxLength: 40,
+      },
+      {
+        key: 'valuesCta',
+        label: 'Values — link',
+        type: 'text',
+        default: 'Read all the rules →',
+        maxLength: 60,
+      },
+      {
+        key: 'instagramLabel',
+        label: 'Instagram — label',
+        type: 'text',
+        default: 'Day to day',
+        maxLength: 60,
+      },
     ],
   },
 
@@ -211,7 +441,16 @@ export const CONTENT_BLOCKS: ContentBlock[] = [
     key: 'about',
     label: 'About page',
     group: 'Pages',
+    description:
+      'The headline and opening paragraph also feed the home page teaser. The chapters below are the story itself, told between archive photographs.',
     fields: [
+      {
+        key: 'eyebrow',
+        label: 'Eyebrow',
+        type: 'text',
+        default: 'Tbilisi — est. 2026',
+        maxLength: 60,
+      },
       {
         key: 'title',
         label: 'Headline',
@@ -221,11 +460,46 @@ export const CONTENT_BLOCKS: ContentBlock[] = [
       },
       {
         key: 'body',
-        label: 'Paragraph',
+        label: 'Opening paragraph',
         type: 'textarea',
         default:
           'STIFF started in Tbilisi with one idea: make the few things you actually wear, and make them heavy enough to last.',
         maxLength: 4000,
+      },
+      {
+        key: 'chapters',
+        label: 'The story',
+        type: 'list',
+        hint: 'Each one gets an archive photograph between it and the next. Three or four reads best.',
+        default: [
+          {
+            title: 'The founding',
+            body: 'Two people, a room in Tbilisi, and a disagreement about what a t-shirt should weigh. Everything since has been an argument about what to leave out — and every piece that shipped won that argument.',
+          },
+          {
+            title: 'The asterisk',
+            body: 'The mark started as a footnote on a spec sheet: the detail that had to stay. It ended up on the front. If something does not earn its place it gets cut, and what survives carries the asterisk — a footnote that became the headline.',
+          },
+          {
+            title: 'Tbilisi first',
+            body: 'Every piece is worn here before it is sold anywhere. The city is hard on clothes — hills, heat, long nights, worse pavements — and a season on these streets tells you more about a seam than a lab ever will.',
+          },
+        ],
+      },
+      {
+        key: 'shots',
+        label: 'Archive photographs',
+        type: 'text',
+        hint: 'Comma-separated gallery slugs, one per chapter, in order. Leave empty and the newest archive shots are used.',
+        default: '',
+        maxLength: 400,
+      },
+      {
+        key: 'cta',
+        label: 'Closing button',
+        type: 'text',
+        default: 'See the first drop',
+        maxLength: 40,
       },
     ],
   },
@@ -296,14 +570,15 @@ export const CONTENT_BLOCKS: ContentBlock[] = [
         key: 'practical',
         label: 'Shipping, returns, care',
         type: 'list',
+        hint: 'Use {returnDays}, {shippingTbilisi}, {shippingRegions} and {freeOver} — they are replaced with the numbers the checkout actually charges, so the promise here cannot drift from the code.',
         default: [
           {
             title: 'Shipping',
-            body: 'Pickup in Tbilisi is free. City courier and region delivery rates show at checkout.',
+            body: 'Pickup in Tbilisi is free. City courier is {shippingTbilisi} and the regions are {shippingRegions}.',
           },
           {
             title: 'Returns',
-            body: '14 days, unworn, tags on. Refund to the original payment method within 5 working days of arrival back to us.',
+            body: '{returnDays} days, unworn, tags on. Refund to the original payment method within 5 working days of arrival back to us.',
           },
           {
             title: 'Care',

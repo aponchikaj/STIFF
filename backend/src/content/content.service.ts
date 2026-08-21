@@ -10,11 +10,35 @@ import {
   defaultsFor,
   findBlock,
 } from './content.registry';
+import {
+  DropConfig,
+  DropState,
+  nextTransitionAt,
+  resolveDropState,
+} from './drop';
+import { buildPolicy, SitePolicy } from './policy';
 import { SiteContent } from './site-content.entity';
 
 const MAX_LIST_ITEMS = 24;
 const MAX_LIST_TITLE = 120;
 const MAX_LIST_BODY = 1000;
+
+/** The drop block, plus the two things only the server can answer about it. */
+export interface ResolvedDrop extends Record<string, unknown> {
+  state: DropState;
+  /** When the page should ask again, or null when nothing is scheduled. */
+  nextTransitionAt: string | null;
+  /**
+   * The server's clock at the moment this was resolved.
+   *
+   * The browser seeds its countdown from this rather than from its own
+   * `Date.now()`, so the first client render is byte-identical to the markup
+   * the server sent. Without it, the two disagree by however long the request
+   * took and React reports a hydration mismatch on the seconds digit of every
+   * page load.
+   */
+  now: string;
+}
 
 export interface ResolvedContent {
   key: string;
@@ -68,6 +92,41 @@ export class ContentService {
         updatedAt: row?.updatedAt ?? null,
       };
     });
+  }
+
+  /**
+   * The drop block with its state resolved against the server's clock.
+   *
+   * The copy comes back whole so the hero can render any state without a
+   * second request, and the state is the server's word on which one to show.
+   */
+  async drop(): Promise<ResolvedDrop> {
+    const { value } = await this.get('home-drop');
+    const config: DropConfig = {
+      enabled: value.enabled === true,
+      soldOut: value.soldOut === true,
+      dropAt: typeof value.dropAt === 'string' ? value.dropAt : '',
+      endsAt: typeof value.endsAt === 'string' ? value.endsAt : '',
+    };
+    const now = new Date();
+    return {
+      ...value,
+      state: resolveDropState(config, now),
+      nextTransitionAt: nextTransitionAt(config, now),
+      now: now.toISOString(),
+    };
+  }
+
+  /**
+   * What the shop actually does.
+   *
+   * Read by the House rules page so its promises are the same values the
+   * checkout charges and the returns service enforces, rather than a second
+   * set of numbers typed into copy that nobody remembers to update.
+   */
+  async policy(): Promise<SitePolicy> {
+    const { value } = await this.get('storefront');
+    return buildPolicy(value);
   }
 
   async upsert(
@@ -143,7 +202,7 @@ export class ContentService {
       return raw.map((item, i) => this.coerceListItem(where, item, i));
     }
 
-    // text | textarea
+    // text | textarea | image | datetime
     if (typeof raw !== 'string') {
       throw new BadRequestException(`${where} must be text`);
     }
@@ -154,6 +213,32 @@ export class ContentService {
         `${where} is longer than ${max} characters`,
       );
     }
+
+    if (field.type === 'image' && trimmed) {
+      // This value is rendered straight into a `src`. A relative path or an
+      // https URL are the only two things that can be, and the check is here
+      // rather than in the form because the form is not the only caller.
+      const ok =
+        trimmed.startsWith('/') && !trimmed.startsWith('//')
+          ? true
+          : /^https:\/\/[^\s]+$/i.test(trimmed);
+      if (!ok) {
+        throw new BadRequestException(
+          `${where} must be an uploaded image path or an https:// URL`,
+        );
+      }
+    }
+
+    if (field.type === 'datetime' && trimmed) {
+      const when = new Date(trimmed);
+      if (Number.isNaN(when.getTime())) {
+        throw new BadRequestException(`${where} is not a valid date and time`);
+      }
+      // Stored normalised, so everything downstream compares like with like
+      // regardless of which timezone the admin's browser submitted.
+      return when.toISOString();
+    }
+
     return trimmed;
   }
 

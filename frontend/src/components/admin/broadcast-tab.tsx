@@ -33,8 +33,9 @@ export function BroadcastTab() {
       }}
     >
       <p className="text-sm leading-6 text-muted">
-        Send an in-app notification to every active user. Use it for drops,
-        restocks and announcements.
+        Send an <strong className="font-medium text-foreground">in-app</strong>{" "}
+        notification to every active user — it lands in their notifications, not
+        their inbox. To email the drop list instead, use the Drop list tab.
       </p>
       <Field id="bc-title" label="Title">
         <input
