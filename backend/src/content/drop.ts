@@ -68,7 +68,8 @@ export function nextTransitionAt(
   now: Date = new Date(),
 ): string | null {
   const state = resolveDropState(config, now);
-  if (state === 'teaser') return parseMoment(config.dropAt)?.toISOString() ?? null;
+  if (state === 'teaser')
+    return parseMoment(config.dropAt)?.toISOString() ?? null;
   if (state === 'live') {
     const ends = parseMoment(config.endsAt);
     return ends && ends.getTime() > now.getTime() ? ends.toISOString() : null;

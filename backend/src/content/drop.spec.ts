@@ -52,9 +52,9 @@ describe('resolveDropState', () => {
     // complaint every drop gets.
     const opensNow = config({ dropAt: NOON.toISOString() });
     expect(resolveDropState(opensNow, NOON)).toBe('live');
-    expect(
-      resolveDropState(opensNow, new Date(NOON.getTime() - 1)),
-    ).toBe('teaser');
+    expect(resolveDropState(opensNow, new Date(NOON.getTime() - 1))).toBe(
+      'teaser',
+    );
   });
 
   it('ends on the exact second too', () => {

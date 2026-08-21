@@ -10,7 +10,12 @@ import {
   defaultsFor,
   findBlock,
 } from './content.registry';
-import { DropConfig, DropState, nextTransitionAt, resolveDropState } from './drop';
+import {
+  DropConfig,
+  DropState,
+  nextTransitionAt,
+  resolveDropState,
+} from './drop';
 import { SiteContent } from './site-content.entity';
 
 const MAX_LIST_ITEMS = 24;

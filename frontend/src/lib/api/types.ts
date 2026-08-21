@@ -51,6 +51,30 @@ export interface ResolvedDrop {
   closedBody: string;
 }
 
+export type SubscriberStatus = "pending" | "confirmed" | "unsubscribed";
+
+/** Someone on the drop list. Not a user — an account is a different thing. */
+export interface Subscriber {
+  id: string;
+  email: string;
+  status: SubscriberStatus;
+  source: string;
+  confirmedAt: string | null;
+  unsubscribedAt: string | null;
+  createdAt: string;
+}
+
+export interface SubscriberCounts {
+  pending: number;
+  confirmed: number;
+  unsubscribed: number;
+}
+
+/** One shape for every outcome, so the form cannot be used to probe the list. */
+export interface SubscribeResult {
+  status: "check_your_inbox";
+}
+
 export interface SiteFeatures {
   shopEnabled: boolean;
 }
