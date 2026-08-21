@@ -347,12 +347,75 @@ export class MailService {
     await this.send(email, `${label} is back — STIFF`, html, link);
   }
 
+  /**
+   * The one email a pending address ever receives.
+   *
+   * Everything about double opt-in rests on this being the only send that
+   * reaches an unconfirmed address, so it says plainly who asked and offers
+   * doing nothing as the way out — the correct action for somebody whose
+   * address was typed in by a stranger.
+   */
+  async sendSubscribeConfirmation(email: string, token: string): Promise<void> {
+    const link = `${this.frontendUrl}/subscribe/confirm?token=${token}`;
+    const html = `<div style="font-family:Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;padding:40px 24px;color:#09090b;">
+  <p style="font-size:28px;font-weight:900;letter-spacing:-1px;margin:0;">* STIFF</p>
+  <p style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#52525b;margin:6px 0 28px;">One click to confirm</p>
+  <p style="font-size:14px;line-height:1.7;margin:0 0 24px;">Somebody asked for drop alerts at this address. If that was you, confirm it and we will tell you the moment a drop lands — nothing else.</p>
+  <a href="${link}" style="display:inline-block;padding:14px 28px;background:#000;color:#fff;font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;text-decoration:none;">Confirm my email</a>
+  <p style="font-size:12px;line-height:1.7;color:#71717a;margin-top:28px;">If it was not you, do nothing. Without this click you will never hear from us again, and the request expires on its own.</p>
+  <p style="font-size:11px;color:#a1a1aa;margin-top:24px;">STIFF — essential clothing, Tbilisi.</p>
+</div>`;
+    await this.send(email, 'Confirm your STIFF drop alerts', html, link);
+  }
+
+  /**
+   * A drop alert to one confirmed subscriber.
+   *
+   * The unsubscribe link is not optional and not a courtesy: it is the deal
+   * made at signup, and a bulk send without one is the fastest way to be
+   * marked as spam by the mailbox providers rather than by the reader.
+   */
+  async sendDropAlert(
+    email: string,
+    title: string,
+    body: string,
+    unsubscribeToken: string,
+  ): Promise<void> {
+    const link = `${this.frontendUrl}/clothing`;
+    const optOut = `${this.frontendUrl}/subscribe/unsubscribe?token=${unsubscribeToken}`;
+    // The admin types this into a textarea, so newlines are the paragraphs
+    // they meant and everything else is escaped.
+    const paragraphs = body
+      .split(/\n{2,}/)
+      .map(
+        (para) =>
+          `<p style="font-size:14px;line-height:1.7;margin:0 0 16px;">${esc(para).replace(/\n/g, '<br />')}</p>`,
+      )
+      .join('');
+
+    const html = `<div style="font-family:Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;padding:40px 24px;color:#09090b;">
+  <p style="font-size:28px;font-weight:900;letter-spacing:-1px;margin:0;">* STIFF</p>
+  <p style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#52525b;margin:6px 0 28px;">${esc(title)}</p>
+  ${paragraphs}
+  <a href="${link}" style="display:inline-block;margin-top:8px;padding:14px 28px;background:#000;color:#fff;font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;text-decoration:none;">See the drop</a>
+  <p style="font-size:11px;color:#a1a1aa;margin-top:32px;">STIFF — essential clothing, Tbilisi.<br /><a href="${optOut}" style="color:#a1a1aa;">Unsubscribe</a> — one click, no login.</p>
+</div>`;
+
+    await this.send(email, title, html, link, undefined, optOut);
+  }
+
   private async send(
     to: string,
     subject: string,
     html: string,
     link: string,
     replyTo?: string,
+    /**
+     * Adds the RFC 8058 headers, which is what puts the mailbox provider's own
+     * unsubscribe button at the top of the message. People who cannot find the
+     * link report the mail as spam instead, and that costs the whole domain.
+     */
+    unsubscribeUrl?: string,
   ): Promise<void> {
     if (!this.resend) {
       this.logger.warn(
@@ -367,6 +430,14 @@ export class MailService {
         subject,
         html,
         ...(replyTo ? { replyTo } : {}),
+        ...(unsubscribeUrl
+          ? {
+              headers: {
+                'List-Unsubscribe': `<${unsubscribeUrl}>`,
+                'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+              },
+            }
+          : {}),
       });
       if (error) {
         this.logger.error(

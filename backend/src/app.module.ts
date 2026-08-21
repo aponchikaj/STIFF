@@ -27,6 +27,7 @@ import { PromotionsModule } from './promotions/promotions.module';
 import { ReturnsModule } from './returns/returns.module';
 import { ReactionsModule } from './reactions/reactions.module';
 import { SearchModule } from './search/search.module';
+import { SubscribersModule } from './subscribers/subscribers.module';
 import { StaffModule } from './staff/staff.module';
 import { TasksModule } from './tasks/tasks.module';
 import { UploadsModule } from './uploads/uploads.module';
@@ -86,6 +87,7 @@ import { UsersModule } from './users/users.module';
     AnalyticsModule,
     UploadsModule,
     SearchModule,
+    SubscribersModule,
     TasksModule,
     StaffModule,
   ],

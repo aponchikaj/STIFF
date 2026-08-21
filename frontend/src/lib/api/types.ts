@@ -20,14 +20,122 @@ export type ContentKey =
   | "features"
   | "storefront"
   | "home-hero"
+  | "home-drop"
+  | "home-marquee"
+  | "home-sections"
   | "home-values"
   | "home-join"
   | "about"
   | "contact-info"
   | "rules";
 
+/** The states a drop can be in. Resolved on the server, never in the browser. */
+export type DropState = "off" | "teaser" | "live" | "sold_out" | "ended";
+
+/** The drop block with its state already worked out against the server clock. */
+export interface ResolvedDrop {
+  state: DropState;
+  /** When the page should ask again; null when nothing is scheduled. */
+  nextTransitionAt: string | null;
+  /** The server's clock, so the browser can seed its countdown from it. */
+  now: string;
+  enabled: boolean;
+  soldOut: boolean;
+  name: string;
+  dropAt: string;
+  endsAt: string;
+  teaserLabel: string;
+  liveLabel: string;
+  soldOutLabel: string;
+  endedLabel: string;
+  closedBody: string;
+}
+
+export type SubscriberStatus = "pending" | "confirmed" | "unsubscribed";
+
+/** Someone on the drop list. Not a user — an account is a different thing. */
+export interface Subscriber {
+  id: string;
+  email: string;
+  status: SubscriberStatus;
+  source: string;
+  confirmedAt: string | null;
+  unsubscribedAt: string | null;
+  createdAt: string;
+}
+
+export interface SubscriberCounts {
+  pending: number;
+  confirmed: number;
+  unsubscribed: number;
+}
+
+/** One shape for every outcome, so the form cannot be used to probe the list. */
+export interface SubscribeResult {
+  status: "check_your_inbox";
+}
+
+/** How far down a page people got, as a share of everyone who arrived. */
+export interface SectionReach {
+  label: string;
+  visitors: number;
+  /** Percentage of the page's visitors in the same window. 0–100. */
+  share: number;
+}
+
+export interface ScrollReport {
+  path: string;
+  visitors: number;
+  sections: SectionReach[];
+}
+
+/** One shipping option and what it costs, straight from the checkout's own table. */
+export interface ShippingRate {
+  method: "pickup" | "tbilisi" | "regions";
+  label: string;
+  feeCents: number;
+}
+
+/**
+ * What the shop actually does, as opposed to what a page says it does.
+ *
+ * The House rules page reads this so its promises are the values the checkout
+ * charges and the returns service enforces.
+ */
+export interface SitePolicy {
+  returnWindowDays: number;
+  cancelStatuses: string[];
+  shipping: ShippingRate[];
+  /** Subtotal above which delivery is free. 0 means the offer is off. */
+  freeShippingThresholdCents: number;
+}
+
+export interface InstagramPost {
+  id: string;
+  caption: string | null;
+  /** Always an image — a video's thumbnail rather than the video itself. */
+  imageUrl: string;
+  permalink: string;
+  timestamp: string;
+  isVideo: boolean;
+}
+
+/**
+ * The latest posts, fetched and cached by the backend.
+ *
+ * `configured: false` means no access token is set, and the site links out to
+ * the profile instead of pretending to have a feed.
+ */
+export interface InstagramStrip {
+  configured: boolean;
+  posts: InstagramPost[];
+  error?: string;
+}
+
 export interface SiteFeatures {
   shopEnabled: boolean;
+  /** Whether the first-visit intro animation plays at all. */
+  introOverlay?: boolean;
 }
 export type ProductSort = "newest" | "price_asc" | "price_desc" | "popular";
 export type GallerySort = "newest" | "popular";
@@ -419,7 +527,15 @@ export interface ContentListItem {
   body: string;
 }
 
-export type ContentFieldType = "text" | "textarea" | "boolean" | "list";
+export type ContentFieldType =
+  | "text"
+  | "textarea"
+  | "boolean"
+  | "list"
+  /** An uploaded image. Stored as its URL; the form offers a file picker. */
+  | "image"
+  /** A moment, stored as an ISO 8601 string. Empty means "not set". */
+  | "datetime";
 
 export interface ContentField {
   key: string;

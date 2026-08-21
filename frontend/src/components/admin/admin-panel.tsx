@@ -17,6 +17,7 @@ import { GalleryTab } from "./gallery-tab";
 import { ContentTab } from "./content-tab";
 import { CollabTab } from "./collab-tab";
 import { BroadcastTab } from "./broadcast-tab";
+import { SubscribersTab } from "./subscribers-tab";
 
 /**
  * Tabs live in the URL rather than component state, so an admin view can be
@@ -36,6 +37,11 @@ const TABS = [
   { slug: "gallery", label: "Gallery", render: () => <GalleryTab /> },
   { slug: "content", label: "Content", render: () => <ContentTab /> },
   { slug: "collab", label: "Collab", render: () => <CollabTab /> },
+  {
+    slug: "subscribers",
+    label: "Drop list",
+    render: () => <SubscribersTab />,
+  },
   { slug: "broadcast", label: "Broadcast", render: () => <BroadcastTab /> },
 ] as const;
 

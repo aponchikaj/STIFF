@@ -8,10 +8,41 @@ import { chipCls, ErrorNote, labelCls, Loading } from "../ui";
 
 const RANGES = [7, 30, 90] as const;
 
+/** Page order, so the funnel reads top to bottom the way the page does. */
+const HOME_SECTION_ORDER = [
+  "drop",
+  "wanted",
+  "categories",
+  "archive",
+  "idea",
+  "values",
+  "instagram",
+  "join",
+] as const;
+
+const SECTION_LABELS: Record<string, string> = {
+  drop: "The drop",
+  wanted: "Most wanted",
+  categories: "Categories",
+  archive: "The archive",
+  idea: "The idea",
+  values: "What we stand for",
+  instagram: "Day to day",
+  join: "Never miss a drop",
+};
+
+/**
+ * A day key in UTC, because the database is.
+ *
+ * This used to build the key from local time. Every timestamp in `page_views`
+ * is UTC, and the admin looking at it is four hours ahead — so between 8pm and
+ * midnight in Tbilisi, "today" asked for a window that had not started yet and
+ * the report read zero for traffic that was happening as it was read.
+ */
 function dateKey(daysAgo: number): string {
   const d = new Date();
-  d.setDate(d.getDate() - daysAgo);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  d.setUTCDate(d.getUTCDate() - daysAgo);
+  return d.toISOString().slice(0, 10);
 }
 
 export function TrafficTab() {
@@ -142,11 +173,90 @@ export function TrafficTab() {
         </div>
       </section>
 
+      <ScrollFunnel from={dateKey(rangeDays - 1)} to={dateKey(0)} />
+
       <div className="grid gap-12 lg:grid-cols-2">
         <PathList title="Top pages" items={data.topPages} />
         <PathList title="Top products by views" items={data.topProducts} />
       </div>
     </div>
+  );
+}
+
+/**
+ * How far down the home page people get, and what the intro costs.
+ *
+ * The page has seven acts and, until now, no evidence about which of them
+ * anybody reaches. The number to look for is the row where the share falls off
+ * a cliff — that is the section losing people, and everything below it is
+ * being written for an audience that never arrives.
+ */
+function ScrollFunnel({ from, to }: { from: string; to: string }) {
+  const { data, loading } = useAsync(
+    () => adminApi.getScrollReach({ from, to }),
+    [from, to],
+  );
+  const { data: intro } = useAsync(
+    () => adminApi.getIntroReach({ from, to }),
+    [from, to],
+  );
+
+  // Server order is by reach; the page's own order is what makes a funnel
+  // readable, so it is imposed here.
+  const ordered = HOME_SECTION_ORDER.map((label) => ({
+    label,
+    row: data?.sections.find((section) => section.label === label),
+  })).filter((entry) => entry.row);
+
+  return (
+    <section aria-label="How far down the home page people get">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <p className={labelCls}>Home page — how far they get</p>
+        {intro && intro.shown + intro.skipped > 0 && (
+          <p className="text-[10px] uppercase tracking-[0.15em] text-muted">
+            Intro played for {intro.shown} · skipped for {intro.skipped}
+          </p>
+        )}
+      </div>
+
+      {loading && <Loading label="Loading scroll depth" />}
+
+      {data && data.visitors === 0 && (
+        <p className="mt-4 text-sm text-muted">
+          No home page visits in this window.
+        </p>
+      )}
+
+      {data && data.visitors > 0 && ordered.length === 0 && (
+        <p className="mt-4 text-sm text-muted">
+          {data.visitors} visits, and nobody has scrolled far enough to be
+          counted yet.
+        </p>
+      )}
+
+      {data && ordered.length > 0 && (
+        <ul className="mt-4 flex flex-col gap-3">
+          {ordered.map(({ label, row }) => (
+            <li key={label}>
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="text-xs font-bold uppercase tracking-[0.1em]">
+                  {SECTION_LABELS[label] ?? label}
+                </p>
+                <p className="shrink-0 text-xs text-muted tabular-nums">
+                  {row!.share}% · {row!.visitors} of {data.visitors}
+                </p>
+              </div>
+              <div className="mt-1 h-2 bg-subtle">
+                <div
+                  className="h-full bg-foreground"
+                  style={{ width: `${Math.max(1, row!.share)}%` }}
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
