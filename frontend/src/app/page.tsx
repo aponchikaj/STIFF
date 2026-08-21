@@ -7,6 +7,7 @@ import { DropSignup } from "@/components/drop-signup";
 import { FeaturedProducts } from "@/components/featured-products";
 import { GalleryPreview } from "@/components/gallery-preview";
 import { HomeHero } from "@/components/home-hero";
+import { InstagramStrip } from "@/components/instagram-strip";
 import { IfGuest } from "@/components/if-shop";
 import { IntroOverlay } from "@/components/intro-overlay";
 import { MarqueeBand } from "@/components/marquee-band";
@@ -14,7 +15,12 @@ import { Magnetic, Parallax, Reveal } from "@/components/motion";
 import { ProductCarousel } from "@/components/product-carousel";
 import { SectionTracker } from "@/components/section-tracker";
 import { sectionNumbers } from "@/lib/home-sections";
-import { contentList, contentText, fetchContent } from "@/lib/content-server";
+import {
+  contentList,
+  contentText,
+  fetchContent,
+  fetchInstagram,
+} from "@/lib/content-server";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
@@ -43,12 +49,14 @@ const eyebrowCls =
   "text-[11px] font-medium uppercase tracking-[0.2em] text-muted";
 
 export default async function Home() {
-  const [features, sectionCopy, valuesCopy, joinCopy] = await Promise.all([
-    fetchContent("features"),
-    fetchContent("home-sections"),
-    fetchContent("home-values"),
-    fetchContent("home-join"),
-  ]);
+  const [features, sectionCopy, valuesCopy, joinCopy, instagram] =
+    await Promise.all([
+      fetchContent("features"),
+      fetchContent("home-sections"),
+      fetchContent("home-values"),
+      fetchContent("home-join"),
+      fetchInstagram(),
+    ]);
 
   /**
    * Read on the server rather than from the client session.
@@ -241,6 +249,14 @@ export default async function Home() {
             </Link>
           </Reveal>
         </section>
+      </SectionTracker>
+
+      {/* The brand's day-to-day, before the ask */}
+      <SectionTracker label="instagram">
+        <InstagramStrip
+          strip={instagram}
+          eyebrow={say("instagramLabel", "Day to day")}
+        />
       </SectionTracker>
 
       {/* Join: the reason to come back */}

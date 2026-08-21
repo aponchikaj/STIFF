@@ -89,6 +89,49 @@ export interface ScrollReport {
   sections: SectionReach[];
 }
 
+/** One shipping option and what it costs, straight from the checkout's own table. */
+export interface ShippingRate {
+  method: "pickup" | "tbilisi" | "regions";
+  label: string;
+  feeCents: number;
+}
+
+/**
+ * What the shop actually does, as opposed to what a page says it does.
+ *
+ * The House rules page reads this so its promises are the values the checkout
+ * charges and the returns service enforces.
+ */
+export interface SitePolicy {
+  returnWindowDays: number;
+  cancelStatuses: string[];
+  shipping: ShippingRate[];
+  /** Subtotal above which delivery is free. 0 means the offer is off. */
+  freeShippingThresholdCents: number;
+}
+
+export interface InstagramPost {
+  id: string;
+  caption: string | null;
+  /** Always an image — a video's thumbnail rather than the video itself. */
+  imageUrl: string;
+  permalink: string;
+  timestamp: string;
+  isVideo: boolean;
+}
+
+/**
+ * The latest posts, fetched and cached by the backend.
+ *
+ * `configured: false` means no access token is set, and the site links out to
+ * the profile instead of pretending to have a feed.
+ */
+export interface InstagramStrip {
+  configured: boolean;
+  posts: InstagramPost[];
+  error?: string;
+}
+
 export interface SiteFeatures {
   shopEnabled: boolean;
   /** Whether the first-visit intro animation plays at all. */

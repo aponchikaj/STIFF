@@ -16,6 +16,7 @@ import {
   nextTransitionAt,
   resolveDropState,
 } from './drop';
+import { buildPolicy, SitePolicy } from './policy';
 import { SiteContent } from './site-content.entity';
 
 const MAX_LIST_ITEMS = 24;
@@ -114,6 +115,18 @@ export class ContentService {
       nextTransitionAt: nextTransitionAt(config, now),
       now: now.toISOString(),
     };
+  }
+
+  /**
+   * What the shop actually does.
+   *
+   * Read by the House rules page so its promises are the same values the
+   * checkout charges and the returns service enforces, rather than a second
+   * set of numbers typed into copy that nobody remembers to update.
+   */
+  async policy(): Promise<SitePolicy> {
+    const { value } = await this.get('storefront');
+    return buildPolicy(value);
   }
 
   async upsert(

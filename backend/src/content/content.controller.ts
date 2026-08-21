@@ -3,11 +3,15 @@ import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CONTENT_BLOCKS } from './content.registry';
 import { ContentService } from './content.service';
+import { InstagramService } from './instagram.service';
 import { UpdateContentDto } from './dto/content.dto';
 
 @Controller('content')
 export class ContentController {
-  constructor(private readonly contentService: ContentService) {}
+  constructor(
+    private readonly contentService: ContentService,
+    private readonly instagramService: InstagramService,
+  ) {}
 
   /** The registry itself — drives the admin form without hardcoding fields. */
   @Public()
@@ -30,6 +34,29 @@ export class ContentController {
   @Get('drop')
   drop() {
     return this.contentService.drop();
+  }
+
+  /**
+   * The enforced policy, for the House rules page.
+   *
+   * Declared above `@Get(':key')` for the same reason `drop` is.
+   */
+  /**
+   * The latest Instagram posts, cached on this side.
+   *
+   * The site never talks to Instagram itself: the access token lives here, and
+   * a token that reaches a browser is a token anybody can read.
+   */
+  @Public()
+  @Get('instagram')
+  instagram() {
+    return this.instagramService.strip();
+  }
+
+  @Public()
+  @Get('policy')
+  policy() {
+    return this.contentService.policy();
   }
 
   @Public()

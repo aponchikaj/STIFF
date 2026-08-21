@@ -368,6 +368,13 @@ export const CONTENT_BLOCKS: ContentBlock[] = [
         default: 'Read all the rules →',
         maxLength: 60,
       },
+      {
+        key: 'instagramLabel',
+        label: 'Instagram — label',
+        type: 'text',
+        default: 'Day to day',
+        maxLength: 60,
+      },
     ],
   },
 
@@ -434,7 +441,16 @@ export const CONTENT_BLOCKS: ContentBlock[] = [
     key: 'about',
     label: 'About page',
     group: 'Pages',
+    description:
+      'The headline and opening paragraph also feed the home page teaser. The chapters below are the story itself, told between archive photographs.',
     fields: [
+      {
+        key: 'eyebrow',
+        label: 'Eyebrow',
+        type: 'text',
+        default: 'Tbilisi — est. 2026',
+        maxLength: 60,
+      },
       {
         key: 'title',
         label: 'Headline',
@@ -444,11 +460,46 @@ export const CONTENT_BLOCKS: ContentBlock[] = [
       },
       {
         key: 'body',
-        label: 'Paragraph',
+        label: 'Opening paragraph',
         type: 'textarea',
         default:
           'STIFF started in Tbilisi with one idea: make the few things you actually wear, and make them heavy enough to last.',
         maxLength: 4000,
+      },
+      {
+        key: 'chapters',
+        label: 'The story',
+        type: 'list',
+        hint: 'Each one gets an archive photograph between it and the next. Three or four reads best.',
+        default: [
+          {
+            title: 'The founding',
+            body: 'Two people, a room in Tbilisi, and a disagreement about what a t-shirt should weigh. Everything since has been an argument about what to leave out — and every piece that shipped won that argument.',
+          },
+          {
+            title: 'The asterisk',
+            body: 'The mark started as a footnote on a spec sheet: the detail that had to stay. It ended up on the front. If something does not earn its place it gets cut, and what survives carries the asterisk — a footnote that became the headline.',
+          },
+          {
+            title: 'Tbilisi first',
+            body: 'Every piece is worn here before it is sold anywhere. The city is hard on clothes — hills, heat, long nights, worse pavements — and a season on these streets tells you more about a seam than a lab ever will.',
+          },
+        ],
+      },
+      {
+        key: 'shots',
+        label: 'Archive photographs',
+        type: 'text',
+        hint: 'Comma-separated gallery slugs, one per chapter, in order. Leave empty and the newest archive shots are used.',
+        default: '',
+        maxLength: 400,
+      },
+      {
+        key: 'cta',
+        label: 'Closing button',
+        type: 'text',
+        default: 'See the first drop',
+        maxLength: 40,
       },
     ],
   },
@@ -519,14 +570,15 @@ export const CONTENT_BLOCKS: ContentBlock[] = [
         key: 'practical',
         label: 'Shipping, returns, care',
         type: 'list',
+        hint: 'Use {returnDays}, {shippingTbilisi}, {shippingRegions} and {freeOver} — they are replaced with the numbers the checkout actually charges, so the promise here cannot drift from the code.',
         default: [
           {
             title: 'Shipping',
-            body: 'Pickup in Tbilisi is free. City courier and region delivery rates show at checkout.',
+            body: 'Pickup in Tbilisi is free. City courier is {shippingTbilisi} and the regions are {shippingRegions}.',
           },
           {
             title: 'Returns',
-            body: '14 days, unworn, tags on. Refund to the original payment method within 5 working days of arrival back to us.',
+            body: '{returnDays} days, unworn, tags on. Refund to the original payment method within 5 working days of arrival back to us.',
           },
           {
             title: 'Care',

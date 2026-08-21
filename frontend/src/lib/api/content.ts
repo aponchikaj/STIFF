@@ -4,6 +4,7 @@ import type {
   ContentBlock,
   ContentKey,
   ResolvedDrop,
+  SitePolicy,
   SiteContent,
 } from "./types";
 
@@ -30,4 +31,9 @@ export function submitContact(
 /** The drop, with its state resolved server-side. */
 export function getDrop(): Promise<ResolvedDrop> {
   return apiFetch("/content/drop");
+}
+
+/** What the shop actually does — the numbers the rules page must not contradict. */
+export function getPolicy(): Promise<SitePolicy> {
+  return apiFetch("/content/policy");
 }

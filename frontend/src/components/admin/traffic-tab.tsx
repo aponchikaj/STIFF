@@ -16,6 +16,7 @@ const HOME_SECTION_ORDER = [
   "archive",
   "idea",
   "values",
+  "instagram",
   "join",
 ] as const;
 
@@ -26,6 +27,7 @@ const SECTION_LABELS: Record<string, string> = {
   archive: "The archive",
   idea: "The idea",
   values: "What we stand for",
+  instagram: "Day to day",
   join: "Never miss a drop",
 };
 
