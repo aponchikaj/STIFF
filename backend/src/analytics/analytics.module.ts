@@ -9,6 +9,7 @@ import { User } from '../users/user.entity';
 import { AnalyticsController } from './analytics.controller';
 import { AnalyticsService } from './analytics.service';
 import { AnalyticsSnapshot } from './analytics-snapshot.entity';
+import { PageEvent } from './page-event.entity';
 import { PageView } from './page-view.entity';
 import { TrackController } from './track.controller';
 
@@ -17,6 +18,7 @@ import { TrackController } from './track.controller';
     TypeOrmModule.forFeature([
       AnalyticsSnapshot,
       PageView,
+      PageEvent,
       Order,
       OrderItem,
       User,
