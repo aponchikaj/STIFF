@@ -1,6 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useState } from "react";
+import { trackEvent } from "@/lib/track-event";
 import { AsteriskMark } from "./asterisk-mark";
 
 type Phase = "loading" | "reveal" | "nav" | "gone";
@@ -13,16 +14,64 @@ const NAV_MS = 650; // navbar drop duration before the overlay leaves
 // back to home) but resets on a hard load/refresh of the site.
 let playedThisPageLoad = false;
 
-export function IntroOverlay() {
+/**
+ * How long a visitor is treated as having already seen it.
+ *
+ * The overlay is two and a half seconds of nothing, in front of a page
+ * somebody has chosen to return to. It bought atmosphere the first time; on
+ * the fourth visit this week it is a toll. A week is long enough that a
+ * genuine return still gets the page immediately, and short enough that
+ * somebody coming back next season sees the brand again.
+ */
+const SEEN_KEY = "stiff_intro_seen";
+const SEEN_FOR_DAYS = 7;
+
+function seenRecently(): boolean {
+  try {
+    const at = Number(localStorage.getItem(SEEN_KEY));
+    if (!at) return false;
+    return Date.now() - at < SEEN_FOR_DAYS * 86400_000;
+  } catch {
+    // Storage blocked. Playing it is the wrong guess less often than not
+    // playing it, since a first-time visitor is the one it exists for.
+    return false;
+  }
+}
+
+function markSeen() {
+  try {
+    localStorage.setItem(SEEN_KEY, String(Date.now()));
+  } catch {
+    // Nothing to do; it will play again next time.
+  }
+}
+
+/**
+ * `enabled` is the admin switch, so the answer to "is this costing more in
+ * bounce than it buys in atmosphere" can be acted on without a deploy — and
+ * `intro_shown` / `intro_skipped` are what make the question answerable at
+ * all. Traffic reports both.
+ */
+export function IntroOverlay({ enabled = true }: { enabled?: boolean }) {
   const [phase, setPhase] = useState<Phase>("loading");
 
   useLayoutEffect(() => {
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce || playedThisPageLoad) {
+    const returning = seenRecently();
+
+    if (!enabled || reduce || returning || playedThisPageLoad) {
       setPhase("gone");
+      // Only worth a data point when it was a real visit that skipped it — a
+      // second render inside one page load is not another visitor.
+      if (!playedThisPageLoad && (returning || !enabled)) {
+        playedThisPageLoad = true;
+        trackEvent("intro_skipped");
+      }
       return;
     }
     playedThisPageLoad = true;
+    markSeen();
+    trackEvent("intro_shown");
 
     const root = document.documentElement;
     root.classList.add("intro-nav-wait");
@@ -57,7 +106,7 @@ export function IntroOverlay() {
       timers.forEach(clearTimeout);
       root.classList.remove("intro-nav-wait", "intro-nav-drop");
     };
-  }, []);
+  }, [enabled]);
 
   if (phase === "gone") return null;
 

@@ -75,8 +75,24 @@ export interface SubscribeResult {
   status: "check_your_inbox";
 }
 
+/** How far down a page people got, as a share of everyone who arrived. */
+export interface SectionReach {
+  label: string;
+  visitors: number;
+  /** Percentage of the page's visitors in the same window. 0–100. */
+  share: number;
+}
+
+export interface ScrollReport {
+  path: string;
+  visitors: number;
+  sections: SectionReach[];
+}
+
 export interface SiteFeatures {
   shopEnabled: boolean;
+  /** Whether the first-visit intro animation plays at all. */
+  introOverlay?: boolean;
 }
 export type ProductSort = "newest" | "price_asc" | "price_desc" | "popular";
 export type GallerySort = "newest" | "popular";

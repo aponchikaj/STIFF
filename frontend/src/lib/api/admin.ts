@@ -15,6 +15,7 @@ import type {
   CreateProductInput,
   GalleryItem,
   GalleryShoot,
+  ScrollReport,
   GalleryTag,
   Order,
   OrderStatus,
@@ -202,6 +203,26 @@ export function updateGalleryTag(
 
 export function deleteGalleryTag(id: string): Promise<{ success: boolean }> {
   return apiFetch(`/gallery/tags/${id}`, { method: "DELETE" });
+}
+
+/**
+ * How far down a page people get.
+ *
+ * `from`/`to` are UTC days, because every timestamp being counted is.
+ */
+export function getScrollReach(params: {
+  from: string;
+  to: string;
+  path?: string;
+}): Promise<ScrollReport> {
+  return apiFetch("/admin/analytics/scroll", { query: { ...params } });
+}
+
+export function getIntroReach(params: {
+  from: string;
+  to: string;
+}): Promise<{ shown: number; skipped: number }> {
+  return apiFetch("/admin/analytics/intro", { query: { ...params } });
 }
 
 // ---------- orders ----------

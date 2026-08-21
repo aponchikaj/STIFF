@@ -8,6 +8,7 @@ import { Product } from '../products/product.entity';
 import { Comment } from '../comments/comment.entity';
 import { User } from '../users/user.entity';
 import { AnalyticsSnapshot } from './analytics-snapshot.entity';
+import { PageEvent } from './page-event.entity';
 import { PageView } from './page-view.entity';
 
 const REVENUE_STATUSES = ['paid', 'packed', 'shipped', 'delivered'];
@@ -34,6 +35,21 @@ export interface TrafficReport {
   days: TrafficDay[];
   topPages: TrafficPage[];
   topProducts: TrafficPage[];
+}
+
+/** How far down a page people actually got, as a share of everyone who arrived. */
+export interface SectionReach {
+  label: string;
+  visitors: number;
+  /** Percentage of the page's visitors in the same window. 0–100. */
+  share: number;
+}
+
+export interface ScrollReport {
+  path: string;
+  /** Distinct visitors who loaded the page at all, the denominator. */
+  visitors: number;
+  sections: SectionReach[];
 }
 
 export type TimeseriesMetric = 'revenue' | 'orders' | 'signups';
@@ -72,6 +88,8 @@ export class AnalyticsService {
     private readonly contactRepo: Repository<ContactMessage>,
     @InjectRepository(PageView)
     private readonly pageViewRepo: Repository<PageView>,
+    @InjectRepository(PageEvent)
+    private readonly pageEventRepo: Repository<PageEvent>,
   ) {}
 
   async recordView(
@@ -80,6 +98,111 @@ export class AnalyticsService {
     userId: string | null,
   ): Promise<void> {
     await this.pageViewRepo.insert({ path, visitorId, userId });
+  }
+
+  /**
+   * A batch of named moments from one visit.
+   *
+   * Batched because scrolling a page fires several of these in a few seconds,
+   * and one request per section would be a request per section.
+   */
+  async recordEvents(
+    path: string,
+    visitorId: string,
+    userId: string | null,
+    events: { name: string; label?: string }[],
+  ): Promise<void> {
+    if (events.length === 0) return;
+    await this.pageEventRepo.insert(
+      events.map((event) => ({
+        path,
+        name: event.name,
+        label: event.label ?? null,
+        visitorId,
+        userId,
+      })),
+    );
+  }
+
+  /**
+   * How far down a page people got.
+   *
+   * The denominator is distinct visitors who loaded the page in the same
+   * window, not the number of events — a section counted against its own
+   * events would always read 100%. Shares can only fall as you go down the
+   * page, which is what makes the shape readable: the row where the number
+   * drops off a cliff is the section that is losing people.
+   */
+  async scrollReach(
+    path: string,
+    from: string,
+    to: string,
+  ): Promise<ScrollReport> {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+      throw new BadRequestException('from/to must be YYYY-MM-DD');
+    }
+    const window = `"createdAt" >= :from AND "createdAt" < CAST(:to AS date) + INTERVAL '1 day'`;
+
+    const [visitorRow, sectionRows] = await Promise.all([
+      this.pageViewRepo
+        .createQueryBuilder('v')
+        .select('COUNT(DISTINCT v."visitorId")', 'visitors')
+        .where('v."path" = :path', { path })
+        .andWhere(window.replace(/"createdAt"/g, 'v."createdAt"'), { from, to })
+        .getRawOne<{ visitors: string }>(),
+      this.pageEventRepo
+        .createQueryBuilder('e')
+        .select('e."label"', 'label')
+        .addSelect('COUNT(DISTINCT e."visitorId")', 'visitors')
+        .where('e."path" = :path', { path })
+        .andWhere(`e."name" = 'section_view'`)
+        .andWhere(window.replace(/"createdAt"/g, 'e."createdAt"'), { from, to })
+        .groupBy('e."label"')
+        .getRawMany<{ label: string; visitors: string }>(),
+    ]);
+
+    const visitors = Number(visitorRow?.visitors ?? 0);
+    const byLabel = new Map(
+      sectionRows.map((row) => [row.label, Number(row.visitors)]),
+    );
+
+    return {
+      path,
+      visitors,
+      // Ordered by reach rather than by name: the report is about where people
+      // stop, and that order is the funnel.
+      sections: [...byLabel.entries()]
+        .map(([label, count]) => ({
+          label,
+          visitors: count,
+          share: visitors > 0 ? Math.round((count / visitors) * 1000) / 10 : 0,
+        }))
+        .sort((a, b) => b.visitors - a.visitors),
+    };
+  }
+
+  /** How often the intro overlay played, and how often it was skipped. */
+  async introReach(
+    from: string,
+    to: string,
+  ): Promise<{ shown: number; skipped: number }> {
+    const rows = await this.pageEventRepo
+      .createQueryBuilder('e')
+      .select('e."name"', 'name')
+      .addSelect('COUNT(DISTINCT e."visitorId")', 'visitors')
+      .where(`e."name" IN ('intro_shown', 'intro_skipped')`)
+      .andWhere(
+        `e."createdAt" >= :from AND e."createdAt" < CAST(:to AS date) + INTERVAL '1 day'`,
+        { from, to },
+      )
+      .groupBy('e."name"')
+      .getRawMany<{ name: string; visitors: string }>();
+
+    const byName = new Map(rows.map((row) => [row.name, Number(row.visitors)]));
+    return {
+      shown: byName.get('intro_shown') ?? 0,
+      skipped: byName.get('intro_skipped') ?? 0,
+    };
   }
 
   async traffic(from: string, to: string): Promise<TrafficReport> {

@@ -59,6 +59,13 @@ export const CONTENT_BLOCKS: ContentBlock[] = [
         type: 'boolean',
         default: true,
       },
+      {
+        key: 'introOverlay',
+        label: 'Play the intro animation',
+        type: 'boolean',
+        hint: 'First visit only — it never replays for somebody who has already seen it. Traffic shows how many it plays for.',
+        default: true,
+      },
     ],
   },
 
