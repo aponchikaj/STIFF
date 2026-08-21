@@ -10,7 +10,15 @@
  * page — no DTO change, no admin-form change, no migration.
  */
 
-export type ContentFieldType = 'text' | 'textarea' | 'boolean' | 'list';
+export type ContentFieldType =
+  | 'text'
+  | 'textarea'
+  | 'boolean'
+  | 'list'
+  /** An uploaded image. Stored as its URL; the admin form offers a file picker. */
+  | 'image'
+  /** A moment, stored as an ISO 8601 string. Empty means "not set". */
+  | 'datetime';
 
 export interface ContentField {
   key: string;
@@ -144,6 +152,133 @@ export const CONTENT_BLOCKS: ContentBlock[] = [
         type: 'text',
         default: '[ 41.7151° N, 44.8271° E — Tbilisi ]',
         maxLength: 80,
+      },
+      {
+        key: 'image',
+        label: 'Backdrop photograph',
+        type: 'image',
+        hint: 'The full-bleed image behind the wordmark. Landscape, and dark enough for white type to sit on it.',
+        default: '/hero-cat.jpg',
+        maxLength: 500,
+      },
+    ],
+  },
+
+  {
+    key: 'home-marquee',
+    label: 'Home — scrolling band',
+    group: 'Home',
+    description:
+      'The black band that slides past above and below the page. Each word is preceded by the asterisk.',
+    fields: [
+      {
+        key: 'words',
+        label: 'Words',
+        type: 'text',
+        hint: 'Comma-separated. One word repeats; several cycle — "Stiff, Drop 01, Tbilisi".',
+        default: 'Stiff',
+        maxLength: 200,
+      },
+    ],
+  },
+
+  {
+    key: 'home-sections',
+    label: 'Home — section headings',
+    group: 'Home',
+    description:
+      'The numbered acts of the home page. Numbers are worked out as the page renders, so a section that is switched off does not leave a gap.',
+    fields: [
+      {
+        key: 'dropLabel',
+        label: 'Drop — label',
+        type: 'text',
+        default: 'The drop',
+        maxLength: 60,
+      },
+      {
+        key: 'dropHeading',
+        label: 'Drop — heading',
+        type: 'text',
+        default: 'Latest pieces',
+        maxLength: 80,
+      },
+      {
+        key: 'dropCta',
+        label: 'Drop — button',
+        type: 'text',
+        default: 'Shop all',
+        maxLength: 40,
+      },
+      {
+        key: 'wantedLabel',
+        label: 'Most wanted — label',
+        type: 'text',
+        default: 'Most wanted',
+        maxLength: 60,
+      },
+      {
+        key: 'wantedHeading',
+        label: 'Most wanted — heading',
+        type: 'text',
+        default: 'What everyone likes',
+        maxLength: 80,
+      },
+      {
+        key: 'wantedCta',
+        label: 'Most wanted — button',
+        type: 'text',
+        default: 'See all',
+        maxLength: 40,
+      },
+      {
+        key: 'categoriesLabel',
+        label: 'Categories — label',
+        type: 'text',
+        default: 'Shop by category',
+        maxLength: 60,
+      },
+      {
+        key: 'archiveLabel',
+        label: 'Archive — label',
+        type: 'text',
+        default: 'The archive',
+        maxLength: 60,
+      },
+      {
+        key: 'archiveHeading',
+        label: 'Archive — heading',
+        type: 'text',
+        default: 'Worn, shot, kept',
+        maxLength: 80,
+      },
+      {
+        key: 'archiveCta',
+        label: 'Archive — button',
+        type: 'text',
+        default: 'Full gallery',
+        maxLength: 40,
+      },
+      {
+        key: 'ideaLabel',
+        label: 'The idea — label',
+        type: 'text',
+        default: 'The idea',
+        maxLength: 60,
+      },
+      {
+        key: 'ideaCta',
+        label: 'The idea — button',
+        type: 'text',
+        default: 'Our story',
+        maxLength: 40,
+      },
+      {
+        key: 'valuesCta',
+        label: 'Values — link',
+        type: 'text',
+        default: 'Read all the rules →',
+        maxLength: 60,
       },
     ],
   },

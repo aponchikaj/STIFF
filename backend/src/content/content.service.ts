@@ -143,7 +143,7 @@ export class ContentService {
       return raw.map((item, i) => this.coerceListItem(where, item, i));
     }
 
-    // text | textarea
+    // text | textarea | image | datetime
     if (typeof raw !== 'string') {
       throw new BadRequestException(`${where} must be text`);
     }
@@ -154,6 +154,32 @@ export class ContentService {
         `${where} is longer than ${max} characters`,
       );
     }
+
+    if (field.type === 'image' && trimmed) {
+      // This value is rendered straight into a `src`. A relative path or an
+      // https URL are the only two things that can be, and the check is here
+      // rather than in the form because the form is not the only caller.
+      const ok =
+        trimmed.startsWith('/') && !trimmed.startsWith('//')
+          ? true
+          : /^https:\/\/[^\s]+$/i.test(trimmed);
+      if (!ok) {
+        throw new BadRequestException(
+          `${where} must be an uploaded image path or an https:// URL`,
+        );
+      }
+    }
+
+    if (field.type === 'datetime' && trimmed) {
+      const when = new Date(trimmed);
+      if (Number.isNaN(when.getTime())) {
+        throw new BadRequestException(`${where} is not a valid date and time`);
+      }
+      // Stored normalised, so everything downstream compares like with like
+      // regardless of which timezone the admin's browser submitted.
+      return when.toISOString();
+    }
+
     return trimmed;
   }
 

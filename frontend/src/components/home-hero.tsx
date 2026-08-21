@@ -1,14 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { contentText, fetchContent } from "@/lib/content-server";
+import { DETAIL_WIDTHS, imageSrcSet, imageUrl } from "@/lib/image";
 import { AsteriskMark } from "./asterisk-mark";
-import { IfShop } from "./if-shop";
 import { Magnetic } from "./motion";
 import { btnOutline, btnSolid } from "./ui";
 
 /** Conversion-focused hero. Scroll drift/spin is CSS `scroll()` timeline
  *  (compositor-only) so the main thread stays free for 120Hz scrolling. */
-export async function HomeHero() {
+export async function HomeHero({ shopEnabled }: { shopEnabled: boolean }) {
   const copy = await fetchContent("home-hero");
   const eyebrow = contentText(copy, "eyebrow", "Tbilisi — est. 2026");
   const tagline = contentText(
@@ -23,21 +23,38 @@ export async function HomeHero() {
     "coordinates",
     "[ 41.7151° N, 44.8271° E — Tbilisi ]",
   );
+  const image = contentText(copy, "image", "/hero-cat.jpg");
+  // `next/image` optimises files it is allowed to fetch; an uploaded backdrop
+  // lives on the CDN, which already resizes and re-encodes on delivery.
+  const uploaded = image.startsWith("http");
 
   return (
     <section className="relative flex h-dvh flex-col items-center justify-center overflow-hidden px-6">
       {/* Backdrop sits outside any 3D/transform context so the filtered
           photograph is painted once and composited while the copy drifts. */}
       <div aria-hidden="true" className="absolute inset-0 overflow-hidden">
-        <Image
-          src="/hero-cat.jpg"
-          alt=""
-          fill
-          sizes="100vw"
-          priority
-          quality={65}
-          className="hero-photo object-cover object-bottom"
-        />
+        {uploaded ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={imageUrl(image, 1920, "detail")}
+            srcSet={imageSrcSet(image, DETAIL_WIDTHS, "detail") || undefined}
+            sizes="100vw"
+            alt=""
+            fetchPriority="high"
+            decoding="async"
+            className="hero-photo absolute inset-0 size-full object-cover object-bottom"
+          />
+        ) : (
+          <Image
+            src={image}
+            alt=""
+            fill
+            sizes="100vw"
+            priority
+            quality={65}
+            className="hero-photo object-cover object-bottom"
+          />
+        )}
         <div className="hero-scrim absolute inset-0" />
       </div>
 
@@ -63,7 +80,7 @@ export async function HomeHero() {
           {tagline}
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <IfShop>
+          {shopEnabled && (
             <Magnetic className="inline-block">
               <Link
                 href="/clothing"
@@ -72,7 +89,7 @@ export async function HomeHero() {
                 {primaryCta}
               </Link>
             </Magnetic>
-          </IfShop>
+          )}
           <Magnetic className="inline-block">
             <Link
               href="/gallery"

@@ -9,6 +9,7 @@ import type {
   SiteContent,
 } from "@/lib/api";
 import { errorMessage } from "@/lib/hooks";
+import { imageUrl } from "@/lib/image";
 import { useSession } from "../providers";
 import {
   btnGhostSm,
@@ -277,6 +278,37 @@ function FieldEditor({
   }
 
   const text = typeof value === "string" ? value : "";
+
+  if (field.type === "image") {
+    return (
+      <ImageField id={id} field={field} value={text} onChange={onChange} />
+    );
+  }
+
+  if (field.type === "datetime") {
+    return (
+      <Field id={id} label={field.label}>
+        <input
+          id={id}
+          type="datetime-local"
+          // The value is stored as UTC and edited in the admin's own timezone,
+          // so it is converted on the way in and on the way out. `datetime-local`
+          // has no concept of a zone and would otherwise shift the drop by the
+          // browser's offset every time the form was opened and saved.
+          value={toLocalInput(text)}
+          className={inputCls}
+          onChange={(e) => onChange(fromLocalInput(e.target.value))}
+        />
+        {field.hint && <p className="mt-1 text-xs text-muted">{field.hint}</p>}
+        {text && (
+          <p className="mt-1 text-xs text-muted">
+            Saved as {new Date(text).toLocaleString()} in your timezone.
+          </p>
+        )}
+      </Field>
+    );
+  }
+
   return (
     <Field id={id} label={field.label}>
       {field.type === "textarea" ? (
@@ -299,6 +331,107 @@ function FieldEditor({
       )}
     </Field>
   );
+}
+
+/**
+ * An uploaded image, stored as its URL.
+ *
+ * The upload goes through the same endpoint the gallery and products use, so
+ * the file lands on the CDN and is delivered resized like every other image
+ * on the site rather than as a multi-megabyte original.
+ */
+function ImageField({
+  id,
+  field,
+  value,
+  onChange,
+}: {
+  id: string;
+  field: ContentField;
+  value: string;
+  onChange: (next: unknown) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  return (
+    <fieldset className="flex flex-col gap-3 border border-subtle p-4">
+      <legend className="px-1 text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
+        {field.label}
+      </legend>
+      {field.hint && <p className="text-xs text-muted">{field.hint}</p>}
+
+      <div className="flex flex-wrap items-start gap-4">
+        {value ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={imageUrl(value, 320)}
+            alt=""
+            className="h-24 w-40 shrink-0 rounded-[2px] bg-surface object-cover"
+          />
+        ) : (
+          <div className="h-24 w-40 shrink-0 rounded-[2px] bg-surface" />
+        )}
+
+        <div className="flex flex-col gap-2">
+          <label className={`${btnGhostSm} cursor-pointer`}>
+            {busy ? "Uploading…" : "Replace image"}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (!file) return;
+                setBusy(true);
+                setNote(null);
+                try {
+                  const uploaded = await adminApi.uploadImage(file);
+                  onChange(uploaded.url);
+                  setNote("Uploaded. Hit Save to put it live.");
+                } catch (err) {
+                  setNote(errorMessage(err));
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            />
+          </label>
+          <input
+            id={id}
+            value={value}
+            maxLength={field.maxLength}
+            placeholder="/hero-cat.jpg or https://…"
+            aria-label={`${field.label} URL`}
+            className={`${inputCls} h-9 w-72 text-xs`}
+            onChange={(e) => onChange(e.target.value)}
+          />
+          <p aria-live="polite" className="min-h-4 text-xs text-muted">
+            {note}
+          </p>
+        </div>
+      </div>
+    </fieldset>
+  );
+}
+
+/** ISO (UTC) to what `datetime-local` wants, in the admin's own timezone. */
+function toLocalInput(iso: string): string {
+  if (!iso) return "";
+  const when = new Date(iso);
+  if (Number.isNaN(when.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(
+    when.getDate(),
+  )}T${pad(when.getHours())}:${pad(when.getMinutes())}`;
+}
+
+/** And back. An empty field clears the value rather than storing epoch zero. */
+function fromLocalInput(local: string): string {
+  if (!local) return "";
+  const when = new Date(local);
+  return Number.isNaN(when.getTime()) ? "" : when.toISOString();
 }
 
 /** Saved values win; anything unsaved starts from the registry default. */

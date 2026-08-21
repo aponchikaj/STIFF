@@ -20,6 +20,8 @@ export type ContentKey =
   | "features"
   | "storefront"
   | "home-hero"
+  | "home-marquee"
+  | "home-sections"
   | "home-values"
   | "home-join"
   | "about"
@@ -419,7 +421,15 @@ export interface ContentListItem {
   body: string;
 }
 
-export type ContentFieldType = "text" | "textarea" | "boolean" | "list";
+export type ContentFieldType =
+  | "text"
+  | "textarea"
+  | "boolean"
+  | "list"
+  /** An uploaded image. Stored as its URL; the form offers a file picker. */
+  | "image"
+  /** A moment, stored as an ISO 8601 string. Empty means "not set". */
+  | "datetime";
 
 export interface ContentField {
   key: string;
