@@ -69,17 +69,6 @@ export class Product {
   @Column({ type: 'timestamptz', nullable: true })
   publishAt: Date | null;
 
-  @Column({ default: false })
-  preorderEnabled: boolean;
-
-  /** What the customer is promised. Shown on the product and the receipt. */
-  @Column({ type: 'date', nullable: true })
-  preorderShipsAt: string | null;
-
-  /** Units sellable beyond real stock. 0 means none, never unlimited. */
-  @Column({ type: 'int', default: 0 })
-  preorderLimit: number;
-
   @Column({ type: 'int', default: 0 })
   likeCount: number;
 
@@ -88,22 +77,6 @@ export class Product {
 
   @Column({ type: 'int', default: 0 })
   commentCount: number;
-
-  /**
-   * Fit ratings, tallied per bucket.
-   *
-   * Denormalised the same way `likeCount` is: the grid would otherwise need a
-   * grouped subquery per row. `product_fit_ratings` is the source of truth and
-   * every write recounts from it.
-   */
-  @Column({ type: 'int', default: 0 })
-  fitSmallCount: number;
-
-  @Column({ type: 'int', default: 0 })
-  fitTrueCount: number;
-
-  @Column({ type: 'int', default: 0 })
-  fitLargeCount: number;
 
   @CreateDateColumn()
   createdAt: Date;

@@ -11,13 +11,11 @@ import { CartItem } from '../cart/cart-item.entity';
 import { CartOwner, ownerWhere } from '../cart/cart-owner';
 import type { PaymentStart } from '../payments/payment.types';
 import { PaymentsService } from '../payments/payments.service';
-import { PromotionsService } from '../promotions/promotions.service';
 import { Paginated, paginate } from '../common/types/paginated';
 import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ProductVariant } from '../products/product-variant.entity';
 import { Product } from '../products/product.entity';
-import { isPreorderLine } from '../products/preorder';
 import { NO_COLOUR, ONE_SIZE, priceForSize } from '../products/stock';
 import {
   isGeorgiaRegion,
@@ -43,7 +41,7 @@ import {
 import { OrderItem } from './order-item.entity';
 import { Order, OrderStatus } from './order.entity';
 import { ContentService } from '../content/content.service';
-import { canCancel } from '../returns/return-rules';
+import { canCancel } from './cancellation';
 
 const STATUS_MESSAGES: Record<OrderStatus, string> = {
   pending: 'We have your order.',
@@ -60,7 +58,6 @@ interface LineToOrder {
   quantity: number;
   size: string;
   /** Decided while placing the order, then snapshotted onto the order line. */
-  isPreorder?: boolean;
 }
 
 /**
@@ -124,7 +121,6 @@ export class OrdersService {
     private readonly mailService: MailService,
     private readonly paymentsService: PaymentsService,
     private readonly variantsService: VariantsService,
-    private readonly promotionsService: PromotionsService,
     private readonly contentService: ContentService,
   ) {}
 
@@ -241,17 +237,7 @@ export class OrdersService {
         }
         const label = lineLabel(line);
 
-        // A pre-order line has no stock to take, so it books capacity instead.
-        if (isPreorderLine(line.variant, line.product)) {
-          line.isPreorder = true;
-          await this.variantsService.reservePreorder(
-            manager,
-            line.variant.id,
-            line.quantity,
-            line.product.preorderLimit,
-            label,
-          );
-        } else {
+        {
           await this.variantsService.decrement(
             manager,
             line.variant.id,
@@ -273,50 +259,21 @@ export class OrdersService {
         threshold,
       );
 
-      // Codes are re-resolved here rather than trusted from the cart preview:
-      // between quoting and paying, a code can expire, hit its cap, or have
-      // its last balance spent by someone else.
-      const redeemer = {
-        userId: buyer.kind === 'user' ? buyer.user.id : null,
-        email: buyerEmail(buyer),
-      };
-      const { breakdown, resolved } = await this.promotionsService.quote({
-        subtotalCents,
-        shippingCents,
-        discountCode: dto.discountCode,
-        giftCardCode: dto.giftCardCode,
-        redeemer,
-      });
-
       const order = await manager.save(
         manager.create(Order, {
           userId: buyer.kind === 'user' ? buyer.user.id : null,
           guestEmail: buyer.kind === 'guest' ? buyer.email : null,
           status: 'pending',
-          subtotalCents: breakdown.subtotalCents,
-          discountCode: resolved.discount?.code.code ?? null,
-          discountCents: breakdown.discountCents,
-          giftCardCode: resolved.giftCard?.code ?? null,
-          giftCardCents: breakdown.giftCardCents,
-          totalCents: breakdown.totalCents,
+          subtotalCents,
+          totalCents: subtotalCents + shippingCents,
           currency: 'gel',
           paymentMethod,
           paymentIntentId: null,
           shippingMethod,
-          shippingCents: breakdown.shippingCents,
+          shippingCents,
           shippingAddress: address,
         }),
       );
-
-      // Inside the transaction: the gift-card debit is guarded the same way
-      // stock is, so two orders spending the last of one balance cannot both
-      // succeed, and a failure rolls the whole checkout back.
-      await this.promotionsService.commit(manager, {
-        orderId: order.id,
-        redeemer,
-        resolved,
-        breakdown,
-      });
 
       await manager.save(
         lines.map((line) =>
@@ -333,7 +290,6 @@ export class OrdersService {
             quantity: line.quantity,
             size: line.size,
             color: line.variant.color,
-            isPreorder: line.isPreorder === true,
           }),
         ),
       );
@@ -482,14 +438,6 @@ export class OrdersService {
         // left to move stock on — skip rather than guess which size it was.
         if (!item.productId || !item.variantId) continue;
         if (enteringCancelled) {
-          if (item.isPreorder) {
-            await this.variantsService.releasePreorder(
-              manager,
-              item.variantId,
-              item.quantity,
-            );
-            continue;
-          }
           await this.variantsService.increment(
             manager,
             item.variantId,
@@ -506,19 +454,11 @@ export class OrdersService {
         await this.variantsService.syncTotal(manager, item.productId);
       }
       if (dto.status === 'delivered' && !order.deliveredAt) {
-        // Starts the returns window. Set once, so re-marking delivered after a
-        // correction cannot quietly extend someone's right to send it back.
+        // Set once, so re-marking delivered after a correction cannot move
+        // the arrival date.
         order.deliveredAt = new Date();
       }
       if (enteringCancelled) {
-        if (order.giftCardCode && order.giftCardCents > 0) {
-          await this.promotionsService.refundGiftCard(
-            manager,
-            order.id,
-            order.giftCardCode,
-            order.giftCardCents,
-          );
-        }
         order.cancelledAt = new Date();
         order.cancelledBy = 'admin';
       } else if (leavingCancelled) {
@@ -557,32 +497,12 @@ export class OrdersService {
     await this.dataSource.transaction(async (manager) => {
       for (const item of order.items) {
         if (!item.productId || !item.variantId) continue;
-        if (item.isPreorder) {
-          // Nothing came off a shelf, so nothing goes back on one — what is
-          // freed is the slot in the pre-order run.
-          await this.variantsService.releasePreorder(
-            manager,
-            item.variantId,
-            item.quantity,
-          );
-          continue;
-        }
         await this.variantsService.increment(
           manager,
           item.variantId,
           item.quantity,
         );
         await this.variantsService.syncTotal(manager, item.productId);
-      }
-      // Money the card paid goes back onto the card, not into a refund the
-      // shop has to process by hand.
-      if (order.giftCardCode && order.giftCardCents > 0) {
-        await this.promotionsService.refundGiftCard(
-          manager,
-          order.id,
-          order.giftCardCode,
-          order.giftCardCents,
-        );
       }
       order.status = 'cancelled';
       order.cancelledAt = new Date();
@@ -628,14 +548,6 @@ export class OrdersService {
       if (order.status !== 'cancelled') {
         for (const item of order.items) {
           if (!item.productId || !item.variantId) continue;
-          if (item.isPreorder) {
-            await this.variantsService.releasePreorder(
-              manager,
-              item.variantId,
-              item.quantity,
-            );
-            continue;
-          }
           await this.variantsService.increment(
             manager,
             item.variantId,

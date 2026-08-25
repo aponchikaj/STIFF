@@ -16,7 +16,6 @@ import { formatPrice } from "@/lib/format";
 import { useAsync } from "@/lib/hooks";
 import { ArchiveStrip } from "@/components/archive-strip";
 import { CommentsSection } from "@/components/comments-section";
-import { FitRating } from "@/components/fit-rating";
 import { AsteriskMark } from "@/components/asterisk-mark";
 import { ShopClosed } from "@/components/if-shop";
 import { Lightbox } from "@/components/lightbox";
@@ -220,9 +219,6 @@ export function ProductView({
             colour={colour}
             onColourChange={setColour}
           />
-          {product.fit && (
-            <FitRating productId={product.id} initial={product.fit} />
-          )}
         </div>
       </section>
 

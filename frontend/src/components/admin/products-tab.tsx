@@ -61,9 +61,6 @@ const EMPTY = {
   imageAlts: [] as string[],
   variants: DEFAULT_VARIANTS,
   publishAt: "",
-  preorderEnabled: false,
-  preorderShipsAt: "",
-  preorderLimit: "",
 };
 
 export function ProductsTab() {
@@ -100,9 +97,6 @@ export function ProductsTab() {
       publishAt: product.publishAt
         ? new Date(product.publishAt).toISOString().slice(0, 16)
         : "",
-      preorderEnabled: product.preorderEnabled ?? false,
-      preorderShipsAt: product.preorderShipsAt ?? "",
-      preorderLimit: product.preorderLimit ? String(product.preorderLimit) : "",
       variants:
         product.variants.length > 0
           ? product.variants.map((v) => ({
@@ -258,9 +252,6 @@ export function ProductsTab() {
       publishAt: form.publishAt
         ? new Date(form.publishAt).toISOString()
         : null,
-      preorderEnabled: form.preorderEnabled,
-      preorderShipsAt: form.preorderShipsAt || undefined,
-      preorderLimit: Number(form.preorderLimit) || 0,
     };
     try {
       if (editingId) {
@@ -631,48 +622,6 @@ export function ProductsTab() {
               </div>
             </div>
 
-            <label className="mt-4 flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={form.preorderEnabled}
-                onChange={(e) =>
-                  setForm({ ...form, preorderEnabled: e.target.checked })
-                }
-                className="size-4"
-              />
-              Take pre-orders once a size sells out
-            </label>
-
-            {form.preorderEnabled && (
-              <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                <Field id="p-pre-limit" label="Extra units per size">
-                  <input
-                    id="p-pre-limit"
-                    type="number"
-                    min="0"
-                    value={form.preorderLimit}
-                    onChange={(e) =>
-                      setForm({ ...form, preorderLimit: e.target.value })
-                    }
-                    className={inputCls}
-                  />
-                </Field>
-                <Field id="p-pre-ships" label="Ships from">
-                  <input
-                    id="p-pre-ships"
-                    type="date"
-                    value={form.preorderShipsAt}
-                    onChange={(e) =>
-                      setForm({ ...form, preorderShipsAt: e.target.value })
-                    }
-                    className={inputCls}
-                  />
-                </Field>
-                <p className="text-xs leading-6 text-muted sm:col-span-2">
-                  0 extra units means no pre-orders — it never means unlimited.
-                </p>
-              </div>
-            )}
           </fieldset>
 
           <div>

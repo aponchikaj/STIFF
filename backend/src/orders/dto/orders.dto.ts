@@ -87,16 +87,6 @@ export class CheckoutDto {
   @IsEmail()
   @MaxLength(180)
   email?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(40)
-  discountCode?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(40)
-  giftCardCode?: string;
 }
 
 export class BuyNowDto extends CheckoutDto {
