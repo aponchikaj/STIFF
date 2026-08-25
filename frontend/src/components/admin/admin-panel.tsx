@@ -8,8 +8,6 @@ import { OverviewTab } from "./overview-tab";
 import { TrafficTab } from "./traffic-tab";
 import { ProductsTab } from "./products-tab";
 import { OrdersTab } from "./orders-tab";
-import { ReturnsTab } from "./returns-tab";
-import { PromotionsTab } from "./promotions-tab";
 import { UsersTab } from "./users-tab";
 import { CommentsTab } from "./comments-tab";
 import { ContactsTab } from "./contacts-tab";
@@ -28,8 +26,6 @@ const TABS = [
   { slug: "traffic", label: "Traffic", render: () => <TrafficTab /> },
   { slug: "products", label: "Products", render: () => <ProductsTab /> },
   { slug: "orders", label: "Orders", render: () => <OrdersTab /> },
-  { slug: "returns", label: "Returns", render: () => <ReturnsTab /> },
-  { slug: "promotions", label: "Promotions", render: () => <PromotionsTab /> },
   { slug: "users", label: "Users", render: () => <UsersTab /> },
   { slug: "comments", label: "Comments", render: () => <CommentsTab /> },
   { slug: "contacts", label: "Contacts", render: () => <ContactsTab /> },

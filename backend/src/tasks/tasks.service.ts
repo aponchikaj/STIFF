@@ -7,9 +7,7 @@ import { AuthService } from '../auth/auth.service';
 import { TokenService } from '../auth/token.service';
 import { CartItem } from '../cart/cart-item.entity';
 import { CartService } from '../cart/cart.service';
-import { CrossSellService } from '../customers/cross-sell.service';
 import { ProductsService } from '../products/products.service';
-import { StockAlertsService } from '../customers/stock-alerts.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
 
@@ -28,8 +26,6 @@ export class TasksService {
     @InjectRepository(CartItem)
     private readonly cartRepo: Repository<CartItem>,
     private readonly cartService: CartService,
-    private readonly stockAlertsService: StockAlertsService,
-    private readonly crossSellService: CrossSellService,
     private readonly productsService: ProductsService,
   ) {}
 
@@ -46,43 +42,6 @@ export class TasksService {
       }
     } catch (err) {
       this.logger.error('purgeStaleTokens failed', this.stack(err));
-    }
-  }
-
-  /**
-   * Every 15 minutes: tell people whose size came back.
-   *
-   * On a schedule rather than at the moment stock changes, because a restock
-   * usually means several variants saved in a row — one message per customer,
-   * not one per save.
-   */
-  @Cron('*/15 * * * *')
-  async notifyRestocked(): Promise<void> {
-    try {
-      await this.stockAlertsService.notifyRestocked();
-    } catch (err) {
-      this.logger.error('notifyRestocked failed', this.stack(err));
-    }
-  }
-
-  /** Daily 02:30: recompute what gets bought together. */
-  @Cron('30 2 * * *')
-  async refreshCrossSell(): Promise<void> {
-    try {
-      await this.crossSellService.refresh();
-    } catch (err) {
-      this.logger.error('refreshCrossSell failed', this.stack(err));
-    }
-  }
-
-  /** Daily 03:45: drop stock alerts sent months ago — they are just history. */
-  @Cron('45 3 * * *')
-  async purgeNotifiedAlerts(): Promise<void> {
-    try {
-      const deleted = await this.stockAlertsService.purgeNotified(90);
-      if (deleted) this.logger.log(`Purged ${deleted} old stock alerts`);
-    } catch (err) {
-      this.logger.error('purgeNotifiedAlerts failed', this.stack(err));
     }
   }
 

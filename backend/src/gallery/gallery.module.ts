@@ -10,7 +10,7 @@ import { GalleryService } from './gallery.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([GalleryItem, Comment, Reaction]),
-    // For FitService's gallery <-> product links.
+    // For ProductLinksService's gallery <-> product links.
     ProductsModule,
   ],
   controllers: [GalleryController],

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { formatCountdown, msUntilDrop } from "@/lib/preorder";
+import { formatCountdown, msUntilDrop } from "@/lib/availability";
 
 /**
  * Ticking countdown to a drop.

@@ -33,7 +33,7 @@ import {
   UpdateTrackingDto,
 } from './dto/orders.dto';
 import { ContentService } from '../content/content.service';
-import { parseCancellableStatuses } from '../returns/return-rules';
+import { parseCancellableStatuses } from './cancellation';
 import { Buyer, OrdersService } from './orders.service';
 
 @Controller('orders')

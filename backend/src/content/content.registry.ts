@@ -78,14 +78,6 @@ export const CONTENT_BLOCKS: ContentBlock[] = [
         maxLength: 9,
       },
       {
-        key: 'returnWindowDays',
-        label: 'Returns window (days)',
-        type: 'text',
-        hint: 'Days after delivery a customer can still request a return. Keep this in step with the House rules page.',
-        default: '14',
-        maxLength: 3,
-      },
-      {
         key: 'cancelWindowStatuses',
         label: 'Cancellable until',
         type: 'text',

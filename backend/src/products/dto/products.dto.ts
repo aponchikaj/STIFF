@@ -193,29 +193,6 @@ export class UpdateProductDto {
   @IsOptional()
   @IsISO8601()
   publishAt?: string | null;
-
-  @IsOptional()
-  @IsBoolean()
-  preorderEnabled?: boolean;
-
-  /** YYYY-MM-DD, shown to the customer as the promised ship date. */
-  @IsOptional()
-  @IsString()
-  @MaxLength(10)
-  preorderShipsAt?: string;
-
-  /** Units sellable beyond real stock. 0 means none. */
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  preorderLimit?: number;
-}
-
-/** -1 runs small, 0 true to size, 1 runs large. */
-export class RateFitDto {
-  @IsInt()
-  @IsIn([-1, 0, 1])
-  value: number;
 }
 
 export type ProductSort = 'newest' | 'price_asc' | 'price_desc' | 'popular';

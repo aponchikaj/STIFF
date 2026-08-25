@@ -1,5 +1,5 @@
 /**
- * Mirrors `backend/src/products/preorder.ts`.
+ * Mirrors `backend/src/products/availability.ts`.
  *
  * The server decides what may actually be bought; this exists so the page can
  * say the same thing without a round trip.
@@ -7,44 +7,19 @@
 
 export interface VariantAvailability {
   stock: number;
-  preorderedCount?: number;
   isActive: boolean;
-}
-
-export interface PreorderPolicy {
-  preorderEnabled?: boolean;
-  preorderLimit?: number;
-  preorderShipsAt?: string | null;
 }
 
 export type Availability =
   | { kind: "in_stock"; max: number }
-  | { kind: "preorder"; max: number; shipsAt?: string | null }
   | { kind: "unavailable"; reason: string };
 
-export function availability(
-  variant: VariantAvailability,
-  policy: PreorderPolicy,
-): Availability {
+export function availability(variant: VariantAvailability): Availability {
   if (!variant.isActive) {
     return { kind: "unavailable", reason: "That size is no longer sold." };
   }
   if (variant.stock > 0) return { kind: "in_stock", max: variant.stock };
-  if (!policy.preorderEnabled) {
-    return { kind: "unavailable", reason: "That size is sold out." };
-  }
-  const remaining = Math.max(
-    0,
-    (policy.preorderLimit ?? 0) - Math.max(0, variant.preorderedCount ?? 0),
-  );
-  if (remaining <= 0) {
-    return { kind: "unavailable", reason: "Pre-orders are full for that size." };
-  }
-  return {
-    kind: "preorder",
-    max: remaining,
-    shipsAt: policy.preorderShipsAt ?? null,
-  };
+  return { kind: "unavailable", reason: "That size is sold out." };
 }
 
 /** Milliseconds until a drop opens, or null when it is already open. */

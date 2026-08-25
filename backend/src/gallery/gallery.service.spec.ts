@@ -2,7 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Comment } from '../comments/comment.entity';
-import { FitService } from '../products/fit.service';
+import { ProductLinksService } from '../products/product-links.service';
 import { Reaction } from '../reactions/reaction.entity';
 import { User } from '../users/user.entity';
 import { GalleryItem } from './gallery-item.entity';
@@ -27,6 +27,7 @@ function shot(overrides: Partial<GalleryItem> = {}): GalleryItem {
     likeCount: 0,
     dislikeCount: 0,
     commentCount: 0,
+    products: [],
     createdAt: new Date(),
     ...overrides,
   };
@@ -100,7 +101,7 @@ describe('GalleryService', () => {
         {
           // Only reached for the product links on a decorated item, which
           // these cases do not assert on.
-          provide: FitService,
+          provide: ProductLinksService,
           useValue: {
             productsFor: jest.fn().mockResolvedValue([]),
             setProductsFor: jest.fn(),
