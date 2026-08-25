@@ -27,7 +27,6 @@ import { ProductControls } from "@/components/product-controls";
 import { ProductImage } from "@/components/product-image";
 import { ReactionButtons } from "@/components/reaction-buttons";
 import { RecentlyViewedStrip } from "@/components/recently-viewed-strip";
-import { SaveButton } from "@/components/save-button";
 import { ShareButton } from "@/components/share-button";
 import { productShareSubject } from "@/lib/share-subject";
 import { btnOutline, Loading } from "@/components/ui";
@@ -214,7 +213,6 @@ export function ProductView({
               dislikeCount={product.dislikeCount}
               myReaction={product.myReaction}
             />
-            <SaveButton productId={product.id} productName={product.name} />
             {shareSubject && <ShareButton subject={shareSubject} />}
           </div>
           <ProductControls

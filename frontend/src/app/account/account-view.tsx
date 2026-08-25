@@ -8,7 +8,6 @@ import type { OrderStatus, UserAddress } from "@/lib/api";
 import { formatDate, formatPrice, shortId } from "@/lib/format";
 import { errorMessage, useAsync } from "@/lib/hooks";
 import { Reveal } from "@/components/motion";
-import { SavedGrid } from "@/components/saved-grid";
 import { useSession } from "@/components/providers";
 import { variantLabel } from "@/lib/checkout";
 import {
@@ -56,7 +55,6 @@ export function AccountView() {
         <Stats />
       </Reveal>
       <Reveal delay={0.1}>
-        <Saved />
         <Addresses />
         <Orders />
       </Reveal>
@@ -455,29 +453,6 @@ function Orders() {
           </button>
         </div>
       )}
-    </section>
-  );
-}
-
-
-/**
- * Saved pieces.
- *
- * The same grid `/saved` renders, so a signed-out list and a signed-in one
- * cannot drift apart — there is one implementation of "what did I save".
- */
-function Saved() {
-  return (
-    <section aria-label="Saved" className="mb-14">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="text-2xl uppercase tracking-tight sm:text-4xl">Saved</h2>
-        <Link href="/saved" className={btnGhostSm}>
-          Open saved
-        </Link>
-      </div>
-      <div className="mt-6">
-        <SavedGrid />
-      </div>
     </section>
   );
 }
