@@ -81,20 +81,7 @@ export class Order {
   @Column({ type: 'int', default: 0 })
   subtotalCents: number;
 
-  @Column({ type: 'varchar', length: 40, nullable: true })
-  discountCode: string | null;
-
-  @Column({ type: 'int', default: 0 })
-  discountCents: number;
-
-  @Column({ type: 'varchar', length: 40, nullable: true })
-  giftCardCode: string | null;
-
-  /** How much of the total the card paid — refunded back onto it on cancel. */
-  @Column({ type: 'int', default: 0 })
-  giftCardCents: number;
-
-  /** What was actually charged: subtotal - discount + shipping - gift card. */
+  /** What was actually charged: subtotal + shipping. */
   @Column('int')
   totalCents: number;
 

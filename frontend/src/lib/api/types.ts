@@ -82,8 +82,6 @@ export interface ProductVariant {
   priceDeltaCents: number;
   position: number;
   isActive: boolean;
-  /** Units already promised against stock that does not exist yet. */
-  preorderedCount?: number;
 }
 
 export interface Product {
@@ -104,9 +102,6 @@ export interface Product {
   isActive: boolean;
   /** When the drop opens. Null means it is live now. */
   publishAt?: string | null;
-  preorderEnabled?: boolean;
-  preorderShipsAt?: string | null;
-  preorderLimit?: number;
   likeCount: number;
   dislikeCount: number;
   commentCount: number;
@@ -114,26 +109,6 @@ export interface Product {
   updatedAt: string;
 }
 
-/** -1 runs small, 0 true to size, 1 runs large. */
-export type FitValue = -1 | 0 | 1;
-export type FitVerdict = "runs_small" | "true_to_size" | "runs_large";
-
-export interface FitReport {
-  small: number;
-  true: number;
-  large: number;
-  total: number;
-  /** Null until enough buyers have answered to mean anything. */
-  verdict: FitVerdict | null;
-  /** How many of `total` chose the winning bucket. */
-  agreeing: number | null;
-  /** This viewer's own rating. */
-  mine: FitValue | null;
-  /** Whether this viewer bought the piece and may rate it. */
-  canRate: boolean;
-}
-
-/** A shot from the archive that features this piece. */
 export interface ArchiveShot {
   id: string;
   slug: string;
@@ -147,7 +122,6 @@ export interface ArchiveShot {
 
 export interface ProductDetail extends Product {
   myReaction: ReactionType | null;
-  fit: FitReport;
   archiveShots: ArchiveShot[];
 }
 
@@ -527,9 +501,6 @@ export interface UpdateProductInput extends Partial<CreateProductInput> {
   isActive?: boolean;
   /** When the drop opens. Null publishes as soon as it is active. */
   publishAt?: string | null;
-  preorderEnabled?: boolean;
-  preorderShipsAt?: string;
-  preorderLimit?: number;
 }
 
 export interface CreateGalleryItemInput {
@@ -604,83 +575,6 @@ export interface PlacedOrder {
 }
 
 // ---------- returns ----------
-
-export type ReturnStatus =
-  | "requested"
-  | "approved"
-  | "rejected"
-  | "received"
-  | "refunded";
-
-export interface ReturnRequestItem {
-  id: string;
-  orderItemId: string;
-  quantity: number;
-}
-
-export interface ReturnRequest {
-  id: string;
-  orderId: string;
-  status: ReturnStatus;
-  reason: string;
-  resolutionNote: string;
-  refundCents: number;
-  resolvedAt: string | null;
-  items: ReturnRequestItem[];
-  order?: Order;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/** Whether the receipt page should offer the return button, and why not. */
-export interface ReturnEligibility {
-  allowed: boolean;
-  reason?: string;
-  closesAt?: string;
-  openRequestId?: string;
-}
-
-// ---------- promotions ----------
-
-export type DiscountKind = "percent" | "fixed" | "free_shipping";
-
-/** What an order costs, from the one engine that decides it. */
-export interface PriceBreakdown {
-  subtotalCents: number;
-  discountCents: number;
-  shippingCents: number;
-  giftCardCents: number;
-  totalCents: number;
-}
-
-export interface DiscountCode {
-  id: string;
-  code: string;
-  kind: DiscountKind;
-  value: number;
-  minSubtotalCents: number;
-  usageLimit: number | null;
-  perUserLimit: number | null;
-  usedCount: number;
-  startsAt: string | null;
-  expiresAt: string | null;
-  isActive: boolean;
-  note: string;
-  createdAt: string;
-}
-
-export interface GiftCard {
-  id: string;
-  code: string;
-  initialCents: number;
-  remainingCents: number;
-  isActive: boolean;
-  expiresAt: string | null;
-  note: string;
-  createdAt: string;
-}
-
-// ---------- customer conveniences ----------
 
 export interface UserAddress {
   id: string;

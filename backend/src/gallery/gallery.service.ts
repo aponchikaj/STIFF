@@ -8,7 +8,7 @@ import { Repository } from 'typeorm';
 import { Comment } from '../comments/comment.entity';
 import { Paginated, paginate } from '../common/types/paginated';
 import { padNumber, slugify } from '../common/utils/slug';
-import { FitService } from '../products/fit.service';
+import { ProductLinksService } from '../products/product-links.service';
 import { Product } from '../products/product.entity';
 import { Reaction, ReactionType } from '../reactions/reaction.entity';
 import { User } from '../users/user.entity';
@@ -67,7 +67,7 @@ export class GalleryService {
     private readonly commentRepo: Repository<Comment>,
     @InjectRepository(Reaction)
     private readonly reactionRepo: Repository<Reaction>,
-    private readonly fitService: FitService,
+    private readonly productLinksService: ProductLinksService,
   ) {}
 
   async list(
@@ -140,7 +140,7 @@ export class GalleryService {
       this.galleryRepo.count({ where: { isArchived: false } }),
       this.neighbour(item, 'prev'),
       this.neighbour(item, 'next'),
-      this.fitService.productsFor(id),
+      this.productLinksService.productsFor(id),
     ]);
 
     return { ...item, myReaction, position, total, prev, next, products };
@@ -225,7 +225,7 @@ export class GalleryService {
     });
     const saved = await this.galleryRepo.save(item);
     if (dto.productIds !== undefined) {
-      await this.fitService.setProductsFor(saved.id, dto.productIds);
+      await this.productLinksService.setProductsFor(saved.id, dto.productIds);
     }
     return saved;
   }
@@ -342,7 +342,7 @@ export class GalleryService {
     const saved = await this.galleryRepo.save(item);
     // Absent leaves the links alone; an empty array clears them.
     if (dto.productIds !== undefined) {
-      await this.fitService.setProductsFor(id, dto.productIds);
+      await this.productLinksService.setProductsFor(id, dto.productIds);
     }
     return saved;
   }

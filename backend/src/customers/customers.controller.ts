@@ -7,30 +7,17 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
-  Req,
 } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
-import type { Request } from 'express';
-import { newGuestId, readGuestId } from '../cart/cart-owner';
-import { CartService } from '../cart/cart.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
-import type { AuthenticatedRequest } from '../common/types/authenticated-request';
 import { GEORGIA_REGIONS } from '../orders/georgia';
 import { User } from '../users/user.entity';
 import { AddressesService } from './addresses.service';
-import { CrossSellService } from './cross-sell.service';
-import { SaveAddressDto, SubscribeStockDto } from './dto/customers.dto';
-import { StockAlertsService } from './stock-alerts.service';
+import { SaveAddressDto } from './dto/customers.dto';
 
 @Controller()
 export class CustomersController {
-  constructor(
-    private readonly addressesService: AddressesService,
-    private readonly stockAlertsService: StockAlertsService,
-    private readonly crossSellService: CrossSellService,
-    private readonly cartService: CartService,
-  ) {}
+  constructor(private readonly addressesService: AddressesService) {}
 
   // ------------------------------------------------------------ addresses --
 
@@ -67,38 +54,5 @@ export class CustomersController {
   @Get('addresses/regions')
   regions() {
     return { regions: GEORGIA_REGIONS };
-  }
-
-  // --------------------------------------------------------- stock alerts --
-
-  /**
-   * Public so someone can ask to be told without making an account — which is
-   * the point, since they cannot buy the thing yet either.
-   */
-  @Public()
-  @Post('stock-alerts')
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  subscribe(@Req() req: Request, @Body() dto: SubscribeStockDto) {
-    const user = (req as AuthenticatedRequest).user;
-    return this.stockAlertsService.subscribe(dto, {
-      userId: user?.id ?? null,
-      email: user ? null : (dto.email ?? null),
-    });
-  }
-
-  // ------------------------------------------------------------ cross-sell --
-
-  @Public()
-  @Get('cross-sell')
-  async crossSell(@Req() req: Request) {
-    const user = (req as AuthenticatedRequest).user;
-    const owner = user
-      ? ({ kind: 'user', userId: user.id } as const)
-      : ({ kind: 'guest', guestId: readGuestId(req) ?? newGuestId() } as const);
-    const cart = await this.cartService.getCart(owner);
-    const products = await this.crossSellService.suggestFor(
-      cart.items.map((item) => item.productId),
-    );
-    return { products };
   }
 }

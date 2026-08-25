@@ -1,9 +1,7 @@
 import {
   IsBoolean,
-  IsEmail,
   IsOptional,
   IsString,
-  IsUUID,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -65,15 +63,4 @@ export class SaveAddressDto {
   @IsOptional()
   @IsBoolean()
   isDefault?: boolean;
-}
-
-export class SubscribeStockDto {
-  @IsUUID()
-  variantId: string;
-
-  /** Required when nobody is signed in. */
-  @IsOptional()
-  @IsEmail()
-  @MaxLength(180)
-  email?: string;
 }

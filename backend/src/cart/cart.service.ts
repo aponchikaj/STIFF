@@ -7,7 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Product } from '../products/product.entity';
 import { ProductVariant } from '../products/product-variant.entity';
-import { availability } from '../products/preorder';
+import { availability } from '../products/availability';
 import { NO_COLOUR, ONE_SIZE, priceForSize } from '../products/stock';
 import { CartItem } from './cart-item.entity';
 import { CartOwner, ownerWhere } from './cart-owner';
@@ -93,9 +93,7 @@ export class CartService {
     }
     const size = variant.size;
 
-    // Real stock first, then whatever pre-order capacity is left — see
-    // `products/preorder.ts` for why 0 means none rather than unlimited.
-    const offer = availability(variant, product);
+    const offer = availability(variant);
     if (offer.kind === 'unavailable') {
       throw new BadRequestException(offer.reason);
     }
@@ -108,11 +106,7 @@ export class CartService {
     });
     const newQuantity = (existing?.quantity ?? 0) + dto.quantity;
     if (offer.max < newQuantity) {
-      throw new BadRequestException(
-        offer.kind === 'preorder'
-          ? `Only ${offer.max} left to pre-order`
-          : `Only ${offer.max} left in stock`,
-      );
+      throw new BadRequestException(`Only ${offer.max} left in stock`);
     }
 
     if (existing) {
@@ -145,7 +139,7 @@ export class CartService {
     });
     if (!item) throw new NotFoundException('Cart item not found');
     const offer = item.variant
-      ? availability(item.variant, item.product)
+      ? availability(item.variant)
       : ({ kind: 'unavailable', reason: 'That size is gone.' } as const);
     if (offer.kind === 'unavailable') {
       throw new BadRequestException(offer.reason);
@@ -196,9 +190,7 @@ export class CartService {
         const existing = item.variantId
           ? await repo.findOne({ where: { userId, variantId: item.variantId } })
           : null;
-        const offer = item.variant
-          ? availability(item.variant, item.product)
-          : null;
+        const offer = item.variant ? availability(item.variant) : null;
         const available = offer && offer.kind !== 'unavailable' ? offer.max : 0;
 
         if (existing) {
