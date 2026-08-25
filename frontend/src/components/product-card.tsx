@@ -4,7 +4,6 @@ import { formatPrice } from "@/lib/format";
 import { TILE_WIDTHS, imageSrcSet, imageUrl } from "@/lib/image";
 import { ProductImage } from "./product-image";
 import { productShareSubject } from "@/lib/share-subject";
-import { SaveButton } from "./save-button";
 import { ShareButton } from "./share-button";
 
 /** Matches the densest grid the card appears in (up to 6 columns). */
@@ -78,11 +77,6 @@ export function ProductCard({
       {/* Always reachable on touch, revealed on hover on pointer devices. */}
       <div className="absolute right-2 top-2 flex flex-col gap-2 opacity-0 focus-within:opacity-100 group-hover:opacity-100 max-[1024px]:opacity-100">
         {shareSubject && <ShareButton subject={shareSubject} variant="icon" />}
-        <SaveButton
-          productId={product.id}
-          productName={product.name}
-          variant="overlay"
-        />
       </div>
     </div>
   );
