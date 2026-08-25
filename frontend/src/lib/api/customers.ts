@@ -1,5 +1,5 @@
 import { apiFetch } from "./client";
-import type { Product, UserAddress } from "./types";
+import type { UserAddress } from "./types";
 
 // ---------- saved addresses ----------
 
@@ -39,20 +39,4 @@ export function deleteAddress(id: string): Promise<{ success: boolean }> {
 /** The regions the checkout dropdown offers. */
 export function getRegions(): Promise<{ regions: string[] }> {
   return apiFetch("/addresses/regions");
-}
-
-// ---------- back in stock ----------
-
-/** Email is required only when nobody is signed in. */
-export function subscribeToStock(data: {
-  variantId: string;
-  email?: string;
-}): Promise<{ subscribed: true }> {
-  return apiFetch("/stock-alerts", { method: "POST", body: data });
-}
-
-// ---------- cross-sell ----------
-
-export function getCrossSell(): Promise<{ products: Product[] }> {
-  return apiFetch("/cross-sell");
 }

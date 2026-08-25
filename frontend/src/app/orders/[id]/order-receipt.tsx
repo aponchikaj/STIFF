@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { cartApi, returnsApi } from "@/lib/api";
-import type { Order, ReturnStatus } from "@/lib/api";
+import { cartApi } from "@/lib/api";
+import type { Order } from "@/lib/api";
 import { SHIPPING_LABELS, paymentLabel, variantLabel } from "@/lib/checkout";
 import type { ShippingMethod } from "@/lib/checkout";
 import { formatDate, formatPrice, shortId } from "@/lib/format";
@@ -15,8 +15,6 @@ import {
   btnGhostSm,
   btnOutline,
   btnSolid,
-  ErrorNote,
-  inputCls,
   labelCls,
   Loading,
 } from "@/components/ui";
@@ -30,13 +28,6 @@ const STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
-const RETURN_LABEL: Record<ReturnStatus, string> = {
-  requested: "Return requested",
-  approved: "Return approved",
-  rejected: "Return not accepted",
-  received: "Return received",
-  refunded: "Refunded",
-};
 
 /** The order's journey, so someone can see where it has got to at a glance. */
 const STEPS = ["pending", "paid", "packed", "shipped", "delivered"] as const;
@@ -47,14 +38,8 @@ export function OrderReceipt({ id }: { id: string }) {
     () => cartApi.getOrder(id),
     [id],
   );
-  const { data: returnsData, reload: reloadReturns } = useAsync(
-    () => returnsApi.getForOrder(id),
-    [id],
-  );
-
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [showReturn, setShowReturn] = useState(false);
 
   if (loading) return <Loading label="Loading order" />;
   if (error || !order) {
@@ -93,8 +78,6 @@ export function OrderReceipt({ id }: { id: string }) {
   const cancelled = order.status === "cancelled";
   const stepIndex = STEPS.indexOf(order.status as (typeof STEPS)[number]);
   const canCancel = order.status === "pending" || order.status === "paid";
-  const eligibility = returnsData?.eligibility;
-  const requests = returnsData?.requests ?? [];
 
   async function cancel() {
     if (!order) return;
@@ -276,59 +259,10 @@ export function OrderReceipt({ id }: { id: string }) {
             {busy ? "Cancelling…" : "Cancel this order"}
           </button>
         )}
-        {eligibility?.allowed && !showReturn && (
-          <button
-            type="button"
-            onClick={() => setShowReturn(true)}
-            className={btnOutline}
-          >
-            Request a return
-          </button>
-        )}
         <Link href="/clothing" className={btnSolid}>
           Keep shopping
         </Link>
       </div>
-
-      {/* Why a return is not offered — better than a missing button */}
-      {eligibility && !eligibility.allowed && !cancelled && requests.length === 0 && (
-        <p className="mt-4 text-xs leading-6 text-muted">{eligibility.reason}</p>
-      )}
-
-      {showReturn && eligibility?.allowed && (
-        <ReturnForm
-          order={order}
-          onDone={() => {
-            setShowReturn(false);
-            reloadReturns();
-          }}
-        />
-      )}
-
-      {requests.length > 0 && (
-        <section className="mt-10" aria-label="Returns">
-          <h2 className="text-2xl uppercase tracking-tight">Returns</h2>
-          <ul className="mt-4 border-t border-subtle">
-            {requests.map((request) => (
-              <li key={request.id} className="border-b border-subtle py-4">
-                <p className="text-sm font-bold uppercase tracking-wide">
-                  {RETURN_LABEL[request.status]}
-                </p>
-                <p className="mt-1 text-xs text-muted">
-                  Requested {formatDate(request.createdAt)}
-                  {request.refundCents > 0 &&
-                    ` · refunded ${formatPrice(request.refundCents)}`}
-                </p>
-                {request.resolutionNote && (
-                  <p className="mt-2 border-l-2 border-subtle pl-3 text-sm leading-6 text-muted">
-                    {request.resolutionNote}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
 
       {!user && (
         <p className="mt-10 text-xs leading-6 text-muted">
@@ -337,114 +271,5 @@ export function OrderReceipt({ id }: { id: string }) {
         </p>
       )}
     </section>
-  );
-}
-
-function ReturnForm({
-  order,
-  onDone,
-}: {
-  order: Order;
-  onDone: () => void;
-}) {
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
-
-  const chosen = Object.entries(quantities).filter(([, qty]) => qty > 0);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (chosen.length === 0) {
-      setNote("Pick at least one piece to send back.");
-      return;
-    }
-    setBusy(true);
-    setNote(null);
-    try {
-      await returnsApi.requestReturn(order.id, {
-        items: chosen.map(([orderItemId, quantity]) => ({
-          orderItemId,
-          quantity,
-        })),
-        reason: reason.trim() || undefined,
-      });
-      onDone();
-    } catch (err) {
-      setNote(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <form onSubmit={submit} className="mt-8 border border-subtle p-4">
-      <p className={labelCls}>What are you sending back?</p>
-      <p className="mt-1 text-xs leading-6 text-muted">
-        Unworn, tags on. We&apos;ll confirm before you post anything.
-      </p>
-
-      <ul className="mt-4 flex flex-col gap-3">
-        {order.items.map((item) => (
-          <li key={item.id} className="flex items-center justify-between gap-4">
-            <label
-              htmlFor={`ret-${item.id}`}
-              className="min-w-0 flex-1 text-sm"
-            >
-              <span className="block truncate font-medium">
-                {item.productName}
-              </span>
-              <span className="text-xs text-muted">
-                {variantLabel(item.color, item.size)
-                  ? `${variantLabel(item.color, item.size)} · `
-                  : ""}
-                ordered {item.quantity}
-              </span>
-            </label>
-            <input
-              id={`ret-${item.id}`}
-              type="number"
-              min={0}
-              max={item.quantity}
-              value={quantities[item.id] ?? 0}
-              onChange={(e) =>
-                setQuantities((q) => ({
-                  ...q,
-                  [item.id]: Math.max(
-                    0,
-                    Math.min(item.quantity, Number(e.target.value) || 0),
-                  ),
-                }))
-              }
-              className={`${inputCls} w-20`}
-            />
-          </li>
-        ))}
-      </ul>
-
-      <label htmlFor="ret-reason" className={`${labelCls} mt-5 block`}>
-        Why? (optional)
-      </label>
-      <textarea
-        id="ret-reason"
-        rows={3}
-        value={reason}
-        onChange={(e) => setReason(e.target.value)}
-        placeholder="Didn't fit, arrived damaged, changed my mind…"
-        className={`${inputCls} mt-2 h-auto py-2`}
-      />
-
-      {note && <ErrorNote message={note} />}
-
-      <div className="mt-4 flex gap-3">
-        <button type="submit" disabled={busy} className={btnSolid}>
-          {busy ? "Sending…" : "Request return"}
-        </button>
-        <button type="button" onClick={onDone} className={btnOutline}>
-          Cancel
-        </button>
-      </div>
-    </form>
   );
 }

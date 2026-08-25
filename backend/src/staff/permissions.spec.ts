@@ -10,6 +10,7 @@ import {
   slugifyRoleName,
 } from './permissions';
 import { STAFF_PERMISSION_KEYS } from './staff.constants';
+import type { StaffPermission } from './staff.constants';
 import type { StaffUser } from './entities/staff-user.entity';
 
 function user(
@@ -57,7 +58,7 @@ const adminRole = {
     'tasks.assign',
     'tasks.edit_others',
     'tasks.delete_others',
-  ],
+  ] as StaffPermission[],
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -68,7 +69,7 @@ const memberRole = {
   slug: 'member',
   isOwner: false,
   isSystem: false,
-  permissions: [] as const,
+  permissions: [] as StaffPermission[],
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -79,7 +80,7 @@ const packingRole = {
   slug: 'packing',
   isOwner: false,
   isSystem: false,
-  permissions: ['tasks.view_others', 'tasks.assign'] as const,
+  permissions: ['tasks.view_others', 'tasks.assign'] as StaffPermission[],
   createdAt: new Date(),
   updatedAt: new Date(),
 };

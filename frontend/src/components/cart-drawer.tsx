@@ -6,7 +6,6 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { cartApi } from "@/lib/api";
 import type { CartView } from "@/lib/api";
-import { CrossSellStrip } from "./cross-sell-strip";
 import { useContent } from "@/lib/content";
 import { formatPrice } from "@/lib/format";
 import { errorMessage } from "@/lib/hooks";
@@ -247,7 +246,6 @@ export function CartDrawer({
                   </p>
                 </div>
                 <FreeShippingMeter subtotalCents={cart.subtotalCents} />
-                <CrossSellStrip onNavigate={onClose} />
                 <Link
                   href="/cart"
                   onClick={onClose}

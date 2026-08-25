@@ -16,7 +16,7 @@ import {
   UpdateProductDto,
 } from './dto/products.dto';
 import { Product } from './product.entity';
-import { isLive } from './preorder';
+import { isLive } from './availability';
 import { ProductVariant } from './product-variant.entity';
 import {
   NO_COLOUR,
@@ -24,7 +24,7 @@ import {
   type VariantInput,
   normalizeVariants,
 } from './stock';
-import { FitService, type FitReport } from './fit.service';
+import { ProductLinksService } from './product-links.service';
 import { VariantsService } from './variants.service';
 
 /**
@@ -60,8 +60,6 @@ export interface ArchiveShot {
 
 export type ProductWithReaction = ProductWithVariants & {
   myReaction: ReactionType | null;
-  /** How it fits, from the people who bought it. */
-  fit: FitReport;
   /** "Seen in the archive" — ties the two halves of the site together. */
   archiveShots: ArchiveShot[];
 };
@@ -127,7 +125,7 @@ export class ProductsService {
     @InjectRepository(OrderItem)
     private readonly orderItemRepo: Repository<OrderItem>,
     private readonly variantsService: VariantsService,
-    private readonly fitService: FitService,
+    private readonly productLinksService: ProductLinksService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -222,13 +220,14 @@ export class ProductsService {
       });
       myReaction = reaction?.type ?? null;
     }
-    // Three independent reads, so they go together rather than in sequence.
-    const [variants, fit, archiveShots] = await Promise.all([
+    // Two independent reads, so they go together rather than in sequence.
+    const [variants, archiveShots] = await Promise.all([
       this.variantsService.listFor(product.id),
-      this.fitService.reportFor(product, user?.id),
-      this.fitService.archiveShotsFor(product.id) as Promise<ArchiveShot[]>,
+      this.productLinksService.archiveShotsFor(product.id) as Promise<
+        ArchiveShot[]
+      >,
     ]);
-    return { ...product, variants, myReaction, fit, archiveShots };
+    return { ...product, variants, myReaction, archiveShots };
   }
 
   async findById(id: string): Promise<Product | null> {
@@ -290,15 +289,6 @@ export class ProductsService {
       if (dto.isActive !== undefined) product.isActive = dto.isActive;
       if (dto.publishAt !== undefined) {
         product.publishAt = dto.publishAt ? new Date(dto.publishAt) : null;
-      }
-      if (dto.preorderEnabled !== undefined) {
-        product.preorderEnabled = dto.preorderEnabled;
-      }
-      if (dto.preorderShipsAt !== undefined) {
-        product.preorderShipsAt = dto.preorderShipsAt || null;
-      }
-      if (dto.preorderLimit !== undefined) {
-        product.preorderLimit = Math.max(0, dto.preorderLimit);
       }
 
       const touchesStock =

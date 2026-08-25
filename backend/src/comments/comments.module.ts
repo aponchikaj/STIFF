@@ -12,7 +12,7 @@ import { CommentsService } from './comments.service';
   imports: [
     TypeOrmModule.forFeature([Comment, Product, GalleryItem]),
     NotificationsModule,
-    // For FitService.buyersAmong — the verified-buyer badge.
+    // For ProductLinksService.buyersAmong — the verified-buyer badge.
     ProductsModule,
   ],
   controllers: [CommentsController],

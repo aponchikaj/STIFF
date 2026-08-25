@@ -10,7 +10,7 @@ import { Paginated, paginate } from '../common/types/paginated';
 import { TargetType } from '../common/types/target-type';
 import { GalleryItem } from '../gallery/gallery-item.entity';
 import { NotificationsService } from '../notifications/notifications.service';
-import { FitService } from '../products/fit.service';
+import { ProductLinksService } from '../products/product-links.service';
 import { Product } from '../products/product.entity';
 import { User } from '../users/user.entity';
 import { Comment } from './comment.entity';
@@ -77,7 +77,7 @@ export class CommentsService {
     @InjectRepository(GalleryItem)
     private readonly galleryRepo: Repository<GalleryItem>,
     private readonly notificationsService: NotificationsService,
-    private readonly fitService: FitService,
+    private readonly productLinksService: ProductLinksService,
   ) {}
 
   async list(query: ListCommentsQueryDto): Promise<Paginated<PublicComment>> {
@@ -96,7 +96,7 @@ export class CommentsService {
     // the largest table in the shop.
     const buyers =
       query.targetType === 'product'
-        ? await this.fitService.buyersAmong(query.targetId, [
+        ? await this.productLinksService.buyersAmong(query.targetId, [
             ...new Set(
               items.flatMap((c) => [
                 c.userId,

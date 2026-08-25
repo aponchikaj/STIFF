@@ -8,12 +8,10 @@ import {
   cartApi,
   customersApi,
   paymentsApi,
-  promotionsApi,
   ApiError,
 } from "@/lib/api";
 import type {
   PaymentAvailability,
-  PriceBreakdown,
   ShippingAddress,
 } from "@/lib/api";
 import { SHIPPING_FEES_CENTS, SHIPPING_LABELS, SHIPPING_METHODS, stockForSize, type PaymentMethod, type ShippingMethod, variantLabel } from "@/lib/checkout";
@@ -48,23 +46,9 @@ export function CartView() {
   const [checkingOut, setCheckingOut] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [needsVerify, setNeedsVerify] = useState(false);
-  const [shippingMethod, setShippingMethodState] =
+  const [shippingMethod, setShippingMethod] =
     useState<ShippingMethod>("tbilisi");
-
-  /** Changing delivery can cross the free-shipping line, so the quote goes. */
-  function setShippingMethod(next: ShippingMethod) {
-    setShippingMethodState(next);
-    setQuote(null);
-    setCodeNote(null);
-  }
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cod");
-  const [discountCode, setDiscountCode] = useState("");
-  const [giftCardCode, setGiftCardCode] = useState("");
-  const [appliedDiscount, setAppliedDiscount] = useState<string | null>(null);
-  const [appliedGiftCard, setAppliedGiftCard] = useState<string | null>(null);
-  const [quote, setQuote] = useState<PriceBreakdown | null>(null);
-  const [codeNote, setCodeNote] = useState<string | null>(null);
-  const [applying, setApplying] = useState(false);
   const [addressId, setAddressId] = useState<string | null>(null);
 
   // Signed-in buyers retyped their address every order. The default is
@@ -124,46 +108,6 @@ export function CartView() {
     }
   }
 
-  /**
-   * Asks the server what the order costs with these codes.
-   *
-   * Nothing is computed here — checkout re-resolves the same codes, so a
-   * preview that disagreed with the charge would be the bug this avoids.
-   */
-  async function applyCodes() {
-    setApplying(true);
-    setCodeNote(null);
-    try {
-      const result = await promotionsApi.quote({
-        shippingMethod,
-        discountCode: discountCode.trim() || undefined,
-        giftCardCode: giftCardCode.trim() || undefined,
-      });
-      setQuote(result);
-      setAppliedDiscount(
-        result.discountCents > 0 || !discountCode.trim()
-          ? discountCode.trim().toUpperCase() || null
-          : null,
-      );
-      setAppliedGiftCard(
-        result.giftCardCents > 0 ? giftCardCode.trim().toUpperCase() : null,
-      );
-      setCodeNote(
-        result.discountCents > 0 || result.giftCardCents > 0
-          ? "Applied."
-          : "Nothing came off — check the code and the minimum.",
-      );
-    } catch (err) {
-      // Keep the un-discounted quote so the page still shows a real total.
-      setQuote(null);
-      setAppliedDiscount(null);
-      setAppliedGiftCard(null);
-      setCodeNote(errorMessage(err));
-    } finally {
-      setApplying(false);
-    }
-  }
-
   async function checkout(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const data = new FormData(e.currentTarget);
@@ -188,8 +132,6 @@ export function CartView() {
         paymentMethod,
         // Ignored for signed-in buyers; the only way to reach a guest.
         email: user ? undefined : String(data.get("email") ?? ""),
-        discountCode: discountCode.trim() || undefined,
-        giftCardCode: giftCardCode.trim() || undefined,
       });
       if (placed.payment.kind === "redirect") {
         window.location.href = placed.payment.url;
@@ -217,16 +159,12 @@ export function CartView() {
 
   const itemCount =
     cart?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
-  // The server prices the order; this page never does its own arithmetic on
-  // discounts or shipping, so what is shown is what will be charged.
-  const quoteBase: PriceBreakdown = {
+  const totals = {
     subtotalCents: cart?.subtotalCents ?? 0,
-    discountCents: 0,
     shippingCents: SHIPPING_FEES_CENTS[shippingMethod],
-    giftCardCents: 0,
-    totalCents: (cart?.subtotalCents ?? 0) + SHIPPING_FEES_CENTS[shippingMethod],
+    totalCents:
+      (cart?.subtotalCents ?? 0) + SHIPPING_FEES_CENTS[shippingMethod],
   };
-  const totals = quote ?? quoteBase;
   const pickup = shippingMethod === "pickup";
 
   return (
@@ -349,12 +287,6 @@ export function CartView() {
                   <span>Subtotal</span>
                   <span>{formatPrice(totals.subtotalCents)}</span>
                 </div>
-                {totals.discountCents > 0 && (
-                  <div className="flex justify-between text-muted">
-                    <span>Discount{appliedDiscount ? ` (${appliedDiscount})` : ""}</span>
-                    <span>−{formatPrice(totals.discountCents)}</span>
-                  </div>
-                )}
                 <div className="flex justify-between text-muted">
                   <span>{SHIPPING_LABELS[shippingMethod]}</span>
                   <span>
@@ -363,50 +295,12 @@ export function CartView() {
                       : formatPrice(totals.shippingCents)}
                   </span>
                 </div>
-                {totals.giftCardCents > 0 && (
-                  <div className="flex justify-between text-muted">
-                    <span>Gift card{appliedGiftCard ? ` (${appliedGiftCard})` : ""}</span>
-                    <span>−{formatPrice(totals.giftCardCents)}</span>
-                  </div>
-                )}
                 <div className="flex justify-between text-base font-bold">
                   <span>Total</span>
                   <span>{formatPrice(totals.totalCents)}</span>
                 </div>
               </div>
 
-              <fieldset className="flex flex-col gap-2">
-                <legend className={labelCls}>Discount or gift card</legend>
-                <div className="flex gap-2">
-                  <input
-                    aria-label="Discount code"
-                    value={discountCode}
-                    placeholder="Discount code"
-                    onChange={(e) => setDiscountCode(e.target.value)}
-                    className={`${inputCls} h-10`}
-                  />
-                  <input
-                    aria-label="Gift card code"
-                    value={giftCardCode}
-                    placeholder="Gift card"
-                    onChange={(e) => setGiftCardCode(e.target.value)}
-                    className={`${inputCls} h-10`}
-                  />
-                </div>
-                <button
-                  type="button"
-                  disabled={applying}
-                  onClick={applyCodes}
-                  className={`${btnGhostSm} self-start`}
-                >
-                  {applying ? "Checking…" : "Apply"}
-                </button>
-                {codeNote && (
-                  <p aria-live="polite" className="text-xs text-muted">
-                    {codeNote}
-                  </p>
-                )}
-              </fieldset>
 
               {needsVerify && (
                 <div className="border border-subtle p-3">

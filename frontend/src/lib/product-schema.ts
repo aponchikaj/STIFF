@@ -10,7 +10,7 @@ import { SITE_URL } from "@/lib/site";
  * and the only part of it Google trusts is the part that matches the page.
  * So every field here is read from the same data the page renders — nothing
  * is asserted that a shopper could arrive and find untrue. In particular
- * there is no `aggregateRating`: fit reports are not star ratings, and
+ * there is no `aggregateRating`: the shop does not collect star ratings, and
  * inventing a score to win a row of stars is exactly the kind of thing that
  * gets structured data ignored.
  */
@@ -24,12 +24,10 @@ const RETURN_WINDOW_DAYS = 14;
 /** Matches SHIPPING_FEES_CENTS.tbilisi in backend/src/orders/checkout.constants.ts */
 const TBILISI_SHIPPING_GEL = "5.00";
 
-function availabilityOf(stock: number, product: Product): string {
-  if (stock > 0) return "https://schema.org/InStock";
-  if (product.preorderEnabled && (product.preorderLimit ?? 0) > 0) {
-    return "https://schema.org/PreOrder";
-  }
-  return "https://schema.org/OutOfStock";
+function availabilityOf(stock: number): string {
+  return stock > 0
+    ? "https://schema.org/InStock"
+    : "https://schema.org/OutOfStock";
 }
 
 function gel(cents: number): string {
@@ -66,7 +64,7 @@ export function productJsonLd(product: Product): Record<string, unknown> {
       price: gel(product.priceCents + (variant.priceDeltaCents ?? 0)),
       priceValidUntil: priceValidUntil(),
       itemCondition: CONDITION,
-      availability: availabilityOf(variant.stock, product),
+      availability: availabilityOf(variant.stock),
       url,
       seller: { "@type": "Organization", name: "STIFF" },
     };
@@ -102,7 +100,7 @@ export function productJsonLd(product: Product): Record<string, unknown> {
             priceCurrency: "GEL",
             lowPrice: lowPrice.toFixed(2),
             highPrice: highPrice.toFixed(2),
-            availability: availabilityOf(product.stock, product),
+            availability: availabilityOf(product.stock),
             offers,
           }
         : (offers[0] ?? {
@@ -111,7 +109,7 @@ export function productJsonLd(product: Product): Record<string, unknown> {
             price: gel(product.priceCents),
             priceValidUntil: priceValidUntil(),
             itemCondition: CONDITION,
-            availability: availabilityOf(product.stock, product),
+            availability: availabilityOf(product.stock),
             url,
           }),
     // Both of these are what /rules already promises in prose. Repeating them
