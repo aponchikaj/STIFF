@@ -12,6 +12,19 @@ import type { AdminRequest } from './admin-request';
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 /**
+ * Session bookkeeping, not changes to anything.
+ *
+ * `/admin/auth/refresh` is a POST that fires every fifteen minutes for as long
+ * as someone has the panel open. Left in, it buries the handful of entries
+ * that describe real changes under tens of thousands of rows saying the
+ * session is still alive. Sign-ins are worth recording and are written
+ * explicitly by the controller, which knows who succeeded.
+ */
+function isSessionBookkeeping(path: string): boolean {
+  return path.startsWith('/api/admin/auth/');
+}
+
+/**
  * Writes the admin trail.
  *
  * Scoped to state changes made by someone whose role is admin, from either
@@ -33,7 +46,11 @@ export class AdminAuditInterceptor implements NestInterceptor {
     const http = context.switchToHttp();
     const request = http.getRequest<AdminRequest>();
 
-    if (!MUTATING.has(request.method?.toUpperCase() ?? '')) {
+    const path = (request.originalUrl ?? request.url ?? '').split('?')[0];
+    if (
+      !MUTATING.has(request.method?.toUpperCase() ?? '') ||
+      isSessionBookkeeping(path)
+    ) {
       return next.handle();
     }
 
@@ -49,7 +66,7 @@ export class AdminAuditInterceptor implements NestInterceptor {
           actor,
           origin: request.isAdminOrigin ? 'admin' : 'shop',
           method: request.method,
-          path: (request.originalUrl ?? request.url ?? '').split('?')[0],
+          path,
           statusCode: response.statusCode,
           ip: request.ip ?? request.socket?.remoteAddress ?? null,
           userAgent: request.headers['user-agent'] ?? null,
