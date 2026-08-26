@@ -9,6 +9,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { AdminAllowed } from '../admin/admin-allowed.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -52,6 +53,10 @@ export class CommentsController {
     return this.commentsService.update(user, id, dto);
   }
 
+  // Owner-or-admin is decided inside the service, so this cannot be
+  // `@Roles('admin')` — and without the opt-in the Comments tab on
+  // admin.stiff.ge would be the one place the panel could not act.
+  @AdminAllowed()
   @Delete(':id')
   async remove(
     @CurrentUser() user: User,
