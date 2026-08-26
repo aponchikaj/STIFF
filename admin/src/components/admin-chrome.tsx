@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { SHOP_URL } from "@/lib/shop-site";
 import { useSession } from "./providers";
 import { ThemeToggle } from "./theme-toggle";
-import { btnGhostSm, chipCls, Loading } from "./ui";
+import { btnGhostSm, btnOutline, chipCls, Loading } from "./ui";
 
 /**
  * Sections live in the URL rather than component state, so a view can be
@@ -26,22 +27,41 @@ const SECTIONS = [
   { href: "/audit", label: "Audit" },
 ] as const;
 
-const SHOP_URL = process.env.NEXT_PUBLIC_SHOP_URL ?? "https://stiff.ge";
-
 export function AdminChrome({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useSession();
+  const { user, loading, sessionError, refreshUser } = useSession();
   const pathname = usePathname();
   const router = useRouter();
 
   const isLoginRoute = pathname === "/login";
 
   useEffect(() => {
-    if (loading || isLoginRoute) return;
+    // Only bounce to sign-in for an actual signed-out state. When the session
+    // check failed for another reason the answer is unknown, and guessing
+    // "signed out" would throw the admin out over a blip.
+    if (loading || isLoginRoute || sessionError) return;
     if (!user) router.replace("/login");
-  }, [loading, user, isLoginRoute, router]);
+  }, [loading, user, sessionError, isLoginRoute, router]);
 
   // The sign-in form is the one page that renders without a session.
   if (isLoginRoute) return <main className="flex-1">{children}</main>;
+
+  if (!loading && !user && sessionError) {
+    return (
+      <main className="flex flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
+        <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
+          Can&apos;t reach the server
+        </p>
+        <p className="max-w-sm text-xs leading-6 text-muted">{sessionError}</p>
+        <button
+          type="button"
+          onClick={() => void refreshUser()}
+          className={btnOutline}
+        >
+          Try again
+        </button>
+      </main>
+    );
+  }
 
   if (loading || !user) {
     return (

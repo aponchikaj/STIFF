@@ -8,7 +8,7 @@ import {
   useEffect,
   useState,
 } from "react";
-import { authApi, contentApi, SESSION_ENDED_EVENT } from "@/lib/api";
+import { ApiError, authApi, contentApi, SESSION_ENDED_EVENT } from "@/lib/api";
 import type { AdminLoginInput } from "@/lib/api/auth";
 import type { SafeUser } from "@/lib/api";
 
@@ -16,6 +16,12 @@ interface SessionState {
   user: SafeUser | null;
   /** True until the initial session check settles. */
   loading: boolean;
+  /**
+   * Set when the session could not be checked at all — the backend is down or
+   * the database is unreachable. Distinct from "signed out", which is `user`
+   * being null with no error.
+   */
+  sessionError: string | null;
   /** Whether the shop is currently visible to the public. */
   shopEnabled: boolean;
   login: (input: AdminLoginInput) => Promise<void>;
@@ -35,14 +41,30 @@ export function useSession(): SessionState {
 export function Providers({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<SafeUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [shopEnabled, setShopEnabled] = useState(true);
   const router = useRouter();
 
   const refreshUser = useCallback(async () => {
     try {
       setUser(await authApi.getMe());
-    } catch {
-      setUser(null);
+      setSessionError(null);
+    } catch (err) {
+      // Only an actual rejection means "not signed in". A 500 or a dropped
+      // connection means the backend is having a bad time, and throwing the
+      // admin out to the sign-in form over it loses their place and teaches
+      // them to distrust the session.
+      const status = err instanceof ApiError ? err.status : 0;
+      if (status === 401 || status === 403) {
+        setUser(null);
+        setSessionError(null);
+      } else {
+        setSessionError(
+          err instanceof Error && err.message
+            ? err.message
+            : "Could not reach the server.",
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -75,6 +97,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     function onSessionEnded() {
       setUser(null);
+      setSessionError(null);
       setLoading(false);
       router.replace("/login");
     }
@@ -85,6 +108,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (input: AdminLoginInput) => {
     const { user: signedIn } = await authApi.login(input);
     setUser(signedIn);
+    setSessionError(null);
     setLoading(false);
   }, []);
 
@@ -102,6 +126,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       value={{
         user,
         loading,
+        sessionError,
         shopEnabled,
         login,
         logout,

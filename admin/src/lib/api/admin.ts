@@ -1,3 +1,4 @@
+import { SHOP_URL } from "../shop-site";
 import { apiBlob, apiDownload, apiFetch } from "./client";
 import type {
   AdminUser,
@@ -251,10 +252,15 @@ export function uploadImage(file: File): Promise<UploadedImage> {
 
 const COLLAB_SLUG = "keburia";
 
-/** Origin of the admin tab so printed QRs open this environment, not production. */
+/**
+ * The shop's origin, so printed QRs open this environment's storefront.
+ *
+ * Emphatically not `window.location.origin` any more. That was right while the
+ * panel was a page inside the shop; from admin.stiff.ge it would mint codes
+ * pointing at the panel, and these get printed.
+ */
 function collabSite(): string | undefined {
-  if (typeof window === "undefined") return undefined;
-  return window.location.origin;
+  return SHOP_URL;
 }
 
 export function getCollab(): Promise<CollabOverview> {
