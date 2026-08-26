@@ -16,6 +16,8 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { toSafeUser, User } from '../users/user.entity';
 import { UsersService } from '../users/users.service';
+import { AdminAllowed } from './admin-allowed.decorator';
+import { AdminAuditService } from './admin-audit.service';
 import { AdminAuthService } from './admin-auth.service';
 import { assertAdminIpAllowed } from './admin-ip.guard';
 import { AdminJwtGuard } from './admin-jwt.guard';
@@ -34,14 +36,23 @@ import { AdminLoginDto } from './dto/admin-login.dto';
  * The admin.stiff.ge session endpoints.
  *
  * `@Public()` on the class means "the shop's `JwtAuthGuard` does not apply
- * here" — not that these are open. `AdminJwtGuard` protects the two routes
- * that need a session; sign-in and refresh carry their own credentials.
+ * here" — not that these are open. `AdminJwtGuard` protects the routes that
+ * need a session; sign-in and refresh carry their own credentials.
+ *
+ * `@AdminAllowed()` is what lets these work at all once a session exists.
+ * Admin tokens may only POST to routes that opt in, and the browser sends the
+ * admin access cookie with every one of these calls — so without the opt-in,
+ * refreshing and signing out were refused the moment there was a session to
+ * refresh or sign out of, and a session died at the fifteen-minute mark no
+ * matter what the client did.
  */
 @Controller('admin/auth')
 @Public()
+@AdminAllowed()
 export class AdminAuthController {
   constructor(
     private readonly adminAuthService: AdminAuthService,
+    private readonly adminAuditService: AdminAuditService,
     private readonly adminTokenService: AdminTokenService,
     private readonly usersService: UsersService,
     private readonly configService: ConfigService,
@@ -65,6 +76,22 @@ export class AdminAuthController {
     const user = await this.adminAuthService.login(dto, ip);
     const pair = await this.adminTokenService.issueTokenPair(user);
     this.setAuthCookies(res, pair);
+
+    // Written here rather than by the interceptor: at this point we know who
+    // succeeded, which the interceptor cannot — nobody is attached to a
+    // sign-in request until it works. A sign-in is the one piece of session
+    // bookkeeping worth keeping, since it is what an unexpected change in the
+    // trail above would make you go looking for.
+    await this.adminAuditService.record({
+      actor: user,
+      origin: 'admin',
+      method: 'POST',
+      path: '/api/admin/auth/login',
+      statusCode: 200,
+      ip,
+      userAgent: req.headers['user-agent'] ?? null,
+    });
+
     return { user: toSafeUser(user) };
   }
 
