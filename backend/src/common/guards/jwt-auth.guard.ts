@@ -164,8 +164,18 @@ export class JwtAuthGuard implements CanActivate {
    * has to reach them. What it must not reach is everything *else* the shop
    * exposes: without this check, an admin token lifted from admin.stiff.ge
    * could place orders, post comments and empty a cart as its owner. So the
-   * route has to opt in — by being `@Roles('admin')`, by being `@Public()`, or
-   * by carrying the explicit `@AdminAllowed()` exception.
+   * route has to opt in — by being `@Roles('admin')`, by carrying the explicit
+   * `@AdminAllowed()` exception, or by being a `@Public()` *read*.
+   *
+   * That last one is narrower than it first looks, and deliberately so.
+   * `@Public()` in this codebase does not mean "no user" — it means "works
+   * without one, and personalises when there is one". `CartController` is
+   * `@Public()` at the class level, so admitting admin tokens to every public
+   * route let an admin session empty its owner's cart. Restricting them to
+   * safe methods keeps what the panel actually needs (the Products and Gallery
+   * tabs read the public listings, and `products.service` widens visibility to
+   * unpublished items for an admin, so the user does have to be attached) and
+   * drops every public route that changes anything.
    */
   private async tryAdminToken(
     context: ExecutionContext,
@@ -184,10 +194,11 @@ export class JwtAuthGuard implements CanActivate {
       targets,
     );
 
+    const isSafeMethod = request.method === 'GET' || request.method === 'HEAD';
     const permitted =
       requiredRoles.includes('admin') ||
-      isPublic === true ||
-      isAdminAllowed === true;
+      isAdminAllowed === true ||
+      (isPublic === true && isSafeMethod);
     if (!permitted) return 'not-permitted';
 
     assertAdminIpAllowed(request, this.configService);

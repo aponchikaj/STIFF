@@ -31,9 +31,13 @@ const shopUser = {
 /** Route metadata, keyed the way the real decorators set it. */
 type RouteMeta = Partial<Record<string, unknown>>;
 
-function contextFor(cookies: Record<string, string>): ExecutionContext {
+function contextFor(
+  cookies: Record<string, string>,
+  method = 'GET',
+): ExecutionContext {
   const request = {
     cookies,
+    method,
     headers: {},
     url: '/api/orders',
     originalUrl: '/api/orders',
@@ -96,8 +100,44 @@ describe('JwtAuthGuard — admin session confinement', () => {
   });
 
   it('lets an admin session read a @Public() route', async () => {
+    // The Products and Gallery tabs read the public listings, and the service
+    // widens visibility to unpublished items when the user is an admin.
     const guard = buildGuard({ [IS_PUBLIC_KEY]: true });
     const context = contextFor({ [ADMIN_ACCESS_COOKIE]: adminToken() });
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
+  it('refuses an admin session WRITING to a @Public() route', async () => {
+    // CartController is @Public() at the class level, so every cart route --
+    // including the ones that change it -- is public. Without the method
+    // check an admin session could empty its owner's cart.
+    const guard = buildGuard({ [IS_PUBLIC_KEY]: true });
+    const context = contextFor({ [ADMIN_ACCESS_COOKIE]: adminToken() }, 'POST');
+
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+  });
+
+  it('still allows an admin session to write to an @Roles("admin") route', async () => {
+    const guard = buildGuard({ [ROLES_KEY]: ['admin'] });
+    const context = contextFor(
+      { [ADMIN_ACCESS_COOKIE]: adminToken() },
+      'DELETE',
+    );
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
+  it('still allows an admin session to write to an @AdminAllowed() route', async () => {
+    // DELETE /comments/:id is the real case: owner-or-admin is decided in the
+    // service, so it cannot carry @Roles('admin').
+    const guard = buildGuard({ [IS_ADMIN_ALLOWED_KEY]: true });
+    const context = contextFor(
+      { [ADMIN_ACCESS_COOKIE]: adminToken() },
+      'DELETE',
+    );
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
   });

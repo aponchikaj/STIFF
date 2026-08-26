@@ -5,8 +5,14 @@ import type { User } from '../users/user.entity';
 import { AdminAuditLog } from './entities/admin-audit-log.entity';
 import { normaliseIp } from './admin-ip';
 
-/** Anything whose value must never reach the trail, matched on the key. */
-const SECRET_KEY = /pass|token|secret|hash|otp|code|authorization|cookie/i;
+/**
+ * Anything whose value must never reach the trail, matched on the key.
+ *
+ * Deliberately does not include `code`: it caught `trackingCode`, which is
+ * exactly the sort of detail that makes an Orders entry worth reading. The
+ * collab redemption secrets are all named `token*`, so they are still covered.
+ */
+const SECRET_KEY = /pass|token|secret|hash|otp|authorization|cookie/i;
 
 const MAX_DEPTH = 4;
 const MAX_KEYS = 60;
