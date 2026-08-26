@@ -12,9 +12,11 @@ export function corsOrigins(): string[] {
     ...new Set([
       process.env.FRONTEND_URL ?? 'http://localhost:3000',
       process.env.STAFF_FRONTEND_URL ?? 'http://localhost:3001',
+      process.env.ADMIN_FRONTEND_URL ?? 'http://localhost:3002',
       'https://stiff.ge',
       'https://www.stiff.ge',
       'https://staff.stiff.ge',
+      'https://admin.stiff.ge',
       'https://stage.stiff.ge',
       'https://pre-prod.stiff.ge',
     ]),
@@ -57,6 +59,15 @@ export function configureApp(app: NestExpressApplication): void {
       'Permissions-Policy',
       'camera=(), microphone=(), display-capture=(), geolocation=()',
     );
+    // Two years, subdomains included, so admin.stiff.ge and staff.stiff.ge are
+    // covered too. Production only: sending this over plain HTTP in dev would
+    // pin localhost to https in the browser and break the next `npm run dev`.
+    if (process.env.NODE_ENV === 'production') {
+      res.setHeader(
+        'Strict-Transport-Security',
+        'max-age=63072000; includeSubDomains; preload',
+      );
+    }
     next();
   });
   app.enableCors({
