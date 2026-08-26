@@ -21,6 +21,13 @@
       "runtimeArgs": ["run", "dev"],
       "cwd": "staff",
       "port": 3001
+    },
+    {
+      "name": "admin",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "admin",
+      "port": 3002
     }
   ]
 }
