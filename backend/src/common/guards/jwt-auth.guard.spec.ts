@@ -142,6 +142,33 @@ describe('JwtAuthGuard — admin session confinement', () => {
     await expect(guard.canActivate(context)).resolves.toBe(true);
   });
 
+  it('lets the session endpoints POST even though they are public', async () => {
+    // AdminAuthController is @Public() + @AdminAllowed(). The browser sends
+    // the admin access cookie with POST /admin/auth/refresh, so without the
+    // opt-in the safe-method rule refused the very call that keeps a session
+    // alive — and a session died after fifteen minutes no matter what.
+    const guard = buildGuard({
+      [IS_PUBLIC_KEY]: true,
+      [IS_ADMIN_ALLOWED_KEY]: true,
+    });
+    const context = contextFor({ [ADMIN_ACCESS_COOKIE]: adminToken() }, 'POST');
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
+  it('lets refresh through when the access token has already expired', async () => {
+    // The ordinary case for refresh: the access token is dead, which is why
+    // the call is being made. A public route must fall through to the handler
+    // rather than 401, so it can read the refresh cookie.
+    const guard = buildGuard(
+      { [IS_PUBLIC_KEY]: true, [IS_ADMIN_ALLOWED_KEY]: true },
+      { ADMIN_JWT_ACCESS_SECRET: 'a-different-secret' },
+    );
+    const context = contextFor({ [ADMIN_ACCESS_COOKIE]: adminToken() }, 'POST');
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
   it('lets an admin session reach an explicit @AdminAllowed() route', async () => {
     const guard = buildGuard({ [IS_ADMIN_ALLOWED_KEY]: true });
     const context = contextFor({ [ADMIN_ACCESS_COOKIE]: adminToken() });
