@@ -33,8 +33,10 @@ export function logoutEverywhere(): Promise<{ success: boolean }> {
 }
 
 export function getMe(): Promise<SafeUser> {
-  // The session check must not trigger the client's refresh-and-retry: a
-  // signed-out visitor would otherwise spend a pointless round-trip before
-  // being shown the sign-in form.
-  return apiFetch("/admin/auth/me", { skipRefresh: true });
+  // Deliberately *does* go through the refresh-and-retry. The access token
+  // lasts fifteen minutes and the refresh cookie thirty days; a session check
+  // that gave up on the first 401 would throw the admin out every quarter of
+  // an hour. A genuinely signed-out visitor pays one extra round-trip, which
+  // is the cheaper end of that trade by a distance.
+  return apiFetch("/admin/auth/me");
 }

@@ -1,11 +1,19 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { auditApi } from "@/lib/api";
+import { authApi, auditApi } from "@/lib/api";
 import type { AuditEntry } from "@/lib/api/audit";
 import { formatDate } from "@/lib/format";
-import { useAsync } from "@/lib/hooks";
-import { btnGhostSm, chipCls, ErrorNote, inputCls, Loading } from "../ui";
+import { errorMessage, useAsync } from "@/lib/hooks";
+import {
+  btnGhostSm,
+  btnOutline,
+  chipCls,
+  ErrorNote,
+  inputCls,
+  Loading,
+} from "../ui";
 
 const PAGE_SIZE = 20;
 
@@ -119,7 +127,78 @@ export function AuditTab() {
           </button>
         </div>
       )}
+
+      <Sessions />
     </div>
+  );
+}
+
+/**
+ * The lever you reach for when something in the trail above looks wrong.
+ *
+ * Lives here rather than in the header because it belongs next to the evidence
+ * — and because it is not a button anyone should press by accident while
+ * aiming for "Log out".
+ */
+function Sessions() {
+  const router = useRouter();
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  async function endAll() {
+    setBusy(true);
+    setNote(null);
+    try {
+      await authApi.logoutEverywhere();
+      router.replace("/login");
+    } catch (err) {
+      setNote(errorMessage(err));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section aria-label="Sessions" className="mt-16 border-t border-subtle pt-8">
+      <h2 className="text-2xl uppercase tracking-tight">Sessions</h2>
+      <p className="mt-2 max-w-prose text-xs leading-6 text-muted">
+        Ends every admin session for this account, on every device, including
+        this one. The shop account is untouched — you stay signed in at the
+        storefront.
+      </p>
+
+      {confirming ? (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={endAll}
+            disabled={busy}
+            className={btnOutline}
+          >
+            {busy ? "Ending…" : "Yes, end them all"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirming(false)}
+            className={btnGhostSm}
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          className={`${btnOutline} mt-4`}
+        >
+          Sign out everywhere
+        </button>
+      )}
+
+      <p aria-live="polite" className="mt-2 min-h-4 text-xs text-muted">
+        {note}
+      </p>
+    </section>
   );
 }
 

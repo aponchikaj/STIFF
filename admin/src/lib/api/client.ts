@@ -33,8 +33,27 @@ export interface ApiFetchOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   query?: QueryParams;
-  /** Skip the transparent refresh — used by the session check itself. */
+  /** Opt out of the transparent refresh-and-retry on a 401. */
   skipRefresh?: boolean;
+}
+
+/**
+ * Endpoints a 401 must never trigger a refresh for.
+ *
+ * Only the three that carry their own credentials or would recurse. It is
+ * deliberately not every `/admin/auth/*` path: `/admin/auth/me` is the session
+ * check that runs on load, and excluding it meant a 401 there went straight to
+ * "signed out" without ever spending the refresh token — signing the admin out
+ * every fifteen minutes while a thirty-day refresh cookie sat unused.
+ */
+const NO_REFRESH_PATHS = [
+  "/admin/auth/refresh",
+  "/admin/auth/login",
+  "/admin/auth/logout",
+];
+
+function refreshWouldRecurse(path: string): boolean {
+  return NO_REFRESH_PATHS.some((p) => path.startsWith(p));
 }
 
 /**
@@ -138,7 +157,7 @@ export async function apiFetch<T>(
 
   if (
     res.status === 401 &&
-    !path.startsWith("/admin/auth/") &&
+    !refreshWouldRecurse(path) &&
     !options.skipRefresh
   ) {
     const refreshed = await tryRefresh();
@@ -164,7 +183,7 @@ export async function apiBlob(
   query?: QueryParams,
 ): Promise<Blob> {
   let res = await rawFetch(path, { method: "GET", query });
-  if (res.status === 401) {
+  if (res.status === 401 && !refreshWouldRecurse(path)) {
     const refreshed = await tryRefresh();
     if (refreshed) res = await rawFetch(path, { method: "GET", query });
     else announceSessionEnded();
