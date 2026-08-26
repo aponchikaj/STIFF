@@ -5,9 +5,11 @@ Monorepo for the STIFF brand project. Independent apps, each with its own
 
 ## Structure
 
-- `frontend/` — Next.js 15 (App Router, `src/` dir, `@/*` alias) + TypeScript + Tailwind CSS v4
-- `staff/` — Next.js staff workspace for staff.stiff.ge (invite-only, separate people)
+- `frontend/` — Next.js 16 (App Router, `src/` dir, `@/*` alias) + TypeScript + Tailwind CSS v4
 - `backend/` — NestJS 11 + TypeORM + PostgreSQL
+- `admin/` — the admin panel, same stack as `frontend/` (`admin` branch only)
+- `staff/` — the staff workspace for staff.stiff.ge, same stack; invite-only,
+  its own people table rather than shop users (`staff` branch only)
 
 ## Commands
 
@@ -17,11 +19,20 @@ Monorepo for the STIFF brand project. Independent apps, each with its own
 - `npm run build` — production build
 - `npm run lint` — ESLint
 
-### Staff (`staff/`)
+### Staff (`staff/`, on the `staff` branch)
 
 - `npm run dev` — staff UI on http://localhost:3001
 - `npm run build` — production build
 - `npm run lint` — ESLint
+
+### Admin panel (`admin/`, on the `admin` branch)
+
+- `npm run dev` — dev server on http://localhost:3002
+- `npm run build` / `npm run lint` / `npm run typecheck`
+
+Signs in at `/login` against `/api/admin/auth/login` — its own session, not the
+shop's. Admins are ordinary shop users with `role=admin`; nobody registers
+here.
 
 ### Backend (`backend/`)
 
@@ -31,9 +42,9 @@ Monorepo for the STIFF brand project. Independent apps, each with its own
 - `npm run test:e2e` — e2e tests
 - `npm run lint` — ESLint (flat config)
 
-## Branches — two products, one repo
+## Branches — three products, one repo
 
-There are two deployed sites and one shared NestJS backend, and the branches
+There are three deployed sites and one shared NestJS backend, and the branches
 exist to keep them apart. **Which branch a change belongs on is decided by
 which site it is for, not by how big it is.**
 
@@ -42,13 +53,21 @@ which site it is for, not by how big it is.**
 | `main` | `frontend/` + `backend/` | stiff.ge (production shop) |
 | `stage`, `pre-prod` | same as `main` | stage.stiff.ge, pre-prod.stiff.ge (behind the Basic-auth gate) |
 | `staff` | everything in `main` **plus** `staff/` | staff.stiff.ge |
+| `admin` | everything in `main` **plus** `admin/` | admin.stiff.ge |
 | `coming-soon` | the original holding page | historical — do not build on it |
 
-`staff` is a **superset** of `main`, not a sibling of it. The staff workspace
-needs the same backend the shop does, because one Nest app serves both:
-`/api/*` is the shop and `/api/staff/*` is the workspace. That is why
-`backend/src/staff/` lives on every branch while `staff/` — the staff Next.js
-app — lives only on `staff`.
+`staff` and `admin` are **supersets** of `main`, not siblings of it. Both need
+the same backend the shop does, because one Nest app serves all three:
+`/api/*` is the shop, `/api/staff/*` is the workspace, `/api/admin/*` is the
+panel's session and audit trail. That is why `backend/src/staff/` and
+`backend/src/admin/` live on every branch while `staff/` and `admin/` — the two
+extra Next.js apps — live only on their own.
+
+The admin panel is the odd one: its *work* is not in `backend/src/admin/`. The
+panel edits products, orders and gallery through the shop's own controllers
+under `@Roles('admin')`, so there is one implementation of "update an order"
+rather than two that drift. `backend/src/admin/` holds only what the separate
+origin needs — sign-in, the IP allowlist, the audit trail.
 
 ### Where to put a change
 
@@ -58,22 +77,27 @@ app — lives only on `staff`.
 - **Staff workspace work** — anything in `staff/`, or in `backend/src/staff/`:
   chat, tasks, notes, people, roles.
   → commit on **`staff`**.
+- **Admin panel work** — anything in `admin/`: the tabs, the panel's chrome,
+  its sign-in screen.
+  → commit on **`admin`**.
+  But a change to what a tab *does* to a product or an order is shop work in
+  `backend/`, and belongs on **`main`**.
 
-Never author shop work on `staff`. It will reach staff.stiff.ge and never reach
-stiff.ge, and moving it later means rewriting history.
+Never author shop work on `staff` or `admin`. It will reach that subdomain and
+never reach stiff.ge, and moving it later means rewriting history.
 
-### Keeping `staff` current
+### Keeping `staff` and `admin` current
 
-`staff` takes shop work by merging, never by having it authored there:
+Both take shop work by merging, never by having it authored there:
 
 ```bash
-git checkout staff
-git merge main
+git checkout staff && git merge main
+git checkout admin && git merge main
 ```
 
-Do this whenever `main` moves, so staff.stiff.ge is not running a months-old
-backend. The reverse direction never happens — `staff` is never merged into
-`main`, or the staff app would land on stiff.ge.
+Do this whenever `main` moves, so neither subdomain is running a months-old
+backend. The reverse direction never happens — neither is merged into `main`,
+or the staff or admin app would land on stiff.ge.
 
 ### Promotion
 
@@ -88,6 +112,7 @@ git checkout main && git push origin main
 git checkout stage    && git merge main && git push origin stage
 git checkout pre-prod && git merge main && git push origin pre-prod
 git checkout staff    && git merge main && git push origin staff
+git checkout admin    && git merge main && git push origin admin
 ```
 
 ### Migrations are shared
@@ -133,7 +158,23 @@ update workflow"* — the fix is on the token, not the branch.
   use `class-validator` decorators on DTOs.
 - Frontend calls the API via `NEXT_PUBLIC_API_URL` from `frontend/.env.local`
   (default `http://localhost:4000/api`). Don't hardcode backend URLs.
-- CORS on the backend allows only `FRONTEND_URL` (default `http://localhost:3000`).
+- CORS on the backend allows only the known origins — `FRONTEND_URL`,
+  `STAFF_FRONTEND_URL`, `ADMIN_FRONTEND_URL` and the stiff.ge subdomains
+  (`corsOrigins()` in `backend/src/configure-app.ts`).
+- **Three sessions, one backend, and they are not interchangeable.** Shop
+  tokens carry no audience; staff tokens carry `stiff-staff`; admin tokens
+  carry `stiff-admin`. `JwtAuthGuard` rejects a staff or admin token presented
+  as a shop session even when the signing secret is shared.
+  An admin-audience token reaches a route only if it is `@Roles('admin')`, is
+  marked `@AdminAllowed()`, or is a `@Public()` **read**. That last restriction
+  is not cosmetic: `@Public()` here means "personalises when a user is present",
+  and `CartController` carries it at the class level, so allowing writes let an
+  admin session empty its owner's cart. Adding `@AdminAllowed()` to a route
+  widens what a stolen admin token can do — the rules are pinned by
+  `backend/src/common/guards/jwt-auth.guard.spec.ts`, so start there.
+- Every state-changing request by an admin is written to `admin_audit_logs`
+  with credential-shaped keys stripped. There is no endpoint that edits or
+  deletes an entry, and there should not be.
 
 ## Skills
 

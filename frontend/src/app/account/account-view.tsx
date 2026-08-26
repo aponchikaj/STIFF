@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ADMIN_URL } from "@/lib/admin-site";
 import { authApi, customersApi, profileApi } from "@/lib/api";
 import type { OrderStatus, UserAddress } from "@/lib/api";
 import { formatDate, formatPrice, shortId } from "@/lib/format";
@@ -85,9 +86,17 @@ function Header({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {user.role === "admin" && (
-            <Link href="/admin" className={btnOutline}>
+            /* The panel is a separate site with a separate sign-in, so this
+               is a plain anchor rather than a <Link> — there is no client
+               route to prefetch, and `rel` keeps the shop out of its opener
+               chain. */
+            <a
+              href={ADMIN_URL}
+              rel="noopener noreferrer"
+              className={btnOutline}
+            >
               Admin panel
-            </Link>
+            </a>
           )}
           <Link href="/notifications" className={btnOutline}>
             Notifications{unreadCount > 0 ? ` (${unreadCount})` : ""}

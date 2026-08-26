@@ -144,6 +144,19 @@ export class CollabService implements OnModuleInit {
     return this.allowedQrOrigin(requested) ?? fallback;
   }
 
+  /**
+   * Subdomains that are not the shop. They are on stiff.ge and they are the
+   * origins an admin is most likely to be *looking at* when minting, but none
+   * of them serves `/c/:slug/:token` — a QR pointing at one is a dead link on
+   * something already printed. Rejecting them here means the panel cannot
+   * cause that mistake even if a caller sends its own origin, which is exactly
+   * what the panel did until it learned to send the shop's.
+   */
+  private static readonly NON_SHOP_HOSTS = new Set([
+    'admin.stiff.ge',
+    'staff.stiff.ge',
+  ]);
+
   private allowedQrOrigin(raw?: string): string | null {
     if (!raw?.trim()) return null;
     try {
@@ -155,6 +168,7 @@ export class CollabService implements OnModuleInit {
         return url.origin;
       }
       if (url.protocol !== 'https:') return null;
+      if (CollabService.NON_SHOP_HOSTS.has(host)) return null;
       if (host === 'stiff.ge' || host.endsWith('.stiff.ge')) return url.origin;
       const frontend = this.configService.get<string>('FRONTEND_URL');
       if (frontend) {

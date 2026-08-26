@@ -335,6 +335,19 @@ describe('CollabService', () => {
       );
     });
 
+    it('refuses the stiff.ge subdomains that are not the shop', () => {
+      // These are on stiff.ge and they are the origins an admin is most likely
+      // to be looking at when minting, but neither serves /c/:slug/:token. A
+      // QR pointing at one is a dead link on something already printed, so it
+      // falls back to the shop rather than being trusted.
+      expect(service.qrBaseUrl('https://admin.stiff.ge')).toBe(
+        'https://stiff.ge',
+      );
+      expect(service.qrBaseUrl('https://staff.stiff.ge')).toBe(
+        'https://stiff.ge',
+      );
+    });
+
     it('refuses a PNG for a revoked code', async () => {
       const row = unusedCode(randomToken());
       row.status = 'revoked';
