@@ -1,21 +1,19 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
-import { AdminPanel } from "@/components/admin/admin-panel";
-import { Loading } from "@/components/ui";
+import { redirect } from "next/navigation";
+import { ADMIN_URL } from "@/lib/admin-site";
 
 export const metadata: Metadata = {
   title: "Admin",
-  robots: { index: false },
+  robots: { index: false, follow: false },
 };
 
-export default function AdminPage() {
-  return (
-    <section className="w-full flex-1 px-4 py-12 sm:px-6 sm:py-16">
-      {/* AdminPanel reads the active tab from the query string, which needs a
-          Suspense boundary to prerender. */}
-      <Suspense fallback={<Loading label="Loading admin" />}>
-        <AdminPanel />
-      </Suspense>
-    </section>
-  );
+/**
+ * The panel moved to its own origin. This is kept so the bookmarks and links
+ * that already exist keep landing somewhere useful.
+ *
+ * A temporary redirect, not a permanent one: 308s stick in browser caches for
+ * a long time, and the destination is environment-dependent.
+ */
+export default function AdminPage(): never {
+  redirect(ADMIN_URL);
 }
