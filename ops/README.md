@@ -49,12 +49,15 @@ both dashboard settings. Neither can be set from a file in the repo:
 `vercel.json` is read *inside* the root directory, so it cannot be the thing
 that chooses one.
 
-| Host | Root Directory | Production Branch | Serves |
-|---|---|---|---|
-| `www.stiff.ge` (`stiff.ge` 308s to it) | `frontend` | `coming-soon` | the holding page |
-| `staff.stiff.ge` | `staff` | `staff` | the staff workspace |
-| `admin.stiff.ge` | `admin` | `admin` | the admin panel |
-| — (API, not Vercel) | `backend` on Render | — | see `render.yaml` |
+| Host | Vercel project | Root Directory | Production branch | Serves |
+|---|---|---|---|---|
+| `www.stiff.ge` (`stiff.ge` 308s to it) | `stiff` | `frontend` | `coming-soon` | the holding page |
+| `staff.stiff.ge` | `stiff-staff` | `staff` | `staff` | the staff workspace |
+| `admin.stiff.ge` | `stiff-admin` | `admin` | `admin` | the admin panel |
+| — (API, not Vercel) | — | `backend` on Render | — | see `render.yaml` |
+
+Production branch is **not** under Settings → Git any more. It moved to
+**Settings → Environments → Production → Branch Tracking**.
 
 `admin/vercel.json` pins the panel to its own branch with an `ignoreCommand`,
 so a push to `main` or `staff` does not redeploy it. That only takes effect
@@ -79,8 +82,9 @@ To fix, in the Vercel dashboard:
 2. If it is the shop project, remove the domain there — a domain lives on one
    project at a time.
 3. On the project rooted at `admin` (create it from this repo if it does not
-   exist: Root Directory `admin`, Production Branch `admin`), add
-   `admin.stiff.ge` under Settings → Domains.
+   exist: Root Directory `admin`, and Branch Tracking `admin` under
+   Settings → Environments → Production), add `admin.stiff.ge` under
+   Settings → Domains.
 4. Set its env vars the panel expects — `BACKEND_URL` and
    `NEXT_PUBLIC_API_URL=/api`, so the session cookie stays first-party.
 5. Redeploy. `/audit` answering 200 is the check that it took; `/clothing`
@@ -92,3 +96,19 @@ distinguishes them:
 ```bash
 for h in www admin staff; do curl -sS -m 20 "https://$h.stiff.ge" | sed -n 's/.*<title>\(.*\)<\/title>.*/'"$h"': \1/p'; done
 ```
+
+### Root Directory and branch have to agree
+
+`admin/` exists only on the `admin` branch. So a project rooted at `admin`
+cannot build `main`, and a production build from the wrong branch dies early
+with:
+
+```
+NOW_SANDBOX_WORKER_ROOTDIR_NOT_EXIST
+The specified Root Directory "admin" does not exist.
+```
+
+That error means the root directory is right and the branch is wrong — set
+Branch Tracking to `admin`. `admin/vercel.json`'s `ignoreCommand` cannot rescue
+this: it lives inside `admin/`, so on a branch without that folder Vercel fails
+before it can read it. The same reasoning applies to `staff/` and `stiff-staff`.
