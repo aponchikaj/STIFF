@@ -7,6 +7,10 @@ import { RunsController } from './runs.controller';
 import { RunsService } from './runs.service';
 import { CatalogController } from './catalog.controller';
 import { CatalogService } from './catalog.service';
+import { EconomyService } from './economy.service';
+import { LeaderboardService } from './leaderboard.service';
+import { ShopController } from './shop.controller';
+import { ShopService } from './shop.service';
 import {
   Chart,
   CoinLedgerEntry,
@@ -79,7 +83,15 @@ import {
     GameSettingsController,
     CatalogController,
     RunsController,
+    ShopController,
   ],
-  providers: [GameSettingsService, CatalogService, RunsService],
+  providers: [
+    GameSettingsService,
+    CatalogService,
+    RunsService,
+    EconomyService,
+    LeaderboardService,
+    ShopService,
+  ],
 })
 export class GameModule {}

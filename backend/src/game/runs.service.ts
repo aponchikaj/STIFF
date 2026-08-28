@@ -15,6 +15,8 @@ import {
 import { randomUUID } from 'crypto';
 import { DataSource, Repository } from 'typeorm';
 import { Chart } from './entities/chart.entity';
+import { EconomyService, type MintOutcome } from './economy.service';
+import { LeaderboardService } from './leaderboard.service';
 import { Run } from './entities/run.entity';
 import {
   RunRejection,
@@ -54,6 +56,14 @@ export class RunRejected extends Error {
   }
 }
 
+/** A stored run plus what it earned — everything the results screen shows. */
+export interface SubmittedRun extends Run {
+  coinsAwarded: number;
+  payoutReason: MintOutcome['reason'];
+  isPersonalBest: boolean;
+  balance: number;
+}
+
 export interface SubmitInput {
   runToken: string;
   /** Gzipped, delta-encoded input log, base64 for transport. */
@@ -71,6 +81,8 @@ export class RunsService {
     @InjectRepository(RunRejection)
     private readonly rejections: Repository<RunRejection>,
     private readonly dataSource: DataSource,
+    private readonly economy: EconomyService,
+    private readonly leaderboard: LeaderboardService,
   ) {}
 
   /**
@@ -116,7 +128,7 @@ export class RunsService {
    * rejection — so the only thing a modified client can achieve is to have its
    * run refused.
    */
-  async submit(userId: string, input: SubmitInput): Promise<Run> {
+  async submit(userId: string, input: SubmitInput): Promise<SubmittedRun> {
     try {
       return await this.validateAndStore(userId, input);
     } catch (error) {
@@ -134,7 +146,7 @@ export class RunsService {
   private async validateAndStore(
     userId: string,
     input: SubmitInput,
-  ): Promise<Run> {
+  ): Promise<SubmittedRun> {
     const token = await this.tokens.findOne({
       where: { id: input.runToken },
     });
@@ -216,9 +228,12 @@ export class RunsService {
       });
     }
 
-    // Consuming the token and writing the run in one transaction: a crash
-    // between them would either lose the run or leave a token that can be
-    // spent twice.
+    const payout = await this.economy.payoutConfig();
+
+    // Consuming the token, writing the run, minting its coins and updating the
+    // board all share one transaction. A crash anywhere in here must not leave
+    // a run that was never paid, coins for a run that does not exist, or a
+    // token that can be spent twice.
     return this.dataSource.transaction(async (manager) => {
       const consumed = await manager
         .createQueryBuilder()
@@ -248,7 +263,30 @@ export class RunsService {
         practiceMode: token.practiceMode,
         replayKey: null,
       });
-      return manager.save(run);
+      const saved = await manager.save(run);
+
+      const mint = await this.economy.mintForRun(
+        manager,
+        saved,
+        chart.difficulty,
+        payout,
+        await this.economy.clearsToday(manager, userId, chart.id),
+        await this.economy.earnedToday(manager, userId),
+      );
+
+      // Only a validated, non-practice run reaches a board.
+      const isPersonalBest =
+        saved.validated && !saved.practiceMode
+          ? await this.leaderboard.recordIfBest(manager, saved)
+          : false;
+
+      return {
+        ...saved,
+        coinsAwarded: mint.coins,
+        payoutReason: mint.reason,
+        isPersonalBest,
+        balance: await this.economy.balance(userId, manager),
+      };
     });
   }
 

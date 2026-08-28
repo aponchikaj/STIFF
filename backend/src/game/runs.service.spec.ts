@@ -14,6 +14,8 @@ import type { Chart } from './entities/chart.entity';
 import type { Run } from './entities/run.entity';
 import type { RunRejection } from './entities/run-rejection.entity';
 import type { RunToken } from './entities/run-token.entity';
+import { DEFAULT_PAYOUT, type EconomyService } from './economy.service';
+import type { LeaderboardService } from './leaderboard.service';
 import { looksAutomated, RunsService } from './runs.service';
 
 /**
@@ -81,6 +83,7 @@ interface Harness {
   token: RunToken;
   saved: Run[];
   rejections: Partial<RunRejection>[];
+  minted: number[];
 }
 
 async function harness(overrides: Partial<RunToken> = {}): Promise<Harness> {
@@ -101,6 +104,7 @@ async function harness(overrides: Partial<RunToken> = {}): Promise<Harness> {
 
   const saved: Run[] = [];
   const rejections: Partial<RunRejection>[] = [];
+  const minted: number[] = [];
 
   const charts = {
     findOne: () => Promise.resolve(chart),
@@ -142,12 +146,42 @@ async function harness(overrides: Partial<RunToken> = {}): Promise<Harness> {
     transaction: (fn: (m: typeof manager) => Promise<Run>) => fn(manager),
   } as unknown as DataSource;
 
+  // Minting and the board are exercised by their own suites; here they only
+  // need to be called correctly and have their answers passed through.
+  const economy = {
+    payoutConfig: () => Promise.resolve(DEFAULT_PAYOUT),
+    clearsToday: () => Promise.resolve(0),
+    earnedToday: () => Promise.resolve(0),
+    balance: () => Promise.resolve(123),
+    mintForRun: (_m: unknown, r: Run) => {
+      const coins = r.practiceMode || !r.validated ? 0 : 75;
+      minted.push(coins);
+      return Promise.resolve({
+        coins,
+        reason: coins > 0 ? 'paid' : 'practice',
+      });
+    },
+  } as unknown as EconomyService;
+
+  const leaderboard = {
+    recordIfBest: () => Promise.resolve(true),
+  } as unknown as LeaderboardService;
+
   return {
-    service: new RunsService(charts, tokens, runs, rejectionRepo, dataSource),
+    service: new RunsService(
+      charts,
+      tokens,
+      runs,
+      rejectionRepo,
+      dataSource,
+      economy,
+      leaderboard,
+    ),
     chart,
     token,
     saved,
     rejections,
+    minted,
   };
 }
 
@@ -175,6 +209,11 @@ describe('RunsService.submit', () => {
     expect(run.accuracy).toBe(body.expected.accuracy);
     expect(run.validated).toBe(true);
     expect(h.rejections).toHaveLength(0);
+
+    // The results screen shows what the run earned, so submission returns it.
+    expect(run.coinsAwarded).toBe(75);
+    expect(run.isPersonalBest).toBe(true);
+    expect(run.balance).toBe(123);
   });
 
   it('rejects a score the client made up', async () => {
@@ -298,6 +337,10 @@ describe('RunsService.submit', () => {
     const run = await h.service.submit(USER_ID, body);
     expect(run.practiceMode).toBe(true);
     expect(run.validated).toBe(false);
+
+    // Practice earns nothing and never reaches a board.
+    expect(run.coinsAwarded).toBe(0);
+    expect(run.isPersonalBest).toBe(false);
   });
 });
 
