@@ -1,4 +1,5 @@
 import {
+  authorChart,
   DIFFICULTIES,
   hashChart,
   type Chart as ChartData,
@@ -11,7 +12,6 @@ import { Item } from '../entities/item.entity';
 import { Level, LevelSong } from '../entities/level.entity';
 import { Song } from '../entities/song.entity';
 import { Stage } from '../entities/stage.entity';
-import { authorChart } from './author-chart';
 
 /**
  * Seed content for the rhythm game.

@@ -1,7 +1,11 @@
-import type { Difficulty, Lane, Note } from '@stiff/game-core';
+import type { Difficulty, Lane, Note } from './types';
 
 /**
  * Hand-authored charts for the seed fixtures.
+ *
+ * Lives in the shared package because two callers need the *same* notes: the
+ * backend seed, and the game client's development fixture, which has to be
+ * byte-identical or its chart hash will not match the one the server holds.
  *
  * These are written against a strict beat grid rather than against audio,
  * because the seed songs *are* metronomic test fixtures — see `game-seed.ts`
@@ -104,7 +108,10 @@ export function authorChart(
       lastPlayerMs = t;
     }
 
-    const lane = HAND_ALTERNATION[handIndex % HAND_ALTERNATION.length];
+    // The modulo keeps this in range; the fallback exists so the checker
+    // does not have to take my word for it.
+    const lane = (HAND_ALTERNATION[handIndex % HAND_ALTERNATION.length] ??
+      0) as Lane;
     handIndex++;
     notes.push({ t, lane, side });
 
@@ -181,7 +188,11 @@ function measure(
     // Half-open window: notes exactly 1000ms apart span a full second and are
     // a rate of one per second, not two. Counting both ends reports every
     // pattern as one note per second denser than it is.
-    while (played[start] && endNote.t - played[start].t >= 1000) start++;
+    for (;;) {
+      const oldest = played[start];
+      if (!oldest || endNote.t - oldest.t < 1000) break;
+      start++;
+    }
     peak = Math.max(peak, end - start + 1);
   }
 

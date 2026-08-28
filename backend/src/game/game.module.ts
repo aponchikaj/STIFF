@@ -3,6 +3,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { GameController } from './game.controller';
 import { GameSettingsController } from './game-settings.controller';
 import { GameSettingsService } from './game-settings.service';
+import { RunsController } from './runs.controller';
+import { RunsService } from './runs.service';
+import { CatalogController } from './catalog.controller';
+import { CatalogService } from './catalog.service';
 import {
   Chart,
   CoinLedgerEntry,
@@ -70,7 +74,12 @@ import {
       FeatureFlag,
     ]),
   ],
-  controllers: [GameController, GameSettingsController],
-  providers: [GameSettingsService],
+  controllers: [
+    GameController,
+    GameSettingsController,
+    CatalogController,
+    RunsController,
+  ],
+  providers: [GameSettingsService, CatalogService, RunsService],
 })
 export class GameModule {}
