@@ -10,6 +10,9 @@ import { CatalogService } from './catalog.service';
 import { EconomyService } from './economy.service';
 import { GameAdminController } from './game-admin.controller';
 import { GameAdminService } from './game-admin.service';
+import { AudioDecodeService } from './audio-decode.service';
+import { ChartPipelineService } from './chart-pipeline.service';
+import { SectionPlanService } from './section-plan.service';
 import { LeaderboardService } from './leaderboard.service';
 import { ShopController } from './shop.controller';
 import { ShopService } from './shop.service';
@@ -96,6 +99,9 @@ import {
     LeaderboardService,
     ShopService,
     GameAdminService,
+    AudioDecodeService,
+    SectionPlanService,
+    ChartPipelineService,
   ],
 })
 export class GameModule {}

@@ -1,3 +1,4 @@
+import type { AnalysisResult } from '@stiff/game-core';
 import {
   Column,
   CreateDateColumn,
@@ -16,13 +17,15 @@ export type SongStatus =
 
 export type SongSourceType = 'upload' | 'url';
 
-/** Stage A DSP output. Reusable across all four difficulties of a song. */
-export interface SongAnalysis {
-  bpm: number;
-  beatGrid: number[];
-  sections: { startMs: number; endMs: number; label?: string }[];
-  onsets: { beat: number; ms: number; strength: number; band: string }[];
-}
+/**
+ * Stage A DSP output, reusable across all four difficulties of a song.
+ *
+ * The shape comes from `@stiff/game-core` rather than being re-declared here.
+ * It was a local interface first, written before the analyser existed, and by
+ * the time the pipeline was wired the two had already drifted — the column
+ * would have accepted a shape the generator could not read.
+ */
+export type SongAnalysis = AnalysisResult;
 
 @Entity('game_songs')
 @Unique('UQ_game_songs_slug', ['slug'])
