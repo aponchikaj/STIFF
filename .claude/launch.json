@@ -6,7 +6,8 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "start:dev"],
       "cwd": "backend",
-      "port": 4000
+      "port": 4000,
+      "autoPort": false
     },
     {
       "name": "frontend",
@@ -23,11 +24,19 @@
       "port": 3001
     },
     {
+      "name": "game",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "game",
+      "port": 3003
+    },
+    {
       "name": "admin",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "cwd": "admin",
-      "port": 3002
+      "cwd": ".worktrees/admin/admin",
+      "port": 3002,
+      "autoPort": false
     }
   ]
 }
