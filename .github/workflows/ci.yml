@@ -146,11 +146,15 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Typecheck
-        run: npm run typecheck
-
+      # Build first. `next-env.d.ts` and `.next/types` are generated, not
+      # committed, and tsconfig includes both — so on a clean checkout
+      # `tsc --noEmit` fails on Next's own globals ("Cannot find name
+      # 'LayoutProps'") until a build has produced them.
       - name: Build
         run: npm run build
+
+      - name: Typecheck
+        run: npm run typecheck
 
   staff:
     name: Staff — lint, types, build
@@ -174,11 +178,15 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Typecheck
-        run: npm run typecheck
-
+      # Build first. `next-env.d.ts` and `.next/types` are generated, not
+      # committed, and tsconfig includes both — so on a clean checkout
+      # `tsc --noEmit` fails on Next's own globals ("Cannot find name
+      # 'LayoutProps'") until a build has produced them.
       - name: Build
         run: npm run build
+
+      - name: Typecheck
+        run: npm run typecheck
 
   admin:
     name: Admin — lint, types, build
@@ -202,8 +210,12 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Typecheck
-        run: npm run typecheck
-
+      # Build first. `next-env.d.ts` and `.next/types` are generated, not
+      # committed, and tsconfig includes both — so on a clean checkout
+      # `tsc --noEmit` fails on Next's own globals ("Cannot find name
+      # 'LayoutProps'") until a build has produced them.
       - name: Build
         run: npm run build
+
+      - name: Typecheck
+        run: npm run typecheck
