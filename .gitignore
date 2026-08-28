@@ -18,6 +18,9 @@ node_modules/
 .next/
 dist/
 
-# Stale staff/ build leftovers from a `staff` checkout, on branches without the app.
+# Stale staff/ and admin/ build leftovers from a `staff` or `admin` checkout,
+# on branches without the app.
 staff/next-env.d.ts
 staff/tsconfig.tsbuildinfo
+admin/next-env.d.ts
+admin/tsconfig.tsbuildinfo
