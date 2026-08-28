@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, stage, pre-prod, staff, admin]
+    branches: [main, stage, pre-prod, staff, admin, game]
   pull_request:
   workflow_dispatch:
 
@@ -21,12 +21,13 @@ jobs:
     outputs:
       has_staff: ${{ steps.check.outputs.has_staff }}
       has_admin: ${{ steps.check.outputs.has_admin }}
+      has_game: ${{ steps.check.outputs.has_game }}
     steps:
       - uses: actions/checkout@v4
-      # The staff workspace lives only on the `staff` branch and the admin
-      # panel only on `admin`; main, stage and pre-prod carry the shop.
-      # Detecting rather than assuming keeps one workflow correct on every
-      # branch.
+      # The staff workspace lives only on the `staff` branch, the admin panel
+      # only on `admin` and the rhythm game only on `game`; main, stage and
+      # pre-prod carry the shop. Detecting rather than assuming keeps one
+      # workflow correct on every branch.
       - id: check
         run: |
           if [ -f staff/package.json ]; then
@@ -39,6 +40,36 @@ jobs:
           else
             echo "has_admin=false" >> "$GITHUB_OUTPUT"
           fi
+          if [ -f game/package.json ]; then
+            echo "has_game=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_game=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  game_core:
+    name: Game core — types, tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/game-core
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: packages/game-core/package-lock.json
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Builds first, then runs the compiled tests — the same path the backend
+      # takes via `build:core`, so a break here is a break there.
+      - name: Tests
+        run: npm test
 
   backend:
     name: Backend — lint, types, tests
@@ -204,6 +235,38 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: admin/package-lock.json
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # Build first. `next-env.d.ts` and `.next/types` are generated, not
+      # committed, and tsconfig includes both — so on a clean checkout
+      # `tsc --noEmit` fails on Next's own globals ("Cannot find name
+      # 'LayoutProps'") until a build has produced them.
+      - name: Build
+        run: npm run build
+
+      - name: Typecheck
+        run: npm run typecheck
+
+  game:
+    name: Game — lint, types, build
+    needs: detect
+    if: needs.detect.outputs.has_game == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: game
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: game/package-lock.json
 
       - run: npm ci
 

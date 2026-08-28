@@ -1,7 +1,7 @@
 # STIFF
 
-Monorepo for the STIFF brand project. Two independent apps, each with its own
-`package.json` — always `cd` into the right one before running npm commands.
+Monorepo for the STIFF brand project. Each app has its own `package.json` —
+always `cd` into the right one before running npm commands.
 
 ## Structure
 
@@ -9,6 +9,10 @@ Monorepo for the STIFF brand project. Two independent apps, each with its own
 - `backend/` — NestJS 11 + TypeORM + PostgreSQL
 - `admin/` — the admin panel, same stack as `frontend/` (`admin` branch only)
 - `staff/` — the staff workspace, same stack (`staff` branch only)
+- `game/` — the rhythm game, same stack + PixiJS (`game` branch only)
+- `packages/game-core/` — plain TypeScript, no framework. Chart schema, canonical
+  hashing and scoring, imported by **both** `backend/` and `game/` so client and
+  server cannot disagree about a score. On every branch.
 
 ## Commands
 
@@ -27,6 +31,27 @@ Signs in at `/login` against `/api/admin/auth/login` — its own session, not th
 shop's. Admins are ordinary shop users with `role=admin`; nobody registers
 here.
 
+### Rhythm game (`game/`, on the `game` branch)
+
+- `npm run dev` — dev server on http://localhost:3003
+- `npm run build` / `npm run lint` / `npm run typecheck`
+
+Players are ordinary shop users, so the game has **no session of its own** —
+unlike staff and admin it carries no JWT audience and reuses `stiff_access`
+directly. That only works because `COOKIE_DOMAIN=.stiff.ge` widens the shop
+cookie past its issuing host; unset, a stiff.ge sign-in is invisible here.
+
+### Shared game package (`packages/game-core/`)
+
+- `npm run build` — compile to `dist/` (plain `tsc`)
+- `npm test` — build, then Node's built-in test runner
+
+Not on npm and not a workspace: `backend/` and `game/` depend on it as
+`file:../packages/game-core`, which resolves on Render and Vercel because both
+check out the whole repo and only *run* from a subdirectory. Its `dist/` is
+gitignored, so anything that compiles against it must build it first — that is
+what `npm run build:core` in `backend/package.json` is for.
+
 ### Backend (`backend/`)
 
 - `npm run start:dev` — watch-mode dev server on http://localhost:4000
@@ -35,9 +60,9 @@ here.
 - `npm run test:e2e` — e2e tests
 - `npm run lint` — ESLint (flat config)
 
-## Branches — three products, one repo
+## Branches — four products, one repo
 
-There are three deployed sites and one shared NestJS backend, and the branches
+There are four deployed sites and one shared NestJS backend, and the branches
 exist to keep them apart. **Which branch a change belongs on is decided by
 which site it is for, not by how big it is.**
 
@@ -47,14 +72,16 @@ which site it is for, not by how big it is.**
 | `stage`, `pre-prod` | same as `main` | stage.stiff.ge, pre-prod.stiff.ge (behind the Basic-auth gate) |
 | `staff` | everything in `main` **plus** `staff/` | staff.stiff.ge |
 | `admin` | everything in `main` **plus** `admin/` | admin.stiff.ge |
+| `game` | everything in `main` **plus** `game/` | game.stiff.ge |
 | `coming-soon` | the original holding page | historical — do not build on it |
 
-`staff` and `admin` are **supersets** of `main`, not siblings of it. Both need
-the same backend the shop does, because one Nest app serves all three:
-`/api/*` is the shop, `/api/staff/*` is the workspace, `/api/admin/*` is the
-panel's session and audit trail. That is why `backend/src/staff/` and
-`backend/src/admin/` live on every branch while `staff/` and `admin/` — the two
-extra Next.js apps — live only on their own.
+`staff`, `admin` and `game` are **supersets** of `main`, not siblings of it.
+All three need the same backend the shop does, because one Nest app serves them
+all: `/api/*` is the shop, `/api/staff/*` is the workspace, `/api/admin/*` is
+the panel's session and audit trail, `/api/game/*` is the rhythm game. That is
+why `backend/src/staff/`, `backend/src/admin/`, `backend/src/game/` and
+`packages/game-core/` live on every branch while `staff/`, `admin/` and
+`game/` — the three extra Next.js apps — live only on their own.
 
 The admin panel is the odd one: its *work* is not in `backend/src/admin/`. The
 panel edits products, orders and gallery through the shop's own controllers
@@ -75,22 +102,32 @@ origin needs — sign-in, the IP allowlist, the audit trail.
   → commit on **`admin`**.
   But a change to what a tab *does* to a product or an order is shop work in
   `backend/`, and belongs on **`main`**.
+- **Game work** — anything in `game/`: screens, the Pixi render layer, the
+  landscape gate.
+  → commit on **`game`**.
+  The engine, the chart format and the scorer are in `packages/game-core/`, and
+  the API behind them in `backend/src/game/` — both belong on **`main`**,
+  because the backend imports the package and every branch runs that backend.
+  The panel's game tabs are admin work; what those tabs *do* to a song, a chart
+  or a run is backend work on **`main`**.
 
-Never author shop work on `staff` or `admin`. It will reach that subdomain and
+Never author shop work on `staff`, `admin` or `game`. It will reach that
+subdomain and
 never reach stiff.ge, and moving it later means rewriting history.
 
-### Keeping `staff` and `admin` current
+### Keeping `staff`, `admin` and `game` current
 
-Both take shop work by merging, never by having it authored there:
+They take shop work by merging, never by having it authored there:
 
 ```bash
 git checkout staff && git merge main
 git checkout admin && git merge main
+git checkout game  && git merge main
 ```
 
-Do this whenever `main` moves, so neither subdomain is running a months-old
-backend. The reverse direction never happens — neither is merged into `main`,
-or the staff or admin app would land on stiff.ge.
+Do this whenever `main` moves, so no subdomain is running a months-old
+backend. The reverse direction never happens — none of them is merged into
+`main`, or the staff, admin or game app would land on stiff.ge.
 
 ### Promotion
 
@@ -106,6 +143,7 @@ git checkout stage    && git merge main && git push origin stage
 git checkout pre-prod && git merge main && git push origin pre-prod
 git checkout staff    && git merge main && git push origin staff
 git checkout admin    && git merge main && git push origin admin
+git checkout game     && git merge main && git push origin game
 ```
 
 ### Migrations are shared

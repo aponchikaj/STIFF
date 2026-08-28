@@ -1,0 +1,25 @@
+{
+  "name": "@stiff/game-core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Chart schema, canonical hashing and scoring — imported by both the game client and the backend so there is exactly one implementation.",
+  "license": "UNLICENSED",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test 'dist/**/*.test.js'"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5"
+  }
+}

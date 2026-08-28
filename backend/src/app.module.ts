@@ -19,6 +19,7 @@ import { ContactModule } from './contact/contact.module';
 import { ContentModule } from './content/content.module';
 import { CustomersModule } from './customers/customers.module';
 import { GalleryModule } from './gallery/gallery.module';
+import { GameModule } from './game/game.module';
 import { MailModule } from './mail/mail.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { OrdersModule } from './orders/orders.module';
@@ -70,6 +71,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     ProductsModule,
     GalleryModule,
+    GameModule,
     ReactionsModule,
     CommentsModule,
     CartModule,
