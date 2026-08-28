@@ -31,7 +31,8 @@
     "migration:run:safe": "npm run db:backup && npm run migration:run",
     "migration:revert": "npm run typeorm -- migration:revert",
     "migration:show": "npm run typeorm -- migration:show",
-    "build:core": "npm --prefix ../packages/game-core install --no-audit --no-fund && npm --prefix ../packages/game-core run build"
+    "build:core": "npm --prefix ../packages/game-core install --no-audit --no-fund && npm --prefix ../packages/game-core run build",
+    "seed:game": "ts-node -T -r tsconfig-paths/register src/game/seed/seed-cli.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

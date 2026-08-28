@@ -1,5 +1,26 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { GameController } from './game.controller';
+import {
+  Chart,
+  CoinLedgerEntry,
+  EconomyConfig,
+  FeatureFlag,
+  GameCharacter,
+  GameUserSettings,
+  Inventory,
+  Item,
+  LeaderboardEntry,
+  Level,
+  LevelSong,
+  Loadout,
+  Purchase,
+  Run,
+  RunRejection,
+  RunToken,
+  Song,
+  Stage,
+} from './entities';
 
 /**
  * `/api/game/*` — the rhythm game on game.stiff.ge.
@@ -25,6 +46,28 @@ import { GameController } from './game.controller';
  * chart" and the existing audit interceptor covers it for free.
  */
 @Module({
+  imports: [
+    TypeOrmModule.forFeature([
+      Song,
+      Chart,
+      GameCharacter,
+      Stage,
+      Level,
+      LevelSong,
+      GameUserSettings,
+      Run,
+      RunToken,
+      RunRejection,
+      LeaderboardEntry,
+      CoinLedgerEntry,
+      Item,
+      Inventory,
+      Loadout,
+      Purchase,
+      EconomyConfig,
+      FeatureFlag,
+    ]),
+  ],
   controllers: [GameController],
 })
 export class GameModule {}
