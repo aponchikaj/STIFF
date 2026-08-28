@@ -183,6 +183,11 @@ export class AuthController {
    *   subdomain: default `lax` is correct.
    * - Backend on a completely different domain: set COOKIE_SAMESITE=none
    *   (requires HTTPS; browsers may still block third-party cookies).
+   *
+   * `COOKIE_DOMAIN=.stiff.ge` widens the shop session from host-only to every
+   * subdomain, which is what lets a visitor who signed in on stiff.ge play on
+   * game.stiff.ge without signing in again. Read the tradeoff before setting
+   * it — see `cookieDomain()`.
    */
   private get cookieBase() {
     const sameSite = (this.configService.get<string>('COOKIE_SAMESITE') ??
@@ -190,7 +195,38 @@ export class AuthController {
     const secure =
       sameSite === 'none' ||
       this.configService.get<string>('NODE_ENV') === 'production';
-    return { httpOnly: true as const, sameSite, secure };
+    const domain = this.cookieDomain();
+    return {
+      httpOnly: true as const,
+      sameSite,
+      secure,
+      ...(domain ? { domain } : {}),
+    };
+  }
+
+  /**
+   * Host-only by default; `.stiff.ge` when `COOKIE_DOMAIN` says so.
+   *
+   * Unset, a session created on stiff.ge is invisible to game.stiff.ge,
+   * because each frontend proxies `/api/*` through its own origin and the
+   * cookie is scoped to whichever host issued it. The game needs the opposite:
+   * players are ordinary shop users and are expected to arrive already signed
+   * in.
+   *
+   * What this costs: the shop session is then presented to *every* stiff.ge
+   * subdomain, so compromising any one of them exposes it. Two things keep the
+   * blast radius honest — admin and staff use different cookie *names* and
+   * `JwtAuthGuard` prefers theirs, so neither of those sessions is affected;
+   * and the refresh cookie stays scoped to `/api/auth`, so the widened cookie
+   * that travels everywhere is the 15-minute access token, not the 30-day one.
+   *
+   * Left unset in local development on purpose: apps on localhost already
+   * share cookies across ports, and a `.localhost` domain attribute is not
+   * something browsers agree on.
+   */
+  private cookieDomain(): string | undefined {
+    const raw = this.configService.get<string>('COOKIE_DOMAIN')?.trim();
+    return raw ? raw : undefined;
   }
 
   /**
@@ -218,6 +254,7 @@ export class AuthController {
   }
 
   private setAuthCookies(res: Response, pair: TokenPair): void {
+    this.dropHostOnlyCookies(res);
     res.cookie(ACCESS_COOKIE, pair.accessToken, {
       ...this.cookieBase,
       maxAge: ACCESS_TTL_MS,
@@ -236,5 +273,30 @@ export class AuthController {
       ...this.cookieBase,
       path: '/api/auth',
     });
+    this.dropHostOnlyCookies(res);
+  }
+
+  /**
+   * Deletes the host-only variant of each auth cookie.
+   *
+   * Only does anything once `COOKIE_DOMAIN` is set, and it matters exactly
+   * then. Every browser that signed in before that switch is holding a
+   * host-only `stiff_access` for stiff.ge. A host-only cookie and a
+   * `.stiff.ge` cookie of the same name are two distinct cookies: the browser
+   * sends both, `cookie-parser` keeps one, and `clearCookie` with a domain
+   * cannot remove the host-only one — so the stale token can outlive a
+   * sign-out and shadow a fresh sign-in until it expires.
+   *
+   * Sending the deletion alongside the new cookie costs one header and makes
+   * the switchover invisible instead of a week of "it logged me out again".
+   * Harmless to leave in permanently: with no domain configured this clears a
+   * cookie that is immediately re-set by the same response.
+   */
+  private dropHostOnlyCookies(res: Response): void {
+    if (!this.cookieDomain()) return;
+    const { httpOnly, sameSite, secure } = this.cookieBase;
+    const hostOnly = { httpOnly, sameSite, secure };
+    res.clearCookie(ACCESS_COOKIE, { ...hostOnly, path: '/' });
+    res.clearCookie(REFRESH_COOKIE, { ...hostOnly, path: '/api/auth' });
   }
 }
