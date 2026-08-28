@@ -26,3 +26,8 @@ admin/next-env.d.ts
 admin/tsconfig.tsbuildinfo
 game/next-env.d.ts
 game/tsconfig.tsbuildinfo
+
+# Sibling checkouts of the superset branches, so `admin` and `game` can run at
+# the same time — a plain checkout of one deletes the other's app directory.
+# Create with: git worktree add .worktrees/<branch> <branch>
+.worktrees/
