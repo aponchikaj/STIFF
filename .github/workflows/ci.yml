@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, stage, pre-prod, staff]
+    branches: [main, stage, pre-prod, staff, admin]
   pull_request:
   workflow_dispatch:
 
@@ -20,17 +20,24 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       has_staff: ${{ steps.check.outputs.has_staff }}
+      has_admin: ${{ steps.check.outputs.has_admin }}
     steps:
       - uses: actions/checkout@v4
-      # The staff workspace lives only on the `staff` branch; main, stage and
-      # pre-prod carry the shop. Detecting rather than assuming keeps one
-      # workflow correct on every branch.
+      # The staff workspace lives only on the `staff` branch and the admin
+      # panel only on `admin`; main, stage and pre-prod carry the shop.
+      # Detecting rather than assuming keeps one workflow correct on every
+      # branch.
       - id: check
         run: |
           if [ -f staff/package.json ]; then
             echo "has_staff=true" >> "$GITHUB_OUTPUT"
           else
             echo "has_staff=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -f admin/package.json ]; then
+            echo "has_admin=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_admin=false" >> "$GITHUB_OUTPUT"
           fi
 
   backend:
@@ -161,6 +168,34 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: staff/package-lock.json
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+  admin:
+    name: Admin — lint, types, build
+    needs: detect
+    if: needs.detect.outputs.has_admin == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
 
       - run: npm ci
 
