@@ -16,7 +16,7 @@ function run(overrides: Partial<Run> = {}): Run {
     id: 'run-1',
     userId: 'user-1',
     chartId: 'chart-1',
-    rank: 'S' as Rank,
+    rank: 'S',
     validated: true,
     practiceMode: false,
     ...overrides,

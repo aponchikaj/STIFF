@@ -8,6 +8,8 @@ import { RunsService } from './runs.service';
 import { CatalogController } from './catalog.controller';
 import { CatalogService } from './catalog.service';
 import { EconomyService } from './economy.service';
+import { GameAdminController } from './game-admin.controller';
+import { GameAdminService } from './game-admin.service';
 import { LeaderboardService } from './leaderboard.service';
 import { ShopController } from './shop.controller';
 import { ShopService } from './shop.service';
@@ -84,6 +86,7 @@ import {
     CatalogController,
     RunsController,
     ShopController,
+    GameAdminController,
   ],
   providers: [
     GameSettingsService,
@@ -92,6 +95,7 @@ import {
     EconomyService,
     LeaderboardService,
     ShopService,
+    GameAdminService,
   ],
 })
 export class GameModule {}
