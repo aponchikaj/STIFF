@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -7,7 +8,11 @@ import {
   Post,
   Put,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { DIFFICULTIES, type Difficulty } from '@stiff/game-core';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import type { User } from '../users/user.entity';
@@ -19,6 +24,9 @@ import {
   WriteConfigDto,
 } from './dto/game-admin.dto';
 import { GameAdminService } from './game-admin.service';
+import { AudioDecodeService } from './audio-decode.service';
+import { ChartPipelineService } from './chart-pipeline.service';
+import { SectionPlanService } from './section-plan.service';
 
 /**
  * The panel's game operations.
@@ -31,7 +39,58 @@ import { GameAdminService } from './game-admin.service';
 @Controller('game/admin')
 @Roles('admin')
 export class GameAdminController {
-  constructor(private readonly admin: GameAdminService) {}
+  constructor(
+    private readonly admin: GameAdminService,
+    private readonly pipeline: ChartPipelineService,
+    private readonly decoder: AudioDecodeService,
+    private readonly planner: SectionPlanService,
+  ) {}
+
+  /**
+   * Whether the generation pipeline can run at all.
+   *
+   * The panel asks before offering an upload, so a missing ffmpeg is a
+   * disabled button with an explanation rather than a failed job.
+   */
+  @Get('pipeline')
+  async pipelineStatus() {
+    return {
+      ffmpeg: await this.decoder.available(),
+      groq: this.planner.configured,
+      model: this.planner.model,
+    };
+  }
+
+  /**
+   * Stage A. Expensive, and its answer is reused by all four difficulties, so
+   * it runs once per song and is stored.
+   */
+  @Post('songs/:id/analyze')
+  @UseInterceptors(
+    FileInterceptor('audio', { limits: { fileSize: 60 * 1024 * 1024 } }),
+  )
+  analyzeSong(
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('No audio file');
+    return this.pipeline.analyzeSong(id, file.buffer);
+  }
+
+  /** Stage B. Always lands as drafts; approval stays a human act. */
+  @Post('songs/:id/generate')
+  generate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { difficulties?: string[] },
+  ) {
+    const requested = body.difficulties?.filter((d): d is Difficulty =>
+      (DIFFICULTIES as readonly string[]).includes(d),
+    );
+    return this.pipeline.generateCharts(
+      id,
+      requested?.length ? requested : undefined,
+    );
+  }
 
   @Get('overview')
   overview() {
