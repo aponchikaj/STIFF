@@ -23,7 +23,6 @@ const SECTIONS = [
   { href: "/gallery", label: "Gallery" },
   { href: "/content", label: "Content" },
   { href: "/collab", label: "Collab" },
-  { href: "/game", label: "Game" },
   { href: "/broadcast", label: "Broadcast" },
   { href: "/audit", label: "Audit" },
 ] as const;
