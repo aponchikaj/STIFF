@@ -23,10 +23,10 @@ jobs:
       has_admin: ${{ steps.check.outputs.has_admin }}
     steps:
       - uses: actions/checkout@v4
-      # The staff workspace lives only on the `staff` branch and the admin
-      # panel only on `admin`; main, stage and pre-prod carry the shop.
-      # Detecting rather than assuming keeps one workflow correct on every
-      # branch.
+      # The staff workspace lives only on the `staff` branch, the admin panel
+      # only on `admin`; main, stage and
+      # pre-prod carry the shop. Detecting rather than assuming keeps one
+      # workflow correct on every branch.
       - id: check
         run: |
           if [ -f staff/package.json ]; then
@@ -39,7 +39,6 @@ jobs:
           else
             echo "has_admin=false" >> "$GITHUB_OUTPUT"
           fi
-
   backend:
     name: Backend — lint, types, tests
     runs-on: ubuntu-latest
@@ -219,3 +218,4 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
