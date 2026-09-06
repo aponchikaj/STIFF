@@ -132,15 +132,26 @@ export class TokenService {
     return this.jwtService.decode<RefreshPayload>(rawToken)?.jti;
   }
 
+  /**
+   * Housekeeping, bounded by what reuse detection still needs.
+   *
+   * A row is only dropped once its JWT has expired. It is tempting to sweep
+   * revoked rows sooner — they are "used up" — but the revoked row *is* the
+   * reuse detector: `consumeRefreshToken` reads `revokedAt` to tell a replayed
+   * token from an unknown one, and only the first case revokes the whole family.
+   *
+   * Deleting a revoked row while its JWT is still valid turns a detected theft
+   * into a plain "invalid token": the request still fails, so nothing looks
+   * wrong, and the thief's other tokens keep working. With a 30-day refresh TTL
+   * and a 7-day revoked sweep, that blind spot was three weeks wide.
+   *
+   * Expiry is the honest bound — past it the token cannot be replayed anyway,
+   * so the row has nothing left to detect.
+   */
   async purgeStale(): Promise<number> {
-    const now = new Date();
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const expired = await this.refreshTokenRepo.delete({
-      expiresAt: LessThan(now),
+      expiresAt: LessThan(new Date()),
     });
-    const oldRevoked = await this.refreshTokenRepo.delete({
-      revokedAt: LessThan(weekAgo),
-    });
-    return (expired.affected ?? 0) + (oldRevoked.affected ?? 0);
+    return expired.affected ?? 0;
   }
 }
