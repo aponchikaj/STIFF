@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
@@ -41,6 +45,8 @@ describe('OrdersService.updateStatus', () => {
     syncTotal: jest.Mock;
   };
 
+  let claim: jest.Mock;
+
   beforeEach(async () => {
     orderRepo = { findOne: jest.fn() };
     variantsService = {
@@ -49,10 +55,18 @@ describe('OrdersService.updateStatus', () => {
       syncTotal: jest.fn().mockResolvedValue(0),
     };
 
+    // `claimStatus` runs a conditional UPDATE. `[[{ id }], 1]` is what this
+    // driver returns when it matched — i.e. this caller owns the transition.
+    claim = jest.fn().mockResolvedValue([[{ id: 'claimed' }], 1]);
+
     const dataSource = {
       transaction: jest.fn(
         async (cb: (m: unknown) => Promise<unknown>) =>
-          await cb({ save: jest.fn(), getRepository: jest.fn() }),
+          await cb({
+            save: jest.fn(),
+            getRepository: jest.fn(),
+            query: claim,
+          }),
       ),
       getRepository: jest.fn(() => ({ findOne: jest.fn() })),
     };
@@ -141,6 +155,42 @@ describe('OrdersService.updateStatus', () => {
     await expect(
       service.updateStatus('id', { status: 'paid' }),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  /**
+   * The order is read before the transaction opens, so two admins pressing
+   * Cancel together both see `pending`. The conditional UPDATE is what stops
+   * them both restocking: only one can match the status that was read.
+   */
+  it('refuses the transition when someone else already moved the order', async () => {
+    orderRepo.findOne.mockResolvedValue(order({ status: 'pending' }));
+    claim.mockResolvedValue([[], 0]);
+
+    await expect(
+      service.updateStatus('id', { status: 'cancelled' }),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('moves no stock at all when it loses the race', async () => {
+    orderRepo.findOne.mockResolvedValue(order({ status: 'pending' }));
+    claim.mockResolvedValue([[], 0]);
+
+    await expect(
+      service.updateStatus('id', { status: 'cancelled' }),
+    ).rejects.toThrow();
+    expect(variantsService.increment).not.toHaveBeenCalled();
+    expect(variantsService.decrement).not.toHaveBeenCalled();
+  });
+
+  it('claims the transition from the status it read', async () => {
+    orderRepo.findOne.mockResolvedValue(order({ status: 'paid' }));
+
+    await service.updateStatus('id', { status: 'shipped' });
+
+    expect(claim).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE "orders"'),
+      ['id', 'paid', 'shipped'],
+    );
   });
 
   /** Stamped once, so a correction cannot move the arrival date. */
