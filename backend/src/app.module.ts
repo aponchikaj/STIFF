@@ -9,6 +9,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AdminModule } from './admin/admin.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { GameModule } from './game/game.module';
 import { AuthModule } from './auth/auth.module';
 import { CartModule } from './cart/cart.module';
 import { CollabModule } from './collab/collab.module';
@@ -86,6 +87,7 @@ import { UsersModule } from './users/users.module';
     TasksModule,
     StaffModule,
     AdminModule,
+    GameModule,
   ],
   controllers: [AppController],
   providers: [
