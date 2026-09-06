@@ -11,6 +11,7 @@ import { In, IsNull, Not, Repository } from 'typeorm';
 import { RefreshToken } from '../auth/refresh-token.entity';
 import { Comment } from '../comments/comment.entity';
 import { Paginated, paginate } from '../common/types/paginated';
+import { containsPattern } from '../common/utils/escape-like';
 import { Order } from '../orders/order.entity';
 import { Reaction } from '../reactions/reaction.entity';
 import {
@@ -281,9 +282,10 @@ export class UsersService {
   > {
     const qb = this.userRepo.createQueryBuilder('user');
     if (query.search) {
-      qb.andWhere('(user.username ILIKE :search OR user.email ILIKE :search)', {
-        search: `%${query.search}%`,
-      });
+      qb.andWhere(
+        `(user.username ILIKE :search ESCAPE '\\' OR user.email ILIKE :search ESCAPE '\\')`,
+        { search: containsPattern(query.search) },
+      );
     }
     if (query.role) qb.andWhere('user.role = :role', { role: query.role });
     if (query.blocked !== undefined) {
