@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, Repository } from 'typeorm';
+import { rowsAffected } from '../common/utils/returned-rows';
 import { ProductVariant } from './product-variant.entity';
 import { Product } from './product.entity';
 import {
@@ -165,6 +166,10 @@ export class VariantsService {
    * The guard is in the WHERE clause, so two checkouts racing for the last
    * unit cannot both succeed — the second matches no row. This is the single
    * most important query in the shop.
+   *
+   * What it returns has to go through `returnedRows`: this driver answers an
+   * UPDATE with `[rows, rowCount]`, so the array is two long whether or not
+   * the guard held. `variants.service.spec.ts` pins both shapes.
    */
   async decrement(
     manager: EntityManager,
@@ -179,7 +184,7 @@ export class VariantsService {
        RETURNING "id"`,
       [variantId, quantity],
     );
-    if (!Array.isArray(result) || result.length === 0) {
+    if (rowsAffected(result) === 0) {
       throw new BadRequestException(`Not enough stock for ${label}`);
     }
   }
