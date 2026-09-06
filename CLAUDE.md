@@ -1,7 +1,7 @@
 # STIFF
 
-Monorepo for the STIFF brand project. Independent apps, each with its own
-`package.json` — always `cd` into the right one before running npm commands.
+Monorepo for the STIFF brand project. Each app has its own `package.json` —
+always `cd` into the right one before running npm commands.
 
 ## Structure
 
@@ -57,9 +57,9 @@ which site it is for, not by how big it is.**
 | `coming-soon` | the original holding page | historical — do not build on it |
 
 `staff` and `admin` are **supersets** of `main`, not siblings of it. Both need
-the same backend the shop does, because one Nest app serves all three:
-`/api/*` is the shop, `/api/staff/*` is the workspace, `/api/admin/*` is the
-panel's session and audit trail. That is why `backend/src/staff/` and
+the same backend the shop does, because one Nest app serves them all: `/api/*`
+is the shop, `/api/staff/*` is the workspace, `/api/admin/*` is the panel's
+session and audit trail. That is why `backend/src/staff/` and
 `backend/src/admin/` live on every branch while `staff/` and `admin/` — the two
 extra Next.js apps — live only on their own.
 
@@ -82,22 +82,21 @@ origin needs — sign-in, the IP allowlist, the audit trail.
   → commit on **`admin`**.
   But a change to what a tab *does* to a product or an order is shop work in
   `backend/`, and belongs on **`main`**.
-
 Never author shop work on `staff` or `admin`. It will reach that subdomain and
 never reach stiff.ge, and moving it later means rewriting history.
 
 ### Keeping `staff` and `admin` current
 
-Both take shop work by merging, never by having it authored there:
+They take shop work by merging, never by having it authored there:
 
 ```bash
 git checkout staff && git merge main
 git checkout admin && git merge main
 ```
 
-Do this whenever `main` moves, so neither subdomain is running a months-old
-backend. The reverse direction never happens — neither is merged into `main`,
-or the staff or admin app would land on stiff.ge.
+Do this whenever `main` moves, so no subdomain is running a months-old
+backend. The reverse direction never happens — neither is merged into
+`main`, or the staff or admin app would land on stiff.ge.
 
 ### Promotion
 

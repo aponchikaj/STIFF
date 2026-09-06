@@ -86,6 +86,61 @@ describe('streamLocalFile', () => {
     const result = streamLocalFile('/x.mp4', 'video/mp4', 'bytes=5000-', 1000);
     expect(result.status).toBe(416);
   });
+
+  it('serves an open-ended range to the end of the file', () => {
+    const result = streamLocalFile('/x.mp4', 'video/mp4', 'bytes=900-', 1000);
+    expect(result.status).toBe(206);
+    expect(result.start).toBe(900);
+    expect(result.end).toBe(999);
+  });
+
+  /**
+   * `bytes=-500` is a suffix range: the *last* 500 bytes, not the first 500
+   * (RFC 9110 §14.1.2). It is how a player finds the `moov` atom of an MP4 that
+   * was never run through faststart — Safari opens with one — so reading it as
+   * `0-500` hands back the front of the file and the film never plays.
+   */
+  it('reads a suffix range from the end of the file', () => {
+    const result = streamLocalFile('/x.mp4', 'video/mp4', 'bytes=-500', 1000);
+    expect(result.status).toBe(206);
+    expect(result.start).toBe(500);
+    expect(result.end).toBe(999);
+    expect(result.headers['Content-Range']).toBe('bytes 500-999/1000');
+    expect(result.headers['Content-Length']).toBe('500');
+  });
+
+  it('clamps a suffix range longer than the file to the whole file', () => {
+    const result = streamLocalFile('/x.mp4', 'video/mp4', 'bytes=-5000', 1000);
+    expect(result.status).toBe(206);
+    expect(result.start).toBe(0);
+    expect(result.end).toBe(999);
+  });
+
+  /** `bytes=-0` asks for the last zero bytes, which cannot be satisfied. */
+  it('rejects a zero-length suffix range', () => {
+    expect(
+      streamLocalFile('/x.mp4', 'video/mp4', 'bytes=-0', 1000).status,
+    ).toBe(416);
+  });
+
+  /** Neither end given is malformed, not "the whole file". */
+  it('rejects a range with no numbers at all', () => {
+    expect(streamLocalFile('/x.mp4', 'video/mp4', 'bytes=-', 1000).status).toBe(
+      416,
+    );
+  });
+
+  it('clamps a range that runs past the end', () => {
+    const result = streamLocalFile(
+      '/x.mp4',
+      'video/mp4',
+      'bytes=900-9999',
+      1000,
+    );
+    expect(result.status).toBe(206);
+    expect(result.end).toBe(999);
+    expect(result.headers['Content-Length']).toBe('100');
+  });
 });
 
 describe('CollabService', () => {

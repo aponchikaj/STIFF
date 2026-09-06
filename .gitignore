@@ -18,9 +18,16 @@ node_modules/
 .next/
 dist/
 
-# Stale staff/ and admin/ build leftovers from a `staff` or `admin` checkout,
-# on branches without the app.
+# Stale staff/, admin/ and game/ build leftovers from a checkout of one of
+# those branches, on branches without the app.
 staff/next-env.d.ts
 staff/tsconfig.tsbuildinfo
 admin/next-env.d.ts
 admin/tsconfig.tsbuildinfo
+game/next-env.d.ts
+game/tsconfig.tsbuildinfo
+
+# Sibling checkouts of the superset branches, so `admin` and `game` can run at
+# the same time — a plain checkout of one deletes the other's app directory.
+# Create with: git worktree add .worktrees/<branch> <branch>
+.worktrees/
