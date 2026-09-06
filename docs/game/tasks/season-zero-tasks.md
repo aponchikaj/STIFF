@@ -3,6 +3,13 @@
 **Level 0 deliverable.** Twenty-two real dares, not templates. Each carries its tier,
 its clock, the brief a player actually reads, and machine-readable criteria.
 
+**Nothing here is live.** Every day is filmed on the player's own phone and
+uploaded when the clock stops. The clock is how long they have to do the thing;
+the clip length cap is how much of it they hand in. `liveness` still means what
+it meant — a server-issued word or colour that has to appear at its timestamp —
+because that is exactly what a recording can prove and a resubmitted old clip
+cannot.
+
 **Status: unvalidated.** These have been written and run against the exclusion
 list (§11 part II). They have *not* been shown to anyone. The Level 0 gate is
 twelve of twenty-two getting a majority "yes, I'd do that" from ten people in the
@@ -49,7 +56,7 @@ that is fine.
 
 # Tier 1 — Qualifier
 
-**Day 1 · 5,000 players · 15 minutes · photo or ≤60s clip · not live**
+**Day 1 · 5,000 players · 15 minutes · photo or ≤60s clip**
 
 Provable from stills. Anyone can attempt one. The prize is the cut, not the
 coins.
@@ -149,7 +156,7 @@ and a refusal that leads to asking someone else is a pass, not a failure.*
 
 # Tier 2 — Nerve
 
-**Day 2 · 1,000 players · 20 minutes · live · four waves**
+**Day 2 · 1,000 players · 20 minutes · clip ≤3 min · four waves**
 
 Requires a stranger, a place, or being visibly seen. This is the real filter.
 
@@ -287,7 +294,7 @@ verifier.*
 
 # Tier 3 — Final
 
-**Day 3 · top 100 · 25 minutes · live · one wave**
+**Day 3 · top 100 · 25 minutes · clip ≤5 min · one wave**
 
 Hard, specific, and shot to be shared. These are the ones that get filmed.
 

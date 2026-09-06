@@ -2,13 +2,22 @@
 
 **Spec:** the Opal design document (artifact). Read it before executing any level.
 
-Nine levels. Each one produces something that works on its own, and each has a
+Eight levels. Each one produces something that works on its own, and each has a
 **gate** — a condition that must be true before the next level starts. The gates
-matter more than the estimates: skipping one is how you end up with a live video
-pipeline verifying tasks nobody enjoys.
+matter more than the estimates: skipping one is how you end up with an expensive
+media pipeline verifying tasks nobody enjoys.
 
 **Level 5 is the first shippable season.** Everything before it builds toward a
-complete, playable, non-live game. Levels 6 and 7 add the expensive half.
+complete, playable game. Level 6 adds the expensive half.
+
+> **There is no live streaming.** Every attempt on every day is a recording —
+> a photo or a clip, captured on the phone and uploaded. This is a deliberate
+> narrowing, not a deferral: it removes the streaming provider, WHIP publishing,
+> socket rooms, concurrent-stream capacity and the live kill switch from the
+> plan entirely. What it costs is the co-voting-in-the-moment feel; what it buys
+> is a game that one person can operate, that survives a Georgian mobile network,
+> and whose media bill is measured in single-digit dollars rather than hundreds.
+> Voting still happens — on clips, in the window after a round closes.
 
 ---
 
@@ -21,7 +30,7 @@ until that is tested, and testing it costs an afternoon.
 
 - [ ] Write **20 real tasks** — not templates. Actual dares, each with its
       machine-readable criteria and a tier. Cover all three days: photo-provable
-      qualifiers, live tier-2 social dares, tier-3 finals.
+      qualifiers, filmed tier-2 social dares, tier-3 finals.
 - [ ] Run the exclusion list (spec §11 part II) over all 20. Any that fail get
       rewritten or cut — this is also the first real test of the exclusion list.
 - [ ] Show them to **10 people in the target audience**. Ask one question: *would
@@ -68,20 +77,32 @@ database.
 
 ---
 
-## Level 3 — The loop, without video
+## Level 3 — The loop
 
 **~3 weeks.**
 
 The heart of the game. Templates, task instances, assignment with the uniqueness
-constraint, decline-and-recycle, the server-owned clock, accept/decline, photo
-proof upload, and the ledger.
+constraint, decline-and-recycle, the server-owned clock, accept/decline, proof
+capture, and the ledger.
 
 - `game_task_templates`, `game_tasks`, `game_assignments`, `game_attempts`
 - `game_ledger` — append-only, with `currency` and `source` from day one
 - Escrow: hold at accept, release/burn/refund at settle
 - Hearts burn when a penalty exceeds the earned-coin balance
-- Proof is a photo upload; the verdict is a staff decision (Level 4 gives them
-  the screen — until then it's a database update)
+- Proof is a photo or a clip; the verdict is a staff decision (Level 4 gives
+  them the screen — until then it's a database update)
+
+**Two rules about media, both load-bearing on the bill:**
+
+- **Bytes never touch the Nest app.** The browser asks the API for a presigned
+  URL and `PUT`s straight to object storage. Routing 70 GB of season uploads
+  through Render would cost bandwidth *and* memory on an instance sized for
+  JSON. This was already the rule for live proof frames; now it is the rule for
+  everything.
+- **The phone records at delivery bitrate.** `MediaRecorder` is capped at
+  720p / ~1.5 Mbps with a hard duration limit per tier, so the file that is
+  uploaded is the file that is served. No transcoding stage, no second copy,
+  and a third of the upload volume.
 
 **Recover, don't rewrite:** `git show d9e8f928 -- backend/src/game/economy.service.ts`
 has the ledger service and its tests from the removed rhythm game. It lacks
@@ -103,7 +124,7 @@ so this is not a nicety — it's how the game is operated at all.
 - `backend/src/game-admin/` — sign-in, IP allowlist, audit trail only
 - Fourth token audience `stiff-game`, new cases in `jwt-auth.guard.spec.ts`
 - Screens: task studio, review queue, season control, players
-- The live wall waits for Level 6
+- The review queue plays clips inline; there is no live wall to build
 
 **Gate:** a staff member who has never used `psql` can run a whole season —
 publish templates, resolve verdicts, arm opals, stop everything.
@@ -127,25 +148,7 @@ Level 5 and enjoyed it.**
 
 ---
 
-## Level 6 — Live
-
-**~4 weeks.**
-
-- Provider integration — test Cloudflare *and* Bunny.net on Georgian mobile
-  networks before committing (spec §19)
-- WHIP publish from the browser, canvas composite carrying the watermark
-- Two-track split: broadcast to the provider, proof frames direct to R2 via
-  presigned URLs — never through the Nest app
-- Watcher index, stream page, socket room, debounced vote tally
-- Report button, kill switch, and the panel's live wall
-- Proof frames record from the first day even though nothing reads them yet
-
-**Gate:** 50 concurrent streams held for a full 20-minute window without a drop,
-on real phones on real Georgian networks.
-
----
-
-## Level 7 — The AI
+## Level 6 — The AI
 
 **~5 weeks.**
 
@@ -158,6 +161,9 @@ call loads it.
 - Task generation from approved templates, batch, ahead of the round
 - Tier A / B / C cascade with frame-diffing and prompt caching
 - Liveness challenges, decision bands, report triage with autonomous suspension
+  — the challenge word is shown on the player's own screen at a server-chosen
+  second and has to appear in the recording at that timestamp, which is what a
+  recording can prove and a re-upload of last week's clip cannot
 - The panel's "what the AI thought" screen — build it *with* the cascade, not
   after, because shadow mode is unreadable without it
 
@@ -167,7 +173,7 @@ heart or Nerve point moves on a model's say-so before that.**
 
 ---
 
-## Level 8 — Season one
+## Level 7 — Season one
 
 **Small, cheap, and filmed.**
 
@@ -179,8 +185,9 @@ audience and there isn't one yet.
 The tape is what sells season two.**
 
 Six numbers to watch: cost per verified attempt, review queue depth, decline rate
-against pool supply, co-voting density, how many reach day three with hearts
-left, and the only one that really matters — **new shop customers acquired.**
+against pool supply, votes cast per published clip, how many reach day three with
+hearts left, and the only one that really matters — **new shop customers
+acquired.**
 
 ---
 
@@ -188,14 +195,20 @@ left, and the only one that really matters — **new shop customers acquired.**
 
 **The gates are the plan.** Estimates will be wrong; the gates won't be.
 
-**Levels 1–5 need no vendor accounts** beyond what you already have. No
-streaming provider, no AI spend, no R2. That is deliberate — it means the
-decisions in spec §19 can stay open while real progress happens.
+**Levels 1–5 need one vendor account you do not have yet: object storage.**
+Level 3 is where proof starts being uploaded, so an R2 bucket and its presigned
+URLs are due then — not before. There is no streaming provider to choose and no
+AI spend until Level 6, which is what dropping live bought: spec §19's provider
+question is closed rather than deferred.
+
+**Costs are written down in `docs/game/hosting.md`**, including the arithmetic
+for a thousand-player season. Read it before sizing anything.
 
 **Two blockers to clear early, both in spec §20:**
 - `frontend/next.config.ts:71` disables the camera globally. The game app ships
-  its own header; leave the shop's alone. Needed by Level 6, but set it up in
-  Level 1 so it is never a surprise.
+  its own header; leave the shop's alone. Still needed without streaming —
+  `MediaRecorder` wants the same permission a broadcaster would — so set it up
+  in Level 1 rather than discovering it at Level 3.
 - The removed rhythm game's migrations (`1787220000000`–`1787240000000`) were
   deleted without a drop migration. **Check the live Supabase schema before
   Level 3 names a single table.** Highest timestamp on `main` is
