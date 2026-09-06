@@ -38,6 +38,7 @@ describe('AttemptsService', () => {
     save: jest.Mock;
     create: jest.Mock;
     find: jest.Mock;
+    query: jest.Mock;
   };
   let enrolments: { require: jest.Mock };
   let storage: {
@@ -54,6 +55,9 @@ describe('AttemptsService', () => {
       ),
       create: jest.fn((a: unknown) => a),
       find: jest.fn().mockResolvedValue([]),
+      // The reservation is one conditional upsert. An empty array is the
+      // database saying the day was already handed in.
+      query: jest.fn().mockResolvedValue([{ id: 'a1' }]),
     };
     enrolments = {
       require: jest.fn().mockResolvedValue({ id: 'e1', role: 'player' }),
@@ -110,13 +114,33 @@ describe('AttemptsService', () => {
 
     it('reserves the row before the file exists', async () => {
       await service.requestUpload(PLAYER, clip());
-      expect(repo.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          status: 'awaiting_upload',
-          mediaUrl: null,
-          objectKey: 'seasons/zero/day-1/deadbeef.mp4',
-        }),
+      const [sql, params] = repo.query.mock.calls[0] as [string, unknown[]];
+      expect(sql).toMatch(/awaiting_upload/);
+      expect(params).toContain('seasons/zero/day-1/deadbeef.mp4');
+    });
+
+    /**
+     * Two taps on upload arrive together. Read-then-write would have both
+     * find no row, both insert, and the second collide with
+     * `UQ_game_attempts_enrolment_day` as an unhandled driver error — a 500
+     * for pressing a button twice. The claim has to be one statement.
+     */
+    it('claims the day in a single conditional statement', async () => {
+      await service.requestUpload(PLAYER, clip());
+      expect(repo.query).toHaveBeenCalledTimes(1);
+      const [sql] = repo.query.mock.calls[0] as [string];
+      expect(sql).toMatch(/ON CONFLICT \("enrolmentId", "day"\) DO UPDATE/);
+      // The WHERE is what keeps a handed-in day from being overwritten.
+      expect(sql).toMatch(
+        /WHERE "game_attempts"\."status" = 'awaiting_upload'/,
       );
+      expect(sql).toMatch(/RETURNING "id"/);
+    });
+
+    /** No read decides it, so no read can be stale by the time it is used. */
+    it('does not decide the conflict with a separate read', async () => {
+      await service.requestUpload(PLAYER, clip());
+      expect(repo.findOne).not.toHaveBeenCalled();
     });
 
     /** The key is minted by the server; a filename cannot steer it. */
@@ -154,9 +178,11 @@ describe('AttemptsService', () => {
         }),
       );
       expect(ticket.attemptId).toBe('a1');
-      expect(repo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ kind: 'photo', durationSeconds: null }),
-      );
+      const [, params] = repo.query.mock.calls[0] as [string, unknown[]];
+      expect(params).toContain('photo');
+      // A still carries no duration at all, which is also what
+      // CHK_game_attempts_duration insists on.
+      expect(params[params.length - 1]).toBeNull();
     });
 
     it('refuses a day that is not on the ladder', async () => {
@@ -165,8 +191,12 @@ describe('AttemptsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    /**
+     * The `WHERE` matched nothing, so the upsert returned nothing. That empty
+     * result *is* the conflict — the service does not ask a second time.
+     */
     it('refuses a second hand-in for a day already submitted', async () => {
-      repo.findOne.mockResolvedValue({ id: 'a1', status: 'submitted' });
+      repo.query.mockResolvedValue([]);
       await expect(service.requestUpload(PLAYER, clip())).rejects.toThrow(
         ConflictException,
       );
@@ -174,14 +204,16 @@ describe('AttemptsService', () => {
 
     /**
      * A player who starts an upload, loses signal and retries must not be
-     * locked out of their own day by the row they abandoned.
+     * locked out of their own day by the row they abandoned. The row is still
+     * `awaiting_upload`, so the conditional update replaces it and hands back
+     * the same id.
      */
     it('replaces an abandoned reservation rather than blocking it', async () => {
-      repo.findOne.mockResolvedValue({ id: 'a1', status: 'awaiting_upload' });
-      await service.requestUpload(PLAYER, clip());
-      expect(repo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'a1', status: 'awaiting_upload' }),
-      );
+      repo.query.mockResolvedValue([{ id: 'a1' }]);
+      const ticket = await service.requestUpload(PLAYER, clip());
+      expect(ticket.attemptId).toBe('a1');
+      const [sql] = repo.query.mock.calls[0] as [string];
+      expect(sql).toMatch(/"mediaUrl"\s*= NULL/);
     });
   });
 

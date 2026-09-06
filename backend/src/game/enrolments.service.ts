@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { returnedRows } from '../common/utils/returned-rows';
 import { User } from '../users/user.entity';
 import {
   ENROLMENT_ROLES,
@@ -50,38 +51,62 @@ export class EnrolmentsService {
     }
     const season = await this.seasonsService.requireCurrent();
 
+    // Joining is one statement while the season is open, because "asking again
+    // is idempotent" has to survive the thing that actually causes it: a
+    // double tap. Read-then-write would have both requests find nothing, both
+    // insert, and the second hit `UQ_game_enrolments_season_user` as an
+    // unhandled driver error — a 500 for the exact gesture this is meant to
+    // tolerate.
+    //
+    // The `WHERE` carries the rule that a side cannot be swapped:
+    //
+    //   no row yet          -> inserted with the side they asked for
+    //   row, same side      -> touched and returned, so asking twice is free
+    //   row, the other side -> nothing updated, nothing returned, and the read
+    //                          below turns that silence into the real message
+    if (season.status === 'open') {
+      const claimed = returnedRows(
+        await this.enrolmentRepo.query(
+          `INSERT INTO "game_enrolments"
+             ("seasonId", "userId", "role", "handle",
+              "heartsRemaining", "heartsTotal", "nerve")
+           VALUES ($1, $2, $3, $4, $5, $5, 0)
+           ON CONFLICT ("seasonId", "userId") DO UPDATE
+             SET "updatedAt" = now()
+             WHERE "game_enrolments"."role" = EXCLUDED."role"
+           RETURNING *`,
+          [
+            season.id,
+            user.id,
+            role,
+            user.username,
+            // A watcher holds no hearts — they are the player's stake, and
+            // giving watchers three would put a number on the profile that
+            // means nothing.
+            role === 'player' ? season.startingHearts : 0,
+          ],
+        ),
+      ) as GameEnrolment[];
+
+      if (claimed.length > 0) return this.view(claimed[0], season);
+    }
+
+    // Either the season is shut, or the upsert declined because this account
+    // is already on the other side. Both are answered by what is on record.
     const existing = await this.enrolmentRepo.findOne({
       where: { seasonId: season.id, userId: user.id },
     });
-    if (existing) {
-      if (existing.role !== role) {
-        throw new ConflictException(
-          `You are already a ${existing.role} this season, and that cannot be changed.`,
-        );
-      }
-      return this.view(existing, season);
-    }
-
-    if (season.status !== 'open') {
+    if (!existing) {
       throw new ConflictException(
         'This season has already started. Enrolment is closed.',
       );
     }
-
-    const enrolment = await this.enrolmentRepo.save(
-      this.enrolmentRepo.create({
-        seasonId: season.id,
-        userId: user.id,
-        role,
-        handle: user.username,
-        // A watcher holds no hearts — they are the player's stake, and giving
-        // watchers three would put a number on the profile that means nothing.
-        heartsRemaining: role === 'player' ? season.startingHearts : 0,
-        heartsTotal: role === 'player' ? season.startingHearts : 0,
-        nerve: 0,
-      }),
-    );
-    return this.view(enrolment, season);
+    if (existing.role !== role) {
+      throw new ConflictException(
+        `You are already a ${existing.role} this season, and that cannot be changed.`,
+      );
+    }
+    return this.view(existing, season);
   }
 
   /** This account's enrolment for the live season, or null if not enrolled. */

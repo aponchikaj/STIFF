@@ -47,12 +47,23 @@ export class MediaStorageService {
     }
   }
 
+  /**
+   * `GAME_MEDIA_PUBLIC_URL` counts, even though nothing signs with it.
+   *
+   * It is the easiest one to leave out — a separate CDN domain rather than one
+   * of the four signing credentials — and leaving it out breaks nothing at
+   * upload time. It breaks afterwards and permanently: `confirmUpload` writes
+   * `publicUrlFor(...)` into `mediaUrl`, so an unset base would store a
+   * relative path as that attempt's media URL for good, and setting the
+   * variable later does not repair the rows already written.
+   */
   isConfigured(): boolean {
     return Boolean(
       this.config.get<string>('GAME_MEDIA_ENDPOINT') &&
       this.config.get<string>('GAME_MEDIA_BUCKET') &&
       this.config.get<string>('GAME_MEDIA_ACCESS_KEY') &&
-      this.config.get<string>('GAME_MEDIA_SECRET_KEY'),
+      this.config.get<string>('GAME_MEDIA_SECRET_KEY') &&
+      this.config.get<string>('GAME_MEDIA_PUBLIC_URL'),
     );
   }
 
@@ -63,11 +74,15 @@ export class MediaStorageService {
     return `seasons/${safeSeason}/day-${day}/${randomBytes(16).toString('hex')}.${safeExt}`;
   }
 
-  /** Where the CDN will serve the finished object from. */
+  /**
+   * Where the CDN will serve the finished object from.
+   *
+   * Throws rather than falling back to a bare `/key`. This value is persisted
+   * on the attempt, so a quiet default would not be a broken page once — it
+   * would be a row that is wrong permanently.
+   */
   publicUrlFor(objectKey: string): string {
-    const base = (
-      this.config.get<string>('GAME_MEDIA_PUBLIC_URL') ?? ''
-    ).replace(/\/+$/, '');
+    const base = this.required('GAME_MEDIA_PUBLIC_URL').replace(/\/+$/, '');
     return `${base}/${objectKey}`;
   }
 
