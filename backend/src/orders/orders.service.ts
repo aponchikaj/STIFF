@@ -1,17 +1,19 @@
 import {
   BadRequestException,
+  ConflictException,
   UnauthorizedException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { CartItem } from '../cart/cart-item.entity';
 import { CartOwner, ownerWhere } from '../cart/cart-owner';
 import type { PaymentStart } from '../payments/payment.types';
 import { PaymentsService } from '../payments/payments.service';
 import { Paginated, paginate } from '../common/types/paginated';
+import { rowsAffected } from '../common/utils/returned-rows';
 import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ProductVariant } from '../products/product-variant.entity';
@@ -433,6 +435,18 @@ export class OrdersService {
       order.status === 'cancelled' && dto.status !== 'cancelled';
 
     await this.dataSource.transaction(async (manager) => {
+      // Claim the transition before any stock moves.
+      //
+      // The order was read outside this transaction, so two admins pressing
+      // Cancel together both saw `pending` and would both restock it. Only one
+      // of these UPDATEs can match the status we read; the loser is told to
+      // reload rather than doubling the count on the shelf.
+      if (!(await this.claimStatus(manager, id, order.status, dto.status))) {
+        throw new ConflictException(
+          'This order changed while you were looking at it. Reload and try again.',
+        );
+      }
+
       for (const item of order.items) {
         // A line whose variant was deleted keeps its snapshot but has no row
         // left to move stock on — skip rather than guess which size it was.
@@ -495,6 +509,12 @@ export class OrdersService {
     }
 
     await this.dataSource.transaction(async (manager) => {
+      // Same claim as the admin path: a double-tapped Cancel button read the
+      // order twice and would put the units back twice.
+      if (!(await this.claimStatus(manager, id, order.status, 'cancelled'))) {
+        throw new BadRequestException('This order is already cancelled.');
+      }
+
       for (const item of order.items) {
         if (!item.productId || !item.variantId) continue;
         await this.variantsService.increment(
@@ -512,6 +532,34 @@ export class OrdersService {
 
     await this.notifyStatus(order, true);
     return order;
+  }
+
+  /**
+   * Moves an order from the status it was read at to a new one, atomically.
+   *
+   * Stock only moves across the cancelled boundary, and both callers read the
+   * order *before* opening their transaction — so without this, two concurrent
+   * cancels each see `pending` and each put the units back. The `WHERE` carries
+   * the status we read, exactly like the guard in `variants.decrement`, so the
+   * database decides which caller owns the transition and the loser moves no
+   * stock at all.
+   *
+   * Returns false when someone else got there first.
+   */
+  private async claimStatus(
+    manager: EntityManager,
+    id: string,
+    from: OrderStatus,
+    to: OrderStatus,
+  ): Promise<boolean> {
+    const result = await manager.query<unknown[]>(
+      `UPDATE "orders"
+          SET "status" = $3
+        WHERE "id" = $1 AND "status" = $2
+        RETURNING "id"`,
+      [id, from, to],
+    );
+    return rowsAffected(result) > 0;
   }
 
   /** Admin sets where the parcel is. Cleared by passing empty values. */
