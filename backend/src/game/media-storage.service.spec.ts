@@ -55,6 +55,35 @@ describe('MediaStorageService', () => {
       });
       expect(partial.isConfigured()).toBe(false);
     });
+
+    /**
+     * The public URL is the one that is easy to leave out — it is a separate
+     * CDN domain, not one of the four signing credentials, and forgetting it
+     * breaks nothing at upload time. It breaks later and permanently:
+     * `confirmUpload` writes the result into `mediaUrl`, so an unset base
+     * stores a relative path as the media URL of that attempt forever, and
+     * setting the variable afterwards does not repair the rows already
+     * written. Signing has to be off until it is set.
+     */
+    it('counts the public URL among the keys it needs', () => {
+      const noPublicUrl = serviceWith({
+        GAME_MEDIA_ENDPOINT: ENV.GAME_MEDIA_ENDPOINT,
+        GAME_MEDIA_BUCKET: ENV.GAME_MEDIA_BUCKET,
+        GAME_MEDIA_ACCESS_KEY: ENV.GAME_MEDIA_ACCESS_KEY,
+        GAME_MEDIA_SECRET_KEY: ENV.GAME_MEDIA_SECRET_KEY,
+      });
+      expect(noPublicUrl.isConfigured()).toBe(false);
+      expect(() => noPublicUrl.presignPut('k', 'video/mp4', AT)).toThrow(
+        ServiceUnavailableException,
+      );
+    });
+
+    /** A relative path is not a media URL. Refusing beats storing one. */
+    it('refuses to build a public URL without a base', () => {
+      expect(() => serviceWith({}).publicUrlFor('a/b.mp4')).toThrow(
+        ServiceUnavailableException,
+      );
+    });
   });
 
   describe('when it is configured', () => {
