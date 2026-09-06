@@ -9,6 +9,8 @@ import {
   GameSeason,
 } from './entities';
 import { EnrolmentsService } from './enrolments.service';
+import { GameAdminController } from './game-admin.controller';
+import { GameAdminService } from './game-admin.service';
 import { FeedService } from './feed.service';
 import { GameController } from './game.controller';
 import { LeaderboardService } from './leaderboard.service';
@@ -32,7 +34,7 @@ import { SeasonsService } from './seasons.service';
       GameAttemptComment,
     ]),
   ],
-  controllers: [GameController],
+  controllers: [GameController, GameAdminController],
   providers: [
     SeasonsService,
     EnrolmentsService,
@@ -40,6 +42,7 @@ import { SeasonsService } from './seasons.service';
     FeedService,
     LeaderboardService,
     MediaStorageService,
+    GameAdminService,
   ],
   exports: [SeasonsService, EnrolmentsService],
 })

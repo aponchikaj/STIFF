@@ -1,16 +1,23 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsIn,
   IsInt,
   IsOptional,
   IsString,
   IsUUID,
   Max,
+  Matches,
   MaxLength,
   Min,
   MinLength,
 } from 'class-validator';
-import { ENROLMENT_ROLES, type EnrolmentRole } from '../entities';
+import {
+  ENROLMENT_ROLES,
+  type EnrolmentRole,
+  type SeasonStatus,
+} from '../entities';
+import type { Verdict } from '../game-admin.service';
 import {
   ATTEMPT_KINDS,
   MAX_VIDEO_BYTES,
@@ -137,6 +144,72 @@ export class PlayerSearchQueryDto {
   @MinLength(1)
   @MaxLength(24)
   q: string;
+}
+
+export class CreateSeasonDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(60)
+  @Matches(/^[a-z0-9][a-z0-9-]*$/i, {
+    message: 'slug can only contain letters, numbers and hyphens',
+  })
+  slug: string;
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  title: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  startingHearts?: number;
+}
+
+export class SetSeasonStatusDto {
+  @IsIn(['draft', 'open', 'running', 'closed'])
+  status: SeasonStatus;
+}
+
+export class ReviewQueueQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(3)
+  day?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  limit?: number;
+}
+
+export class SettleAttemptDto {
+  @IsIn(['approve', 'reject'])
+  verdict: Verdict;
+
+  /** Only read on an approval. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(10_000)
+  nerve?: number;
+
+  /** Spec 12 — one-way. */
+  @IsOptional()
+  @IsBoolean()
+  burnHeart?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
 }
 
 export class AttemptIdParam {
