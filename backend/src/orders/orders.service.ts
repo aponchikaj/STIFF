@@ -13,6 +13,7 @@ import { CartOwner, ownerWhere } from '../cart/cart-owner';
 import type { PaymentStart } from '../payments/payment.types';
 import { PaymentsService } from '../payments/payments.service';
 import { Paginated, paginate } from '../common/types/paginated';
+import { containsPattern } from '../common/utils/escape-like';
 import { rowsAffected } from '../common/utils/returned-rows';
 import { MailService } from '../mail/mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -409,8 +410,10 @@ export class OrdersService {
     }
     if (query.search) {
       qb.andWhere(
-        '(CAST(order.id AS text) ILIKE :search OR user.username ILIKE :search OR user.email ILIKE :search)',
-        { search: `%${query.search}%` },
+        `(CAST(order.id AS text) ILIKE :search ESCAPE '\\'` +
+          ` OR user.username ILIKE :search ESCAPE '\\'` +
+          ` OR user.email ILIKE :search ESCAPE '\\')`,
+        { search: containsPattern(query.search) },
       );
     }
     qb.orderBy('order.createdAt', 'DESC').skip(query.skip).take(query.pageSize);
