@@ -30,7 +30,12 @@ function season(overrides: Partial<GameSeason> = {}): GameSeason {
 
 describe('EnrolmentsService', () => {
   let service: EnrolmentsService;
-  let repo: { findOne: jest.Mock; save: jest.Mock; create: jest.Mock };
+  let repo: {
+    findOne: jest.Mock;
+    save: jest.Mock;
+    create: jest.Mock;
+    query: jest.Mock;
+  };
   let seasons: { current: jest.Mock; requireCurrent: jest.Mock };
 
   beforeEach(async () => {
@@ -40,6 +45,23 @@ describe('EnrolmentsService', () => {
         Promise.resolve({ id: 'e1', ...(e as object) }),
       ),
       create: jest.fn((e: unknown) => e),
+      // Joining is one conditional upsert. Echoing the bound parameters back
+      // keeps the hearts and handle assertions testing the real code path
+      // rather than a fixture someone typed the expected answer into.
+      query: jest.fn((_sql: string, params: unknown[]) =>
+        Promise.resolve([
+          {
+            id: 'e1',
+            seasonId: params[0],
+            userId: params[1],
+            role: params[2],
+            handle: params[3],
+            heartsRemaining: params[4],
+            heartsTotal: params[4],
+            nerve: 0,
+          },
+        ]),
+      ),
     };
     seasons = {
       current: jest.fn().mockResolvedValue(season()),
@@ -82,21 +104,39 @@ describe('EnrolmentsService', () => {
       expect((await service.enrol(USER, 'player')).handle).toBe('asterisk');
     });
 
-    /** A double-tapped button is not an error. */
+    /**
+     * A double-tapped button is not an error — and the double tap is exactly
+     * what breaks a read-then-write. Both calls would find nothing, both would
+     * insert, and the second would hit `UQ_game_enrolments_season_user` as an
+     * unhandled driver error. The claim is one statement so the database
+     * settles it instead.
+     */
     it('is idempotent when asked again for the same side', async () => {
-      repo.findOne.mockResolvedValue({
-        id: 'e1',
-        role: 'player',
-        handle: 'asterisk',
-        heartsRemaining: 2,
-        heartsTotal: 3,
-        nerve: 40,
-      });
+      repo.query.mockResolvedValue([
+        {
+          id: 'e1',
+          role: 'player',
+          handle: 'asterisk',
+          heartsRemaining: 2,
+          heartsTotal: 3,
+          nerve: 40,
+        },
+      ]);
 
       const result = await service.enrol(USER, 'player');
 
       expect(result.nerve).toBe(40);
-      expect(repo.save).not.toHaveBeenCalled();
+      expect(repo.query).toHaveBeenCalledTimes(1);
+      // Nothing was read to decide it, so nothing read could be stale.
+      expect(repo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('claims the place in a single conditional statement', async () => {
+      await service.enrol(USER, 'player');
+      const [sql] = repo.query.mock.calls[0] as [string];
+      expect(sql).toMatch(/ON CONFLICT \("seasonId", "userId"\) DO UPDATE/);
+      // The WHERE is what refuses a swapped side.
+      expect(sql).toMatch(/WHERE "game_enrolments"\."role" = EXCLUDED\."role"/);
     });
 
     /**
@@ -104,6 +144,9 @@ describe('EnrolmentsService', () => {
      * after a bad day would be voting on the field they just left.
      */
     it('refuses to change a role once it is chosen', async () => {
+      // The upsert's WHERE did not match, so it returned nothing — and that
+      // silence is what the read below turns into the real message.
+      repo.query.mockResolvedValue([]);
       repo.findOne.mockResolvedValue({ id: 'e1', role: 'player' });
       await expect(service.enrol(USER, 'watcher')).rejects.toThrow(
         ConflictException,
@@ -125,6 +168,8 @@ describe('EnrolmentsService', () => {
       await expect(service.enrol(USER, 'player')).rejects.toThrow(
         /already started/,
       );
+      // A shut season is not written to at all, not written and rolled back.
+      expect(repo.query).not.toHaveBeenCalled();
     });
 
     /** Someone already in keeps their place when the season starts. */

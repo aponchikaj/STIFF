@@ -393,11 +393,17 @@ describe('FeedService', () => {
 });
 
 describe('feed cursors', () => {
+  /**
+   * A real uuid rather than the fixture's `'a1'`, because the id half of a
+   * cursor is compared against a uuid column — a short fake round-trips fine
+   * in JavaScript and is exactly what let an invalid id reach Postgres.
+   */
   it('round-trips', () => {
-    const decoded = decodeCursor(encodeCursor(attempt()));
+    const id = '3f1a5c8e-9b2d-4e7a-8c1f-2d4b6a8e0c31';
+    const decoded = decodeCursor(encodeCursor(attempt({ id })));
     expect(decoded).toEqual({
       publishedAt: '2026-09-06T10:00:00.000Z',
-      id: 'a1',
+      id,
     });
   });
 
@@ -412,5 +418,36 @@ describe('feed cursors', () => {
     expect(
       decodeCursor(Buffer.from('not-a-date|a1').toString('base64url')),
     ).toBeNull();
+  });
+
+  /**
+   * The half of "unreadable" that a well-formed date hides.
+   *
+   * `attempt.id` is a uuid column, so the id half of the cursor is compared
+   * against one. Postgres does not shrug at `'not-a-uuid'` — it raises
+   * `invalid input syntax for type uuid`, which surfaces as a 500 on a route
+   * anyone can call without an account. Checking the date and not the id
+   * makes the guard look complete while leaving the reachable half open.
+   */
+  it('rejects a cursor whose id is not a uuid', () => {
+    const crafted = (id: string) =>
+      Buffer.from(`2026-09-06T10:00:00.000Z|${id}`).toString('base64url');
+
+    expect(decodeCursor(crafted('not-a-uuid'))).toBeNull();
+    expect(decodeCursor(crafted("' OR 1=1--"))).toBeNull();
+    expect(decodeCursor(crafted('a1'))).toBeNull();
+    // Right shape, wrong characters — 'g' is not a hex digit.
+    expect(
+      decodeCursor(crafted('gggggggg-gggg-4ggg-8ggg-gggggggggggg')),
+    ).toBeNull();
+  });
+
+  it('accepts a cursor carrying a real uuid', () => {
+    const id = '3f1a5c8e-9b2d-4e7a-8c1f-2d4b6a8e0c31';
+    expect(
+      decodeCursor(
+        Buffer.from(`2026-09-06T10:00:00.000Z|${id}`).toString('base64url'),
+      ),
+    ).toEqual({ publishedAt: '2026-09-06T10:00:00.000Z', id });
   });
 });
