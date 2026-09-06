@@ -8,8 +8,11 @@
  * and a shopper searching products for `100%` matches things that have nothing
  * to do with it.
  *
- * Postgres needs `ESCAPE '\'` on the query for the backslashes to mean
- * anything, so this is only half the fix — the call sites carry the other half.
+ * Backslash is already Postgres's default `LIKE` escape character, so these
+ * escapes bite without any query change. The call sites still spell out
+ * `ESCAPE '\'` — not because it is required, but because "why is there a
+ * backslash in this search term" is a question worth answering in the query
+ * rather than three files away.
  */
 export function escapeLike(term: string): string {
   return term.replace(/[\\%_]/g, (char) => `\\${char}`);
