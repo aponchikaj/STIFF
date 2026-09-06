@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Comment } from '../comments/comment.entity';
 import { Paginated, paginate } from '../common/types/paginated';
+import { containsPattern } from '../common/utils/escape-like';
 import { OrderItem } from '../orders/order-item.entity';
 import { Reaction, ReactionType } from '../reactions/reaction.entity';
 import { User } from '../users/user.entity';
@@ -147,9 +148,11 @@ export class ProductsService {
       qb.andWhere('product.id IN (:...ids)', { ids: query.ids });
     }
     if (query.search) {
+      // ESCAPE is required for the backslashes `containsPattern` adds to mean
+      // anything to Postgres; without it a search for `_` matches everything.
       qb.andWhere(
-        '(product.name ILIKE :search OR product.description ILIKE :search)',
-        { search: `%${query.search}%` },
+        `(product.name ILIKE :search ESCAPE '\\' OR product.description ILIKE :search ESCAPE '\\')`,
+        { search: containsPattern(query.search) },
       );
     }
     if (query.category) {
@@ -327,9 +330,14 @@ export class ProductsService {
       return { success: true, soft: true };
     }
 
-    await this.commentRepo.delete({ targetType: 'product', targetId: id });
-    await this.reactionRepo.delete({ targetType: 'product', targetId: id });
-    await this.productRepo.delete({ id });
+    // One transaction: without it, a failure on the product delete leaves the
+    // comments and reactions already gone — the product survives with its
+    // discussion silently erased, which is worse than either outcome alone.
+    await this.dataSource.transaction(async (manager) => {
+      await manager.delete(Comment, { targetType: 'product', targetId: id });
+      await manager.delete(Reaction, { targetType: 'product', targetId: id });
+      await manager.delete(Product, { id });
+    });
     return { success: true, soft: false };
   }
 
