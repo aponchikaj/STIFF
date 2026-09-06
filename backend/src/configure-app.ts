@@ -1,6 +1,9 @@
 import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { Logger, type INestApplicationContext } from '@nestjs/common';
 import { IoAdapter } from '@nestjs/platform-socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
+import { createRedisClient } from './common/redis/ioredis.adapter';
 import cookieParser from 'cookie-parser';
 import type { NextFunction, Request, Response } from 'express';
 import { existsSync, mkdirSync } from 'fs';
@@ -25,12 +28,51 @@ export function corsOrigins(): string[] {
   ];
 }
 
+/**
+ * Socket.IO with the shop's CORS list and, when Redis is configured, a
+ * cross-instance adapter.
+ *
+ * The adapter is the part that matters for scaling. Socket.IO's default keeps
+ * its room membership in process memory, so a staff chat message emitted on
+ * instance A never reaches a colleague connected to instance B. Nothing errors
+ * — the message is simply delivered to the subset of people who happened to
+ * land on the same process — which is the worst way for a chat to break.
+ *
+ * Redis is optional here for the same reason it is everywhere else: unset, the
+ * behaviour is exactly what it is today and correct for one instance.
+ */
 export class CorsIoAdapter extends IoAdapter {
+  private readonly logger = new Logger(CorsIoAdapter.name);
+
+  constructor(
+    app: INestApplicationContext,
+    private readonly redisUrl?: string,
+  ) {
+    super(app);
+  }
+
   createIOServer(port: number, options?: ServerOptions): Server {
-    return super.createIOServer(port, {
+    const server = super.createIOServer(port, {
       ...options,
       cors: { origin: corsOrigins(), credentials: true },
     }) as Server;
+
+    if (!this.redisUrl) {
+      this.logger.warn(
+        'No REDIS_URL — staff chat is confined to one process. Correct for a ' +
+          'single instance; messages go missing across two.',
+      );
+      return server;
+    }
+
+    // The adapter needs two connections: one publishing, one subscribed. A
+    // subscribed ioredis client cannot run ordinary commands, so it cannot be
+    // the same client the rest of the app uses.
+    const pub = createRedisClient(this.redisUrl);
+    const sub = pub.duplicate();
+    server.adapter(createAdapter(pub, sub));
+    this.logger.log('Staff chat fans out across instances via Redis');
+    return server;
   }
 }
 

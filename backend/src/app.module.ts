@@ -7,6 +7,9 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { RedisModule } from './common/redis/redis.module';
+import { RedisThrottlerStorage } from './common/redis/redis-throttler.storage';
+import { REDIS, type RedisPort } from './common/redis/redis.types';
 import { AdminModule } from './admin/admin.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { GameModule } from './game/game.module';
@@ -40,7 +43,18 @@ import { UsersModule } from './users/users.module';
     }),
     JwtModule.register({ global: true }),
     ScheduleModule.forRoot(),
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+    RedisModule,
+    // Storage is Redis when there is one. Without it the throttler keeps its
+    // counters in process memory, which is correct for a single instance and
+    // silently wrong for two — three processes turn a 5-per-minute login limit
+    // into 15, and login is exactly the limit that matters most.
+    ThrottlerModule.forRootAsync({
+      inject: [REDIS],
+      useFactory: (redis: RedisPort | null) => ({
+        throttlers: [{ ttl: 60_000, limit: 100 }],
+        ...(redis ? { storage: new RedisThrottlerStorage(redis) } : {}),
+      }),
+    }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
