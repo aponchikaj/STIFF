@@ -914,9 +914,26 @@ export function streamLocalFile(
       end: -1,
     };
   }
-  const start = match[1] ? parseInt(match[1], 10) : 0;
-  const end = match[2] ? parseInt(match[2], 10) : fileSize - 1;
-  if (start > end || start >= fileSize) {
+  // `bytes=-500` is a suffix range — the *last* 500 bytes, not the first 500
+  // (RFC 9110 §14.1.2). Safari opens an MP4 that never went through faststart
+  // with one, to find the `moov` atom at the end, so reading it as `0-500`
+  // returns the head of the file and the film never starts. `bytes=-` gives no
+  // number at either end and is malformed rather than "everything".
+  const suffixLength = match[1] === '' ? Number(match[2]) : null;
+  const [start, end] =
+    suffixLength === null
+      ? [
+          parseInt(match[1], 10),
+          match[2] ? parseInt(match[2], 10) : fileSize - 1,
+        ]
+      : [Math.max(fileSize - suffixLength, 0), fileSize - 1];
+
+  if (
+    Number.isNaN(start) ||
+    suffixLength === 0 ||
+    start > end ||
+    start >= fileSize
+  ) {
     return {
       status: 416,
       headers: {
