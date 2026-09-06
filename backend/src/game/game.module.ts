@@ -6,7 +6,9 @@ import {
   GameAttemptComment,
   GameAttemptReaction,
   GameEnrolment,
+  GameGenerationRejection,
   GameSeason,
+  GameTaskTemplate,
 } from './entities';
 import { EnrolmentsService } from './enrolments.service';
 import { GameAdminController } from './game-admin.controller';
@@ -17,6 +19,7 @@ import { LeaderboardService } from './leaderboard.service';
 import { MediaStorageService } from './media-storage.service';
 import { SeasonsService } from './seasons.service';
 import { TaskGeneratorService } from './ai/task-generator.service';
+import { TaskTemplatesService } from './task-templates.service';
 
 /**
  * The game's own slice of the API, under `/api/game/*`.
@@ -33,6 +36,8 @@ import { TaskGeneratorService } from './ai/task-generator.service';
       GameAttempt,
       GameAttemptReaction,
       GameAttemptComment,
+      GameTaskTemplate,
+      GameGenerationRejection,
     ]),
   ],
   controllers: [GameController, GameAdminController],
@@ -45,6 +50,7 @@ import { TaskGeneratorService } from './ai/task-generator.service';
     MediaStorageService,
     GameAdminService,
     TaskGeneratorService,
+    TaskTemplatesService,
   ],
   exports: [SeasonsService, EnrolmentsService],
 })

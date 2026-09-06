@@ -17,6 +17,7 @@ import {
   ENROLMENT_ROLES,
   type EnrolmentRole,
   type SeasonStatus,
+  type TemplateStatus,
 } from '../entities';
 import type { Verdict } from '../game-admin.service';
 import {
@@ -237,6 +238,19 @@ export class GenerateTasksDto {
   @IsString()
   @MaxLength(500)
   steer?: string;
+}
+
+export class ListTemplatesQueryDto {
+  @IsOptional()
+  @IsIn(['draft', 'approved', 'retired'])
+  status?: TemplateStatus;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(3)
+  tier?: number;
 }
 
 export class AttemptIdParam {
