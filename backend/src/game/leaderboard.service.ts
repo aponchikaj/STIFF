@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { containsPattern } from '../common/utils/escape-like';
 import { GameEnrolment } from './entities/game-enrolment.entity';
 import { SeasonsService } from './seasons.service';
 
@@ -95,8 +96,8 @@ export class LeaderboardService {
       .createQueryBuilder('enrolment')
       .where('enrolment.seasonId = :seasonId', { seasonId: season.id })
       .andWhere('enrolment.role = :role', { role: 'player' })
-      .andWhere('enrolment.handle ILIKE :term', {
-        term: `%${escapeLike(term)}%`,
+      .andWhere(`enrolment.handle ILIKE :term ESCAPE '\\'`, {
+        term: containsPattern(term),
       })
       .orderBy('enrolment.nerve', 'DESC')
       .addOrderBy('enrolment.handle', 'ASC')
@@ -111,14 +112,4 @@ export class LeaderboardService {
       heartsTotal: enrolment.heartsTotal,
     }));
   }
-}
-
-/**
- * `%` and `_` are wildcards inside ILIKE.
- *
- * Not injection — the term is parameterised — but a search for `_` would match
- * every handle in the season, which is a strange answer to a plausible query.
- */
-export function escapeLike(term: string): string {
-  return term.replace(/[\\%_]/g, (c) => `\\${c}`);
 }

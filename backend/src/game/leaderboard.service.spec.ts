@@ -1,11 +1,7 @@
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { GameEnrolment } from './entities/game-enrolment.entity';
-import {
-  LeaderboardService,
-  MAX_SEARCH_RESULTS,
-  escapeLike,
-} from './leaderboard.service';
+import { LeaderboardService, MAX_SEARCH_RESULTS } from './leaderboard.service';
 import { SeasonsService } from './seasons.service';
 
 /**
@@ -174,25 +170,5 @@ describe('LeaderboardService', () => {
         },
       ]);
     });
-  });
-});
-
-describe('escapeLike', () => {
-  /**
-   * Not injection — the term is parameterised — but `_` is a single-character
-   * wildcard, so an unescaped search for it matches every handle in the season.
-   */
-  it('stops a wildcard from matching the whole field', () => {
-    expect(escapeLike('_')).toBe('\\_');
-    expect(escapeLike('%')).toBe('\\%');
-    expect(escapeLike('100%_sure')).toBe('100\\%\\_sure');
-  });
-
-  it('escapes the escape character itself', () => {
-    expect(escapeLike('a\\b')).toBe('a\\\\b');
-  });
-
-  it('leaves an ordinary handle alone', () => {
-    expect(escapeLike('asterisk')).toBe('asterisk');
   });
 });
