@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsArray,
   IsBoolean,
   IsIn,
   IsInt,
@@ -210,6 +211,32 @@ export class SettleAttemptDto {
   @IsString()
   @MaxLength(500)
   reason?: string;
+}
+
+export class GenerateTasksDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(3)
+  tier: 1 | 2 | 3;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  count: number;
+
+  /** Slugs already in the pool, so the model does not rewrite them. */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(60, { each: true })
+  avoid?: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  steer?: string;
 }
 
 export class AttemptIdParam {

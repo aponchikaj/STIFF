@@ -16,6 +16,7 @@ import { GameController } from './game.controller';
 import { LeaderboardService } from './leaderboard.service';
 import { MediaStorageService } from './media-storage.service';
 import { SeasonsService } from './seasons.service';
+import { TaskGeneratorService } from './ai/task-generator.service';
 
 /**
  * The game's own slice of the API, under `/api/game/*`.
@@ -43,6 +44,7 @@ import { SeasonsService } from './seasons.service';
     LeaderboardService,
     MediaStorageService,
     GameAdminService,
+    TaskGeneratorService,
   ],
   exports: [SeasonsService, EnrolmentsService],
 })

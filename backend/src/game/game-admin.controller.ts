@@ -12,11 +12,13 @@ import {
 import { Roles } from '../common/decorators/roles.decorator';
 import {
   CreateSeasonDto,
+  GenerateTasksDto,
   ReviewQueueQueryDto,
   SetSeasonStatusDto,
   SettleAttemptDto,
 } from './dto/game.dto';
 import { GameAdminService } from './game-admin.service';
+import { TaskGeneratorService } from './ai/task-generator.service';
 
 /**
  * `/api/game/admin/*` — running a season.
@@ -34,7 +36,10 @@ import { GameAdminService } from './game-admin.service';
 @Controller('game/admin')
 @Roles('admin')
 export class GameAdminController {
-  constructor(private readonly gameAdminService: GameAdminService) {}
+  constructor(
+    private readonly gameAdminService: GameAdminService,
+    private readonly taskGenerator: TaskGeneratorService,
+  ) {}
 
   @Get('seasons')
   async seasons() {
@@ -68,6 +73,20 @@ export class GameAdminController {
     @Body() dto: SettleAttemptDto,
   ) {
     return this.gameAdminService.settle(id, dto);
+  }
+
+  /**
+   * Claude writes candidate tasks; the exclusion screen decides which survive.
+   *
+   * Nothing here publishes. The reply carries the accepted drafts *and* the
+   * rejections with their reasons — a rejection rate that climbs is the first
+   * sign a Charter edit stopped holding, and discarding them would throw that
+   * signal away.
+   */
+  @Post('tasks/generate')
+  @HttpCode(200)
+  generateTasks(@Body() dto: GenerateTasksDto) {
+    return this.taskGenerator.generate(dto);
   }
 
   @Post('attempts/:id/unpublish')
