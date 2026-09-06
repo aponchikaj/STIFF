@@ -50,6 +50,7 @@ describe('OrdersService — who may see an order', () => {
   let variantsService: { increment: jest.Mock; syncTotal: jest.Mock };
   let notificationsService: { notify: jest.Mock };
   let mailService: { sendOrderStatus: jest.Mock };
+  let claim: jest.Mock;
 
   beforeEach(async () => {
     orderRepo = { findOne: jest.fn(), save: jest.fn() };
@@ -60,12 +61,20 @@ describe('OrdersService — who may see an order', () => {
     notificationsService = { notify: jest.fn().mockResolvedValue(undefined) };
     mailService = { sendOrderStatus: jest.fn().mockResolvedValue(undefined) };
 
+    // `claimStatus` runs a conditional UPDATE. `[[{ id }], 1]` is what this
+    // driver returns when it matched — i.e. this caller owns the transition.
+    claim = jest.fn().mockResolvedValue([[{ id: 'claimed' }], 1]);
+
     const dataSource = {
       // Runs the callback against a manager that records what it saved, so a
       // cancellation can be asserted without a database.
       transaction: jest.fn(
         async (cb: (m: unknown) => Promise<unknown>) =>
-          await cb({ save: jest.fn(), getRepository: jest.fn() }),
+          await cb({
+            save: jest.fn(),
+            getRepository: jest.fn(),
+            query: claim,
+          }),
       ),
       getRepository: jest.fn(() => ({ findOne: jest.fn() })),
     };
@@ -221,6 +230,28 @@ describe('OrdersService — who may see an order', () => {
       );
 
       await service.cancelByCustomer('id', null, ['pending']);
+      expect(variantsService.increment).not.toHaveBeenCalled();
+    });
+
+    /**
+     * A double-tapped Cancel button reads the order twice and would put the
+     * units back twice. The conditional UPDATE decides which press wins.
+     */
+    it('puts stock back once when cancel is pressed twice', async () => {
+      orderRepo.findOne.mockResolvedValue(
+        order({
+          userId: null,
+          status: 'pending',
+          items: [
+            { productId: 'p1', variantId: 'v1', quantity: 2 },
+          ] as Order['items'],
+        }),
+      );
+      claim.mockResolvedValue([[], 0]);
+
+      await expect(
+        service.cancelByCustomer('id', null, ['pending']),
+      ).rejects.toThrow(/already cancelled/);
       expect(variantsService.increment).not.toHaveBeenCalled();
     });
 
