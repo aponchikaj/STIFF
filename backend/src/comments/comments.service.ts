@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { Paginated, paginate } from '../common/types/paginated';
+import { containsPattern } from '../common/utils/escape-like';
 import { TargetType } from '../common/types/target-type';
 import { GalleryItem } from '../gallery/gallery-item.entity';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -200,8 +201,8 @@ export class CommentsService {
       .createQueryBuilder('comment')
       .leftJoinAndSelect('comment.user', 'user');
     if (query.search) {
-      qb.andWhere('comment.body ILIKE :search', {
-        search: `%${query.search}%`,
+      qb.andWhere(`comment.body ILIKE :search ESCAPE '\\'`, {
+        search: containsPattern(query.search),
       });
     }
     if (query.userId) {
