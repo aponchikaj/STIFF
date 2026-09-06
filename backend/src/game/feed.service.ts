@@ -341,6 +341,17 @@ export function encodeCursor(attempt: GameAttempt): string {
   return Buffer.from(`${at}|${attempt.id}`, 'utf8').toString('base64url');
 }
 
+/**
+ * A cursor is caller-supplied, so both halves have to be checked.
+ *
+ * `attempt.id` is a uuid column and the cursor's id is compared straight
+ * against it. Postgres does not tolerate a non-uuid there — it raises
+ * `invalid input syntax for type uuid` — so an unvalidated id turns a crafted
+ * query string into a 500 on a route that needs no account. Validating the
+ * date alone looks like a complete guard and leaves the reachable half open.
+ */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Anything unreadable is treated as "start from the top", never as an error. */
 export function decodeCursor(raw: string | undefined): FeedCursor | null {
   if (!raw) return null;
@@ -350,6 +361,7 @@ export function decodeCursor(raw: string | undefined): FeedCursor | null {
       .split('|');
     if (!publishedAt || !id) return null;
     if (Number.isNaN(Date.parse(publishedAt))) return null;
+    if (!UUID.test(id)) return null;
     return { publishedAt, id };
   } catch {
     return null;
