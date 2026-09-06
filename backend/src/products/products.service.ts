@@ -148,8 +148,8 @@ export class ProductsService {
       qb.andWhere('product.id IN (:...ids)', { ids: query.ids });
     }
     if (query.search) {
-      // ESCAPE is required for the backslashes `containsPattern` adds to mean
-      // anything to Postgres; without it a search for `_` matches everything.
+      // Backslash is Postgres's default LIKE escape, so `containsPattern`
+      // already bites; the clause is spelled out to say so at the call site.
       qb.andWhere(
         `(product.name ILIKE :search ESCAPE '\\' OR product.description ILIKE :search ESCAPE '\\')`,
         { search: containsPattern(query.search) },
