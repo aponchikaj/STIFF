@@ -1,8 +1,11 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { APP_GUARD, Reflector } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import type { Server } from 'http';
+import { AuthService } from '../auth/auth.service';
+import { TokenService } from '../auth/token.service';
 import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator';
 import { AttemptsService } from './attempts.service';
 import { EnrolmentsService } from './enrolments.service';
@@ -27,7 +30,12 @@ import { SeasonsService } from './seasons.service';
 
 const services = {
   seasons: { current: jest.fn() },
-  enrolments: { enrol: jest.fn(), mine: jest.fn() },
+  enrolments: {
+    enrol: jest.fn(),
+    chooseRole: jest.fn(),
+    mine: jest.fn(),
+    rememberedRole: jest.fn(),
+  },
   attempts: {
     requestUpload: jest.fn(),
     confirmUpload: jest.fn(),
@@ -43,7 +51,18 @@ const services = {
     removeComment: jest.fn(),
   },
   leaderboard: { board: jest.fn(), searchPlayers: jest.fn() },
+  /**
+   * The game's sign-up creates an ordinary shop account and hands back the
+   * shop's session, so the controller depends on the shop's auth. Faked here
+   * because this file is about the HTTP surface; `auth.service.spec.ts` and
+   * `token.service.spec.ts` are where those are proven.
+   */
+  auth: { register: jest.fn() },
+  tokens: { issueTokenPair: jest.fn() },
 };
+
+/** Cookie attributes come from config; none of them is set in a test. */
+const config = { get: () => undefined };
 
 /** Signed out unless a test says otherwise. */
 let signedIn: { id: string; username: string; role: string } | null = null;
@@ -87,6 +106,9 @@ describe('GameController (HTTP)', () => {
         { provide: AttemptsService, useValue: services.attempts },
         { provide: FeedService, useValue: services.feed },
         { provide: LeaderboardService, useValue: services.leaderboard },
+        { provide: AuthService, useValue: services.auth },
+        { provide: TokenService, useValue: services.tokens },
+        { provide: ConfigService, useValue: config },
         {
           provide: APP_GUARD,
           useFactory: stubAuthGuard,
@@ -205,11 +227,11 @@ describe('GameController (HTTP)', () => {
         .post('/api/game/enrolments')
         .send({ role: 'referee' })
         .expect(400);
-      expect(services.enrolments.enrol).not.toHaveBeenCalled();
+      expect(services.enrolments.chooseRole).not.toHaveBeenCalled();
     });
 
     it('accepts both real roles', async () => {
-      services.enrolments.enrol.mockResolvedValue({ role: 'watcher' });
+      services.enrolments.chooseRole.mockResolvedValue({ role: 'watcher' });
       await request(server)
         .post('/api/game/enrolments')
         .send({ role: 'watcher' })
@@ -293,12 +315,12 @@ describe('GameController (HTTP)', () => {
 
     /** `whitelist: true` — an unknown field is dropped, not stored. */
     it('strips a field the DTO does not declare', async () => {
-      services.enrolments.enrol.mockResolvedValue({ role: 'player' });
+      services.enrolments.chooseRole.mockResolvedValue({ role: 'player' });
       await request(server)
         .post('/api/game/enrolments')
         .send({ role: 'player', nerve: 9999 })
         .expect(201);
-      expect(services.enrolments.enrol).toHaveBeenCalledWith(
+      expect(services.enrolments.chooseRole).toHaveBeenCalledWith(
         expect.anything(),
         'player',
       );
@@ -314,6 +336,161 @@ describe('GameController (HTTP)', () => {
 
     it('refuses a feed limit past the cap', async () => {
       await request(server).get('/api/game/feed?limit=500').expect(400);
+    });
+  });
+
+  /**
+   * The front door.
+   *
+   * The page asks one thing at a time — the video, then player or watcher,
+   * then a form — and lands the visitor on the dashboard already signed in.
+   * That is one request, and these hold what it is allowed to be.
+   */
+  describe('signing up from the game', () => {
+    const body = {
+      username: 'asterisk',
+      email: 'a@example.com',
+      password: 'correct horse',
+      role: 'player',
+    };
+
+    beforeEach(() => {
+      services.auth.register.mockResolvedValue({
+        id: 'u9',
+        username: 'asterisk',
+        email: 'a@example.com',
+        role: 'user',
+        isVerified: false,
+      });
+      services.enrolments.chooseRole.mockResolvedValue({
+        enrolment: { role: 'player' },
+        role: 'player',
+        pending: null,
+      });
+      services.tokens.issueTokenPair.mockResolvedValue({
+        accessToken: 'access',
+        refreshToken: 'refresh',
+      });
+    });
+
+    /** Nobody has an account yet — that is the point of the page. */
+    it('works signed out', async () => {
+      await request(server).post('/api/game/register').send(body).expect(201);
+    });
+
+    /**
+     * A player is an ordinary shop user. If this ever stopped calling the
+     * shop's own register there would be two account systems, and the first
+     * sign would be a customer who could not sign in on stiff.ge.
+     */
+    it('creates an ordinary shop account, and never passes the role to it', async () => {
+      await request(server).post('/api/game/register').send(body);
+      expect(services.auth.register).toHaveBeenCalledWith({
+        username: 'asterisk',
+        email: 'a@example.com',
+        password: 'correct horse',
+      });
+    });
+
+    it('takes the side and hands back a session', async () => {
+      const res = await request(server).post('/api/game/register').send(body);
+
+      expect(services.enrolments.chooseRole).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'u9' }),
+        'player',
+      );
+      const sent = res.body as { user: { username: string }; role: string };
+      expect(sent.user.username).toBe('asterisk');
+      expect(sent.role).toBe('player');
+      // The session is a cookie, not only a field, so the game app is signed
+      // in on the next request without storing a token itself.
+      expect(res.headers['set-cookie']).toBeDefined();
+    });
+
+    /** Never the hash, never the settings blob. */
+    it('returns a safe user', async () => {
+      const res = await request(server).post('/api/game/register').send(body);
+      expect(res.body).not.toHaveProperty('user.passwordHash');
+      expect(res.body).not.toHaveProperty('user.settings');
+    });
+
+    /** Between seasons the account is still made; only the side waits. */
+    it('reports a side that was kept rather than joined', async () => {
+      services.enrolments.chooseRole.mockResolvedValue({
+        enrolment: null,
+        role: 'watcher',
+        pending: 'no_season',
+      });
+
+      const res = await request(server)
+        .post('/api/game/register')
+        .send({ ...body, role: 'watcher' })
+        .expect(201);
+
+      const sent = res.body as { pending: string; enrolment: null };
+      expect(sent.pending).toBe('no_season');
+      expect(sent.enrolment).toBeNull();
+    });
+
+    it('refuses a role that is not one of the two', async () => {
+      await request(server)
+        .post('/api/game/register')
+        .send({ ...body, role: 'referee' })
+        .expect(400);
+      expect(services.auth.register).not.toHaveBeenCalled();
+    });
+
+    /**
+     * Inherited from the shop's `RegisterDto`. The point of extending it is
+     * that an account cannot be made here under looser rules than on stiff.ge.
+     */
+    it('applies the shop password and username rules', async () => {
+      await request(server)
+        .post('/api/game/register')
+        .send({ ...body, password: 'short' })
+        .expect(400);
+      await request(server)
+        .post('/api/game/register')
+        .send({ ...body, username: 'no spaces allowed' })
+        .expect(400);
+      expect(services.auth.register).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('the dashboard bootstrap', () => {
+    it('needs a session', async () => {
+      await request(server).get('/api/game/me').expect(403);
+    });
+
+    /** One call, so the screen is never built from a half-arrived state. */
+    it('answers user, season, enrolment and the kept side together', async () => {
+      signedIn = { id: 'u1', username: 'kate', role: 'user' };
+      services.enrolments.mine.mockResolvedValue({ role: 'player', nerve: 12 });
+      services.enrolments.rememberedRole.mockReturnValue(null);
+
+      const res = await request(server).get('/api/game/me').expect(200);
+
+      const sent = res.body as Record<string, unknown>;
+      expect(Object.keys(sent).sort()).toEqual([
+        'enrolment',
+        'rememberedRole',
+        'season',
+        'user',
+      ]);
+      expect(sent.season).toMatchObject({ slug: 'season-zero' });
+    });
+
+    it('says so plainly between seasons', async () => {
+      signedIn = { id: 'u1', username: 'kate', role: 'user' };
+      services.seasons.current.mockResolvedValue(null);
+      services.enrolments.mine.mockResolvedValue(null);
+      services.enrolments.rememberedRole.mockReturnValue('player');
+
+      const res = await request(server).get('/api/game/me').expect(200);
+
+      const sent = res.body as { season: null; rememberedRole: string };
+      expect(sent.season).toBeNull();
+      expect(sent.rememberedRole).toBe('player');
     });
   });
 });
