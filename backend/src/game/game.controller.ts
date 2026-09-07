@@ -9,19 +9,25 @@ import {
   Post,
   Query,
   Req,
+  Res,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
+import { setAuthCookies } from '../auth/auth-cookies';
+import { AuthService } from '../auth/auth.service';
+import { TokenService } from '../auth/token.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import type { AuthenticatedRequest } from '../common/types/authenticated-request';
-import { User } from '../users/user.entity';
+import { toSafeUser, User } from '../users/user.entity';
 import { AttemptsService } from './attempts.service';
 import {
   AddCommentDto,
   ConfirmAttemptDto,
   EnrolDto,
   FeedQueryDto,
+  GameRegisterDto,
   LeaderboardQueryDto,
   PlayerSearchQueryDto,
   RequestUploadDto,
@@ -53,6 +59,9 @@ export class GameController {
     private readonly attemptsService: AttemptsService,
     private readonly feedService: FeedService,
     private readonly leaderboardService: LeaderboardService,
+    private readonly authService: AuthService,
+    private readonly tokenService: TokenService,
+    private readonly configService: ConfigService,
   ) {}
 
   // ------------------------------------------------------------- the season
@@ -82,17 +91,94 @@ export class GameController {
     };
   }
 
+  // ---------------------------------------------------- the front door
+
+  /**
+   * Sign up from the game: a side, then an account, then a session.
+   *
+   * One request because the page asks one thing at a time — the video, then
+   * player or watcher, then a form — and a visitor who has just answered three
+   * questions should not then be asked to sign in.
+   *
+   * It creates an ordinary **shop** account. There is no separate game user:
+   * `AuthService.register` is the same call `/api/auth/register` makes, so the
+   * duplicate checks, the password rules and the verification mail are the
+   * shop's, and the session handed back is the shop's session. Someone who
+   * signs up here can buy something afterwards without registering again.
+   *
+   * The side is taken by `chooseRole`, which is what lets this work between
+   * seasons: with nothing to join the account is still made and the choice is
+   * kept. `pending` says which of those happened.
+   */
+  @Public()
+  @Post('register')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async register(
+    @Body() dto: GameRegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const user = await this.authService.register({
+      username: dto.username,
+      email: dto.email,
+      password: dto.password,
+    });
+    const choice = await this.enrolmentsService.chooseRole(user, dto.role);
+    const pair = await this.tokenService.issueTokenPair(user);
+    setAuthCookies(res, pair, this.configService);
+
+    return {
+      user: toSafeUser(user),
+      ...choice,
+      accessToken: pair.accessToken,
+      refreshToken: pair.refreshToken,
+    };
+  }
+
   // ---------------------------------------------------------- enrolment
 
+  /**
+   * Takes a side for someone who already has an account — the path for a
+   * visitor who arrived from stiff.ge already signed in.
+   *
+   * Returns the same shape as `register` so the page has one thing to read
+   * whichever way the visitor came in.
+   */
   @Post('enrolments')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   enrol(@CurrentUser() user: User, @Body() dto: EnrolDto) {
-    return this.enrolmentsService.enrol(user, dto.role);
+    return this.enrolmentsService.chooseRole(user, dto.role);
   }
 
   @Get('enrolments/me')
   async mine(@CurrentUser() user: User) {
     return { enrolment: await this.enrolmentsService.mine(user) };
+  }
+
+  /**
+   * Everything the dashboard renders, in one call.
+   *
+   * The alternative is three round trips on every load — session, season,
+   * enrolment — which on a phone is three chances to show a half-built screen.
+   */
+  @Get('me')
+  async dashboard(@CurrentUser() user: User) {
+    const season = await this.seasonsService.current();
+    return {
+      user: toSafeUser(user),
+      season: season
+        ? {
+            id: season.id,
+            slug: season.slug,
+            title: season.title,
+            status: season.status,
+            startsAt: season.startsAt,
+            endsAt: season.endsAt,
+          }
+        : null,
+      enrolment: await this.enrolmentsService.mine(user),
+      /** The side kept from a choice made before a season existed. */
+      rememberedRole: this.enrolmentsService.rememberedRole(user),
+    };
   }
 
   // ------------------------------------------------------- handing in proof
