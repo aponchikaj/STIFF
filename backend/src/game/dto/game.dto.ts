@@ -13,6 +13,7 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+import { RegisterDto } from '../../auth/dto/register.dto';
 import {
   ENROLMENT_ROLES,
   type EnrolmentRole,
@@ -29,6 +30,20 @@ import {
 } from '../media-rules';
 
 export class EnrolDto {
+  @IsIn([...ENROLMENT_ROLES])
+  role: EnrolmentRole;
+}
+
+/**
+ * The game's sign-up: a side, then an account.
+ *
+ * Extends the shop's `RegisterDto` rather than restating it, because a player
+ * **is** a shop user — same table, same session, same verification mail. Two
+ * copies of "a username is 3–24 characters of letters, numbers and
+ * underscores" would drift, and the first sign anyone got would be an account
+ * that could be made on one origin and not the other.
+ */
+export class GameRegisterDto extends RegisterDto {
   @IsIn([...ENROLMENT_ROLES])
   role: EnrolmentRole;
 }
