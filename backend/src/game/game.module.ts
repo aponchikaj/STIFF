@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from '../auth/auth.module';
+import { User } from '../users/user.entity';
 import { AttemptsService } from './attempts.service';
 import {
   GameAttempt,
@@ -38,7 +40,12 @@ import { TaskTemplatesService } from './task-templates.service';
       GameAttemptComment,
       GameTaskTemplate,
       GameGenerationRejection,
+      // Not a game table. `EnrolmentsService` keeps the side someone picked
+      // before there was a season to join, and `users.settings` is where a
+      // per-account preference already lives — no new table for one key.
+      User,
     ]),
+    AuthModule,
   ],
   controllers: [GameController, GameAdminController],
   providers: [
