@@ -16,6 +16,23 @@ import {
 import { GameSeason } from './entities/game-season.entity';
 import { SeasonsService } from './seasons.service';
 
+/**
+ * Why a side was chosen but not yet joined.
+ *
+ * `null` means it is a real enrolment. The other two are ordinary states of the
+ * front door, not errors — the sign-up asks for a side before it asks for an
+ * account, so the answer arrives at a moment when there may be nothing to join.
+ */
+export type PendingReason = 'no_season' | 'enrolment_closed';
+
+export interface RoleChoice {
+  /** The enrolment when a season took them; null when it was only kept. */
+  enrolment: EnrolmentView | null;
+  /** What they chose, either way. */
+  role: EnrolmentRole;
+  pending: PendingReason | null;
+}
+
 export interface EnrolmentView {
   id: string;
   seasonId: string;
@@ -32,8 +49,106 @@ export class EnrolmentsService {
   constructor(
     @InjectRepository(GameEnrolment)
     private readonly enrolmentRepo: Repository<GameEnrolment>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
     private readonly seasonsService: SeasonsService,
   ) {}
+
+  /**
+   * Takes a side, whether or not there is a season to take it in.
+   *
+   * `enrol` needs a season that is open. The front door does not have one to
+   * offer: it asks which side you are on *before* it asks for an account, so
+   * the answer can arrive between seasons, and refusing it would make the only
+   * interesting question on the page a dead end.
+   *
+   * So the choice is either joined or kept. The line between them is the line
+   * this game actually draws:
+   *
+   * - **An enrolment is irreversible.** Once a season has taken someone as a
+   *   player, that is fixed — swapping after a bad day would let them vote on
+   *   the field they just left.
+   * - **An intention is not.** Someone who picked watcher in October has joined
+   *   nothing. Holding them to it in January would enforce a rule about a
+   *   season that did not exist when they chose.
+   */
+  async chooseRole(user: User, role: EnrolmentRole): Promise<RoleChoice> {
+    if (!ENROLMENT_ROLES.includes(role)) {
+      throw new BadRequestException('Choose player or watcher.');
+    }
+
+    const season = await this.seasonsService.current();
+
+    // Between seasons. Nothing exists to join, so the choice is only kept.
+    if (!season) {
+      await this.remember(user, role);
+      return { enrolment: null, role, pending: 'no_season' };
+    }
+
+    if (season.status === 'open') {
+      // `enrol` is the atomic path and already settles idempotency and the
+      // role clash; nothing here needs to second-guess it.
+      const enrolment = await this.enrol(user, role);
+      await this.forget(user);
+      return { enrolment, role, pending: null };
+    }
+
+    // The ladder has started, so the only people in it are already in it.
+    const existing = await this.enrolmentRepo.findOne({
+      where: { seasonId: season.id, userId: user.id },
+    });
+    if (!existing) {
+      await this.remember(user, role);
+      return { enrolment: null, role, pending: 'enrolment_closed' };
+    }
+    if (existing.role !== role) {
+      throw new ConflictException(
+        `You are already a ${existing.role} this season, and that cannot be changed.`,
+      );
+    }
+    await this.forget(user);
+    return { enrolment: this.view(existing, season), role, pending: null };
+  }
+
+  /** The side kept from a choice made before there was a season to join. */
+  rememberedRole(user: User): EnrolmentRole | null {
+    const kept = (user?.settings as { game?: { role?: unknown } } | undefined)
+      ?.game?.role;
+    return typeof kept === 'string' &&
+      (ENROLMENT_ROLES as readonly string[]).includes(kept)
+      ? (kept as EnrolmentRole)
+      : null;
+  }
+
+  /**
+   * Writes the kept side onto the account.
+   *
+   * A jsonb merge rather than read-modify-write: `settings` is a shared column
+   * — theme and email preferences live there too — and saving the whole entity
+   * would carry back whatever it was read with, quietly undoing a change made
+   * in between. `||` replaces only the `game` key.
+   */
+  private async remember(user: User, role: EnrolmentRole): Promise<void> {
+    await this.userRepo.query(
+      `UPDATE "users"
+          SET "settings" = COALESCE("settings", '{}'::jsonb) || $2::jsonb
+        WHERE "id" = $1`,
+      [user.id, JSON.stringify({ game: { role } })],
+    );
+    user.settings = { ...(user.settings ?? {}), game: { role } };
+  }
+
+  /** The note is spent once a season has taken them; a stale one would lie. */
+  private async forget(user: User): Promise<void> {
+    if (!this.rememberedRole(user)) return;
+    await this.userRepo.query(
+      `UPDATE "users" SET "settings" = "settings" - 'game' WHERE "id" = $1`,
+      [user.id],
+    );
+    const next = { ...(user.settings ?? {}) };
+    delete next.game;
+    user.settings = next;
+  }
 
   /**
    * Takes a side for this season.
