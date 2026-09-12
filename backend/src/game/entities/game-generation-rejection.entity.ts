@@ -51,6 +51,19 @@ export class GameGenerationRejection {
   @Column({ type: 'jsonb' })
   violations: unknown[];
 
+  /** Who refused it: the regex screen, or the reviewer agent. */
+  @Index()
+  @Column({ type: 'varchar', length: 16, default: 'screen' })
+  source: 'screen' | 'reviewer';
+
+  /** What the creator was told to change. */
+  @Column({ type: 'text', nullable: true })
+  feedback: string | null;
+
+  /** Which round of the loop this was. */
+  @Column({ type: 'smallint', default: 1 })
+  round: number;
+
   @CreateDateColumn()
   createdAt: Date;
 }
