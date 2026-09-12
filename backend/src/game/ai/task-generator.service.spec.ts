@@ -23,7 +23,28 @@ interface SentRequest {
   thinking?: unknown;
   system: { text: string; cache_control?: { type: string } }[];
   messages: { role: string; content: string }[];
-  output_config: { effort: string; format: { type: string } };
+  output_config: {
+    effort: string;
+    format: {
+      type: string;
+      schema: {
+        properties: {
+          tasks: {
+            items: {
+              properties: {
+                proof: { enum: string[] };
+                mode: { enum: string[] };
+                rewardNerve: { minimum: number; maximum: number };
+                rewardCoins: { minimum: number; maximum: number };
+                penaltyCoins: { enum: number[] };
+              };
+              required: string[];
+            };
+          };
+        };
+      };
+    };
+  };
 }
 
 function sent(): SentRequest {
@@ -57,6 +78,11 @@ function task(overrides: Partial<GeneratedTask> = {}): Partial<GeneratedTask> {
     tier: 1,
     title: 'Nine',
     brief: 'Nine things in one room that are exactly the same colour.',
+    proof: 'photo',
+    mode: 'solo',
+    rewardNerve: 10,
+    rewardCoins: 2,
+    penaltyCoins: 1,
     clockMinutes: 15,
     guards: [],
     criteria: [
@@ -155,6 +181,171 @@ describe('TaskGeneratorService', () => {
     it('caps a batch nobody should be asking for', async () => {
       await service.generate({ tier: 1, count: 500 });
       expect(sent().messages[0].content).toContain('Write 20 tier-1 tasks');
+    });
+
+    /** Every task says how it is proved, and the schema makes that a field. */
+    it('requires a proof mode on every task', async () => {
+      await service.generate({ tier: 1, count: 1 });
+      const item = sent().output_config.format.schema.properties.tasks.items;
+      expect(item.properties.proof.enum).toEqual(['photo', 'video', 'either']);
+      expect(item.required).toContain('proof');
+    });
+
+    it('asks for the proof mode in the brief too', async () => {
+      await service.generate({ tier: 1, count: 1 });
+      expect(sent().messages[0].content).toContain('photo, video, or either');
+    });
+
+    /**
+     * Every task says who it is for and what it pays, and the bounds are in
+     * the schema so a model cannot write a task that costs a clan ten coins.
+     */
+    it('requires a mode and the economy fields, within the rule', async () => {
+      await service.generate({ tier: 1, count: 1 });
+      const item = sent().output_config.format.schema.properties.tasks.items;
+      expect(item.properties.mode.enum).toEqual(['solo', 'team']);
+      expect(item.properties.rewardNerve).toMatchObject({
+        minimum: 5,
+        maximum: 100,
+      });
+      expect(item.properties.rewardCoins).toMatchObject({
+        minimum: 1,
+        maximum: 20,
+      });
+      expect(item.properties.penaltyCoins.enum).toEqual([1, 2, 3]);
+      for (const field of [
+        'mode',
+        'rewardNerve',
+        'rewardCoins',
+        'penaltyCoins',
+      ]) {
+        expect(item.required).toContain(field);
+      }
+    });
+
+    it('asks for team tasks, for a clan of two, when told to', async () => {
+      await service.generate({ tier: 2, count: 3, mode: 'team' });
+      expect(sent().messages[0].content).toContain(
+        'Write 3 tier-2 team tasks, for a clan of two.',
+      );
+    });
+
+    it('asks for solo tasks when told to', async () => {
+      await service.generate({ tier: 1, count: 2, mode: 'solo' });
+      expect(sent().messages[0].content).toContain(
+        'Write 2 tier-1 solo tasks.',
+      );
+    });
+
+    it('leaves the mode to the model when not told', async () => {
+      await service.generate({ tier: 1, count: 2 });
+      expect(sent().messages[0].content).toContain('Write 2 tier-1 tasks.');
+    });
+  });
+
+  /**
+   * The other half of the loop: a task the reviewer or the screen refused
+   * goes back with the reason, and the creator writes a different one.
+   */
+  describe('revise', () => {
+    const service = serviceWith({ ANTHROPIC_API_KEY: 'sk-test' });
+    const rejected = task({
+      slug: 'vodka',
+      title: 'Vodka',
+      brief: 'Down a shot of vodka on camera.',
+    }) as GeneratedTask;
+
+    it('refuses without an API key', async () => {
+      await expect(
+        serviceWith({}).revise({ tier: 1, rejected, feedback: 'No.' }),
+      ).rejects.toThrow(ServiceUnavailableException);
+      expect(create).not.toHaveBeenCalled();
+    });
+
+    it('sends the rejected task and the reason, and asks for one different task', async () => {
+      create.mockResolvedValue(reply([task({ slug: 'kibble' })]));
+      await service.revise({
+        tier: 2,
+        rejected,
+        feedback: 'That is alcohol.',
+        avoid: ['heavy', 'nine'],
+        steer: 'gross-out',
+      });
+      const content = sent().messages[0].content;
+      expect(content).toContain('tier-2');
+      expect(content).toContain('title: Vodka');
+      expect(content).toContain('brief: Down a shot of vodka on camera.');
+      expect(content).toContain('Why: That is alcohol.');
+      expect(content).toContain('Write ONE replacement');
+      expect(content).toContain('heavy, nine');
+      expect(content).toContain('gross-out');
+    });
+
+    it('keeps the Charter as the single cached prefix', async () => {
+      create.mockResolvedValue(reply([task()]));
+      await service.revise({ tier: 1, rejected, feedback: 'No.' });
+      expect(sent().system).toHaveLength(1);
+      expect(sent().system[0].text).toBe(CHARTER);
+      expect(sent().system[0].cache_control).toEqual({ type: 'ephemeral' });
+      expect(sent().output_config.format.type).toBe('json_schema');
+    });
+
+    it('hands back the replacement with the model and the usage', async () => {
+      create.mockResolvedValue(reply([task({ slug: 'kibble' })]));
+      const result = await service.revise({
+        tier: 1,
+        rejected,
+        feedback: 'No.',
+      });
+      expect(result.task?.slug).toBe('kibble');
+      expect(result.model).toBe('claude-opus-5');
+      expect(result.usage).toEqual({
+        inputTokens: 120,
+        outputTokens: 800,
+        cacheReadTokens: 4200,
+      });
+    });
+
+    it('hands back nothing on a refusal rather than throwing', async () => {
+      create.mockResolvedValue({
+        model: 'claude-opus-5',
+        stop_reason: 'refusal',
+        stop_details: { type: 'refusal', category: 'cyber' },
+        content: [],
+        usage: { input_tokens: 10, output_tokens: 0 },
+      });
+      const result = await service.revise({
+        tier: 1,
+        rejected,
+        feedback: 'No.',
+      });
+      expect(result.task).toBeNull();
+      expect(result.usage.inputTokens).toBe(10);
+    });
+
+    it('hands back nothing on an unreadable reply', async () => {
+      create.mockResolvedValue(
+        reply([], { content: [{ type: 'text', text: '{"tasks":[{' }] }),
+      );
+      const result = await service.revise({
+        tier: 1,
+        rejected,
+        feedback: 'No.',
+      });
+      expect(result.task).toBeNull();
+    });
+
+    /** The screen is the pipeline's job on a revision, not the creator's. */
+    it('does not screen the replacement itself', async () => {
+      create.mockResolvedValue(
+        reply([task({ slug: 'roof', brief: 'Film from a rooftop ledge.' })]),
+      );
+      const result = await service.revise({
+        tier: 1,
+        rejected,
+        feedback: 'No.',
+      });
+      expect(result.task?.slug).toBe('roof');
     });
   });
 

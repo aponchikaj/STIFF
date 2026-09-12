@@ -36,6 +36,15 @@ export interface GeneratedTask {
   tier: 1 | 2 | 3;
   title: string;
   brief: string;
+  /** How it is proved. Stated in the brief too. */
+  proof: 'photo' | 'video' | 'either';
+  /** One player, or a clan of two — both on camera. */
+  mode: 'solo' | 'team';
+  /** What finishing it pays each person. */
+  rewardNerve: number;
+  rewardCoins: number;
+  /** What failing a team task costs each member: 1 to 3. */
+  penaltyCoins: number;
   clockMinutes: number;
   guards: string[];
   criteria: {
@@ -70,6 +79,11 @@ const TASK_SCHEMA = {
           tier: { type: 'integer', enum: [1, 2, 3] },
           title: { type: 'string' },
           brief: { type: 'string' },
+          proof: { type: 'string', enum: ['photo', 'video', 'either'] },
+          mode: { type: 'string', enum: ['solo', 'team'] },
+          rewardNerve: { type: 'integer', minimum: 5, maximum: 100 },
+          rewardCoins: { type: 'integer', minimum: 1, maximum: 20 },
+          penaltyCoins: { type: 'integer', enum: [1, 2, 3] },
           clockMinutes: { type: 'integer', enum: [15, 20, 25] },
           guards: {
             type: 'array',
@@ -116,6 +130,11 @@ const TASK_SCHEMA = {
           'tier',
           'title',
           'brief',
+          'proof',
+          'mode',
+          'rewardNerve',
+          'rewardCoins',
+          'penaltyCoins',
           'clockMinutes',
           'guards',
           'criteria',
@@ -164,6 +183,8 @@ export class TaskGeneratorService {
     avoid?: string[];
     /** Optional steer: a theme, a sponsor's garment, a gap in the pool. */
     steer?: string;
+    /** Solo tasks, team tasks, or leave it to the model. */
+    mode?: 'solo' | 'team';
   }): Promise<GenerationOutcome> {
     const client = this.client;
     if (!client) {
@@ -245,16 +266,105 @@ export class TaskGeneratorService {
     };
   }
 
+  /**
+   * One replacement for a task the reviewer or the screen refused.
+   *
+   * The rejected brief and the reason go back to the creator verbatim, with
+   * an instruction to write something *different* rather than to patch the
+   * wording — a task that was one of the blocked types in substance stays one
+   * of them however it is rephrased. Returns null when the model produced
+   * nothing usable, which the pipeline counts as a spent round.
+   */
+  async revise(options: {
+    tier: 1 | 2 | 3;
+    rejected: GeneratedTask;
+    feedback: string;
+    avoid?: string[];
+    steer?: string;
+  }): Promise<{
+    task: GeneratedTask | null;
+    model: string;
+    usage: GenerationOutcome['usage'];
+  }> {
+    const client = this.client;
+    if (!client) {
+      throw new ServiceUnavailableException(
+        'Task generation is not available right now.',
+      );
+    }
+
+    const lines = [
+      `A reviewer rejected this tier-${options.tier} task:`,
+      '',
+      `  title: ${options.rejected.title}`,
+      `  brief: ${options.rejected.brief}`,
+      '',
+      `Why: ${options.feedback}`,
+      '',
+      'Write ONE replacement task. Do not rephrase the rejected one — write a',
+      'different dare that is nowhere near the reason it was refused. Be strict:',
+      'if the replacement could be read as any blocked type, choose another idea.',
+    ];
+    if (options.avoid?.length) {
+      lines.push(
+        '',
+        'The pool already has these — do not rewrite them or write near-variants:',
+        options.avoid.slice(0, 60).join(', '),
+      );
+    }
+    if (options.steer) lines.push('', `Additional direction: ${options.steer}`);
+
+    const response = await client.messages.create({
+      model: MODEL,
+      max_tokens: 4000,
+      thinking: { type: 'adaptive' },
+      output_config: {
+        effort: 'high',
+        format: { type: 'json_schema', schema: TASK_SCHEMA },
+      },
+      system: [
+        { type: 'text', text: CHARTER, cache_control: { type: 'ephemeral' } },
+      ],
+      messages: [{ role: 'user', content: lines.join('\n') }],
+    });
+
+    const usage = {
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+      cacheReadTokens: response.usage.cache_read_input_tokens ?? 0,
+    };
+    if (response.stop_reason === 'refusal') {
+      this.logger.warn(
+        `Revision refused: ${response.stop_details?.category ?? 'unknown'}`,
+      );
+      return { task: null, model: response.model, usage };
+    }
+    const [task] = this.parse(response);
+    return { task: task ?? null, model: response.model, usage };
+  }
+
   /** The volatile half of the prompt — everything that changes per call. */
   private brief(
-    options: { tier: number; avoid?: string[]; steer?: string },
+    options: {
+      tier: number;
+      avoid?: string[];
+      steer?: string;
+      mode?: 'solo' | 'team';
+    },
     count: number,
   ): string {
     const lines = [
-      `Write ${count} tier-${options.tier} tasks.`,
+      `Write ${count} tier-${options.tier} ${
+        options.mode === 'team'
+          ? 'team tasks, for a clan of two'
+          : options.mode === 'solo'
+            ? 'solo tasks'
+            : 'tasks'
+      }.`,
       '',
-      'Each must be playable by someone who owns nothing but their own clothes',
-      'and a phone, and must be provable from the footage alone.',
+      'Each must be playable by someone who owns nothing but their own clothes,',
+      'a phone and an ordinary kitchen, must be provable from the footage alone,',
+      'and must say how it is proved: photo, video, or either.',
     ];
     if (options.avoid?.length) {
       lines.push(

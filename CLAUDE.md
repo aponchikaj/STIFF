@@ -7,9 +7,10 @@ always `cd` into the right one before running npm commands.
 
 - `frontend/` — Next.js 16 (App Router, `src/` dir, `@/*` alias) + TypeScript + Tailwind CSS v4
 - `backend/` — NestJS 11 + TypeORM + PostgreSQL
-- `admin/` — the admin panel, same stack as `frontend/` (`admin` branch only)
+- `admin/` — the shop's admin panel, same stack as `frontend/` (`admin` branch only)
 - `staff/` — the staff workspace for staff.stiff.ge, same stack; invite-only,
   its own people table rather than shop users (`staff` branch only)
+- `game-admin/` — the game's admin panel, same stack (`game-admin` branch only)
 
 ## Commands
 
@@ -34,6 +35,22 @@ Signs in at `/login` against `/api/admin/auth/login` — its own session, not th
 shop's. Admins are ordinary shop users with `role=admin`; nobody registers
 here.
 
+### Game admin panel (`game-admin/`, on the `game-admin` branch)
+
+- `npm run dev` — dev server on http://localhost:3004
+- `npm run build` / `npm run lint` / `npm run typecheck`
+
+Runs the game and nothing else — seasons, the review queue, players, the
+board, the task pool, the coin shop, reports. Signs in at `/login` against the
+**same** `/api/admin/auth/login` the shop's panel uses: an admin is one
+account, and that endpoint is the only thing that mints an admin-audience
+token. Cookies are per-origin, so the two panels hold separate sessions.
+
+It is on **stiff.co** while the API is on **stiff.ge** — different registrable
+domains, so every call is cross-site. In production `/api` is rewritten
+first-party through `next.config.ts`; in development it depends on
+`corsOrigins()` naming `http://localhost:3004`. See `game-admin/README.md`.
+
 ### Backend (`backend/`)
 
 - `npm run start:dev` — watch-mode dev server on http://localhost:4000
@@ -42,9 +59,9 @@ here.
 - `npm run test:e2e` — e2e tests
 - `npm run lint` — ESLint (flat config)
 
-## Branches — three products, one repo
+## Branches — four products, one repo
 
-There are three deployed sites and one shared NestJS backend, and the branches
+There are four deployed sites and one shared NestJS backend, and the branches
 exist to keep them apart. **Which branch a change belongs on is decided by
 which site it is for, not by how big it is.**
 
@@ -54,14 +71,16 @@ which site it is for, not by how big it is.**
 | `stage`, `pre-prod` | same as `main` | stage.stiff.ge, pre-prod.stiff.ge (behind the Basic-auth gate) |
 | `staff` | everything in `main` **plus** `staff/` | staff.stiff.ge |
 | `admin` | everything in `main` **plus** `admin/` | admin.stiff.ge |
+| `game-admin` | everything in `main` **plus** `game-admin/` | admin.stiff.co (the game's panel) |
 | `coming-soon` | the original holding page | historical — do not build on it |
 
-`staff` and `admin` are **supersets** of `main`, not siblings of it. Both need
-the same backend the shop does, because one Nest app serves them all: `/api/*`
-is the shop, `/api/staff/*` is the workspace, `/api/admin/*` is the panel's
-session and audit trail. That is why `backend/src/staff/` and
-`backend/src/admin/` live on every branch while `staff/` and `admin/` — the two
-extra Next.js apps — live only on their own.
+`staff`, `admin` and `game-admin` are **supersets** of `main`, not siblings of
+it. They all need the same backend the shop does, because one Nest app serves
+them: `/api/*` is the shop, `/api/staff/*` is the workspace, `/api/admin/*` is
+the panels' session and audit trail, `/api/game/*` is the game. That is why
+`backend/src/staff/`, `backend/src/admin/` and `backend/src/game/` live on
+every branch while `staff/`, `admin/` and `game-admin/` — the three extra
+Next.js apps — live only on their own.
 
 The admin panel is the odd one: its *work* is not in `backend/src/admin/`. The
 panel edits products, orders and gallery through the shop's own controllers
@@ -82,21 +101,29 @@ origin needs — sign-in, the IP allowlist, the audit trail.
   → commit on **`admin`**.
   But a change to what a tab *does* to a product or an order is shop work in
   `backend/`, and belongs on **`main`**.
-Never author shop work on `staff` or `admin`. It will reach that subdomain and
-never reach stiff.ge, and moving it later means rewriting history.
+- **Game panel work** — anything in `game-admin/`: its screens, its chrome,
+  its API client.
+  → commit on **`game-admin`**.
+  The same caveat applies twice over: what a screen *does* — a verdict, a
+  score correction, the cheat rules — is `backend/src/game/`, and belongs on
+  **`main`**.
+Never author shop work on `staff`, `admin` or `game-admin`. It will reach that
+subdomain and never reach stiff.ge, and moving it later means rewriting
+history.
 
-### Keeping `staff` and `admin` current
+### Keeping the superset branches current
 
 They take shop work by merging, never by having it authored there:
 
 ```bash
-git checkout staff && git merge main
-git checkout admin && git merge main
+git checkout staff      && git merge main
+git checkout admin      && git merge main
+git checkout game-admin && git merge main
 ```
 
 Do this whenever `main` moves, so no subdomain is running a months-old
-backend. The reverse direction never happens — neither is merged into
-`main`, or the staff or admin app would land on stiff.ge.
+backend. The reverse direction never happens — none of them is merged into
+`main`, or an extra app would land on stiff.ge.
 
 ### Promotion
 
@@ -110,8 +137,9 @@ To move the shop forward everywhere:
 git checkout main && git push origin main
 git checkout stage    && git merge main && git push origin stage
 git checkout pre-prod && git merge main && git push origin pre-prod
-git checkout staff    && git merge main && git push origin staff
-git checkout admin    && git merge main && git push origin admin
+git checkout staff      && git merge main && git push origin staff
+git checkout admin      && git merge main && git push origin admin
+git checkout game-admin && git merge main && git push origin game-admin
 ```
 
 ### Migrations are shared
