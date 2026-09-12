@@ -72,8 +72,14 @@ export type Buyer =
   | { kind: 'user'; user: User }
   | { kind: 'guest'; guestId: string; email: string };
 
-function buyerEmail(buyer: Buyer): string {
-  return buyer.kind === 'user' ? buyer.user.email : buyer.email;
+/**
+ * Where the invoice goes, or null. A guest always has one — it is the only
+ * record they get. A signed-in account made in the game may have none, and
+ * then the order is placed with an in-app notification and no mail; nothing
+ * invents an address.
+ */
+function buyerEmail(buyer: Buyer): string | null {
+  return buyer.kind === 'user' ? (buyer.user.email ?? null) : buyer.email;
 }
 
 function buyerLabel(buyer: Buyer): string {
@@ -194,10 +200,11 @@ export class OrdersService {
   private async announce(buyer: Buyer, order: Order): Promise<void> {
     if (buyer.kind === 'user') await this.notifyStatus(order, false);
     // Fire-and-forget; MailService logs failures internally.
-    void this.mailService.sendOrderInvoice(buyerEmail(buyer), order);
+    const email = buyerEmail(buyer);
+    if (email) void this.mailService.sendOrderInvoice(email, order);
     void this.mailService.sendNewOrderAlert(order, {
       username: buyerLabel(buyer),
-      email: buyerEmail(buyer),
+      email: email ?? 'no email',
     });
   }
 
