@@ -21,21 +21,38 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import type { AuthenticatedRequest } from '../common/types/authenticated-request';
 import { toSafeUser, User } from '../users/user.entity';
+import { assertOldEnough, parseBirthDate } from './age-gate';
+import { AssignmentsService } from './assignments.service';
 import { AttemptsService } from './attempts.service';
+import { ClansService } from './clans.service';
 import {
   AddCommentDto,
   ConfirmAttemptDto,
+  DrawTaskDto,
   EnrolDto,
   FeedQueryDto,
   GameRegisterDto,
   LeaderboardQueryDto,
+  PlayableTasksQueryDto,
   PlayerSearchQueryDto,
   RequestUploadDto,
 } from './dto/game.dto';
 import { EnrolmentsService } from './enrolments.service';
 import { FeedService } from './feed.service';
 import { LeaderboardService } from './leaderboard.service';
+import {
+  CLAN_SIZE,
+  dailyMinimumTasks,
+  MAX_PENALTY_COINS,
+  MIN_PENALTY_COINS,
+  MINIMUM_AGE,
+  VOTE_REWARD_MAX_COINS,
+  VOTE_REWARD_MIN_COINS,
+  VOTE_WIN_COOLDOWN_HOURS,
+  VOTING_WINDOW_HOURS,
+} from './rules';
 import { SeasonsService } from './seasons.service';
+import { TaskTemplatesService } from './task-templates.service';
 
 /**
  * `/api/game/*` — the player and watcher API.
@@ -57,8 +74,11 @@ export class GameController {
     private readonly seasonsService: SeasonsService,
     private readonly enrolmentsService: EnrolmentsService,
     private readonly attemptsService: AttemptsService,
+    private readonly assignmentsService: AssignmentsService,
+    private readonly clansService: ClansService,
     private readonly feedService: FeedService,
     private readonly leaderboardService: LeaderboardService,
+    private readonly templates: TaskTemplatesService,
     private readonly authService: AuthService,
     private readonly tokenService: TokenService,
     private readonly configService: ConfigService,
@@ -72,6 +92,29 @@ export class GameController {
     // Unauthenticated on purpose: the game origin polls this to know the API
     // is reachable before it asks anyone to sign in.
     return { status: 'ok', live: false };
+  }
+
+  /** The rules a client needs to state up front, from the same constants. */
+  @Public()
+  @Get('rules')
+  async rules() {
+    const season = await this.seasonsService.current();
+    return {
+      minimumAge: MINIMUM_AGE,
+      dailyMinimumTasks: dailyMinimumTasks(this.configService),
+      startingHearts: season?.startingHearts ?? 3,
+      heartCosts: ['declining a task', 'a clock reaching 00:00'],
+      clanSize: CLAN_SIZE,
+      /** The board ranks and never cuts: no rank ends anyone's season. */
+      eliminationByRank: false,
+      tieBreak: 'whoever reached the score first',
+      teamPenaltyCoins: { min: MIN_PENALTY_COINS, max: MAX_PENALTY_COINS },
+      voting: {
+        windowHours: VOTING_WINDOW_HOURS,
+        rewardCoins: { min: VOTE_REWARD_MIN_COINS, max: VOTE_REWARD_MAX_COINS },
+        cooldownHours: VOTE_WIN_COOLDOWN_HOURS,
+      },
+    };
   }
 
   @Public()
@@ -100,11 +143,17 @@ export class GameController {
    * player or watcher, then a form — and a visitor who has just answered three
    * questions should not then be asked to sign in.
    *
-   * It creates an ordinary **shop** account. There is no separate game user:
-   * `AuthService.register` is the same call `/api/auth/register` makes, so the
-   * duplicate checks, the password rules and the verification mail are the
-   * shop's, and the session handed back is the shop's session. Someone who
-   * signs up here can buy something afterwards without registering again.
+   * **A username, a password, a side and a date of birth.** No email, no
+   * phone, nothing else — the game asks for the least it can. The age gate
+   * runs *before* the account is made: the game is 16+ strictly, and refusing
+   * afterwards would leave a shop account behind for someone just told they
+   * cannot be here.
+   *
+   * It still creates an ordinary **shop** account. There is no separate game
+   * user: `AuthService.register` is the same call `/api/auth/register` makes,
+   * so the username rules, the password rules and the session are the shop's.
+   * Someone who signs up here can buy something afterwards without registering
+   * again; they add an email in settings if they want order mail.
    *
    * The side is taken by `chooseRole`, which is what lets this work between
    * seasons: with nothing to join the account is still made and the choice is
@@ -117,10 +166,14 @@ export class GameController {
     @Body() dto: GameRegisterDto,
     @Res({ passthrough: true }) res: Response,
   ) {
+    const birthDate = parseBirthDate(dto.birthDate);
+    assertOldEnough(birthDate);
+
     const user = await this.authService.register({
       username: dto.username,
-      email: dto.email,
+      email: dto.email ?? null,
       password: dto.password,
+      birthDate,
     });
     const choice = await this.enrolmentsService.chooseRole(user, dto.role);
     const pair = await this.tokenService.issueTokenPair(user);
@@ -140,13 +193,14 @@ export class GameController {
    * Takes a side for someone who already has an account — the path for a
    * visitor who arrived from stiff.ge already signed in.
    *
-   * Returns the same shape as `register` so the page has one thing to read
-   * whichever way the visitor came in.
+   * A shop account was never asked its age, so the first time it takes a side
+   * it must send `birthDate`. Returns the same shape as `register` so the page
+   * has one thing to read whichever way the visitor came in.
    */
   @Post('enrolments')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   enrol(@CurrentUser() user: User, @Body() dto: EnrolDto) {
-    return this.enrolmentsService.chooseRole(user, dto.role);
+    return this.enrolmentsService.chooseRole(user, dto.role, dto.birthDate);
   }
 
   @Get('enrolments/me')
@@ -159,10 +213,21 @@ export class GameController {
    *
    * The alternative is three round trips on every load — session, season,
    * enrolment — which on a phone is three chances to show a half-built screen.
+   * `today` is the count the nightly sweep will make, shown early so nobody
+   * finds out at midnight.
    */
   @Get('me')
   async dashboard(@CurrentUser() user: User) {
     const season = await this.seasonsService.current();
+    const enrolment = await this.enrolmentsService.mine(user);
+    const minimum = dailyMinimumTasks(this.configService);
+    const today =
+      enrolment && enrolment.role === 'player'
+        ? {
+            handedIn: await this.attemptsService.handedInToday(enrolment.id),
+            minimum,
+          }
+        : null;
     return {
       user: toSafeUser(user),
       season: season
@@ -175,20 +240,74 @@ export class GameController {
             endsAt: season.endsAt,
           }
         : null,
-      enrolment: await this.enrolmentsService.mine(user),
+      enrolment,
+      /** Their place on the board, by the board's own rule; null off it. */
+      rank:
+        enrolment && enrolment.role === 'player'
+          ? await this.leaderboardService.rankOf(enrolment.id)
+          : null,
+      today,
+      clan: enrolment ? await this.clansService.mine(user) : null,
       /** The side kept from a choice made before a season existed. */
       rememberedRole: this.enrolmentsService.rememberedRole(user),
     };
+  }
+
+  // ------------------------------------------------------------ the tasks
+
+  /** The pool, for reading. Approved tasks only. Playing goes through a draw. */
+  @Public()
+  @Get('tasks')
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  async tasks(@Query() query: PlayableTasksQueryDto) {
+    return { tasks: await this.templates.playable(query) };
+  }
+
+  /**
+   * Draws a task for the day. The server picks; the player accepts or
+   * declines. A draw while an offer is already waiting returns that offer.
+   */
+  @Post('tasks/draw')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  async draw(@CurrentUser() user: User, @Body() dto: DrawTaskDto) {
+    return { assignment: await this.assignmentsService.draw(user, dto.day) };
+  }
+
+  /** The offer waiting or the clock running, with seconds left. */
+  @Get('assignments/current')
+  async currentAssignment(@CurrentUser() user: User) {
+    return { assignment: await this.assignmentsService.current(user) };
+  }
+
+  /** Starts the clock. */
+  @Post('assignments/:id/accept')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  async accept(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return { assignment: await this.assignmentsService.accept(user, id) };
+  }
+
+  /** Says no. Costs a heart; the last heart makes them a watcher. */
+  @Post('assignments/:id/decline')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  decline(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
+    return this.assignmentsService.decline(user, id);
   }
 
   // ------------------------------------------------------- handing in proof
 
   /**
    * Step one of two. Returns a URL the browser `PUT`s the file to directly —
-   * the bytes never come through here.
+   * the bytes never come through here. Opens against an accepted task with
+   * time left on its clock.
    */
   @Post('attempts/upload-url')
-  @Throttle({ default: { limit: 12, ttl: 60_000 } })
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   requestUpload(@CurrentUser() user: User, @Body() dto: RequestUploadDto) {
     return this.attemptsService.requestUpload(user, dto);
   }
@@ -196,7 +315,7 @@ export class GameController {
   /** Step two: the file is in storage, so the row becomes a real attempt. */
   @Post('attempts/:id/confirm')
   @HttpCode(200)
-  @Throttle({ default: { limit: 12, ttl: 60_000 } })
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   confirmUpload(
     @CurrentUser() user: User,
     @Param('id', ParseUUIDPipe) id: string,
@@ -280,6 +399,16 @@ export class GameController {
   @Get('leaderboard')
   leaderboard(@Query() query: LeaderboardQueryDto) {
     return this.leaderboardService.board(query);
+  }
+
+  /**
+   * Where the caller stands: rank and the rows either side of them.
+   * Signed in only — it is about the person asking, and a player moved to
+   * watcher gets the honest answer rather than an empty one.
+   */
+  @Get('leaderboard/me')
+  standing(@CurrentUser() user: User) {
+    return this.leaderboardService.standing(user);
   }
 
   /** Players only — a watcher chose the audience and is not a search result. */

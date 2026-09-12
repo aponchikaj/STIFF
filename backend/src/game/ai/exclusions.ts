@@ -34,6 +34,16 @@ export const EXCLUSION_CATEGORIES = [
   'animals',
   'stunts',
   'spending',
+  'weapons',
+  'theft',
+  'dangerous_ingestion',
+  'violence',
+  'self_harm',
+  'sexual',
+  'hate',
+  'privacy',
+  'medical',
+  'gambling',
 ] as const;
 
 export type ExclusionCategory = (typeof EXCLUSION_CATEGORIES)[number];
@@ -127,9 +137,10 @@ const RULES: Rule[] = [
   {
     category: 'substances',
     patterns: [
-      /\b(alcohol|drunk|beer|wine|vodka|shot of|drug|weed|cannabis|smoke a|cigarette|vape|pill)\b/i,
+      /\b(alcohol|alcoholic|drunk|beer|wine|vodka|whisky|whiskey|tequila|chacha|cocktail|shots?|shot of|drugs?|weed|cannabis|joint|hash|cocaine|mdma|ecstasy|lsd|mushrooms|smoke a|smoking|cigarettes?|tobacco|vapes?|vaping|hookah|shisha|bar crawl|liquor|(?:a|the) bar)\b/i,
     ],
-    remedy: 'Remove the substance entirely.',
+    remedy:
+      'Remove the substance entirely — no drink, no drug, no smoke, no bar.',
   },
   {
     category: 'confrontation',
@@ -160,13 +171,14 @@ const RULES: Rule[] = [
     patterns: [
       // `schoolchild(ren)?` is spelled out because `\bchildren\b` cannot match
       // inside the compound — there is no word boundary between `l` and `c`.
-      /\b(child(?:ren)?|kid|kids|minors?|teenager|schoolchild(?:ren)?|school.?kids?|under.?18|pupils?|toddler)\b/i,
+      /\b(child(?:ren)?|kid|kids|minors?|teenager|schoolchild(?:ren)?|school.?kids?|under.?1[68]|pupils?|toddler)\b/i,
     ],
     // Deliberately NOT redeemable. `adults_only` is the guard you add to a
     // task about "strangers" to constrain who counts; it cannot redeem a brief
     // that names children outright, because the words contradict the guard.
     // The structural requirement is enforced separately by `requiresAdultsOnly`.
-    remedy: 'No identifiable minors, under any guard. Rewrite for adults.',
+    remedy:
+      'No identifiable minors under 16, under any guard. Strangers approached must be adults.',
   },
   {
     category: 'deception',
@@ -185,8 +197,13 @@ const RULES: Rule[] = [
   },
   {
     category: 'animals',
-    patterns: [/\b(dog|cat|animal|pigeon|stray|pet|bird)\b/i],
-    remedy: 'Remove the animal.',
+    // "dog food" and "cat food" are groceries, not animals — a player eating
+    // a spoon of kibble on camera is exactly the kind of dare the game wants.
+    patterns: [
+      /\b(dogs?|cats?|puppy|kitten)\b(?!\s*(?:food|treats?|biscuits?|kibble))/i,
+      /\b(animals?|pigeons?|strays?|pets?|birds?|horse|cow|goat|chicken(?!\s*(?:nuggets?|wings?|breast|soup|stock))|squirrel|feed the)\b/i,
+    ],
+    remedy: 'Remove the live animal. Pet food eaten by the player is fine.',
   },
   {
     category: 'stunts',
@@ -194,6 +211,79 @@ const RULES: Rule[] = [
       /\b(jump (?:from|off|over)|backflip|parkour|somersault|sprint across|stunt|handstand|balance on)\b/i,
     ],
     remedy: 'Remove the physical risk.',
+  },
+  {
+    category: 'weapons',
+    patterns: [
+      /\b(knife|knives|blade|gun|pistol|rifle|firearm|taser|pepper spray|replica|airsoft|bb gun|crossbow|bat as|machete|sword|brass knuckles|weapon)\b/i,
+    ],
+    remedy: 'Remove the weapon or anything that looks like one.',
+  },
+  {
+    category: 'theft',
+    patterns: [
+      /\b(steal|shoplift|take (?:a|the) (?:sign|cone|menu|flag)|without paying|graffiti|spray.?paint|tag (?:a|the) wall|sticker on|vandali[sz]e|smash|break (?:a|the) window|let the air out|scratch (?:a|the) car|keyed?)\b/i,
+    ],
+    remedy: 'Nothing is taken, marked or damaged, including public property.',
+  },
+  {
+    category: 'dangerous_ingestion',
+    patterns: [
+      /\b(soap|detergent|bleach|glue|paint|chalk|wax|candle wax|tide pod|raw (?:chicken|meat|egg|fish|pork)|expired|mouldy|moldy|rotten|inedible|non.?food|cinnamon challenge|ghost pepper|carolina reaper|hot sauce challenge|chug|down (?:a|the) (?:bottle|litre|liter)|as fast as you can|in one go|in one gulp|swallow (?:it )?whole|without chewing|insects?|bugs?|worms?|cockroach|toothpaste|shampoo|perfume|hand sanitizer|sanitiser|lighter fluid)\b/i,
+    ],
+    remedy:
+      'Anything eaten must be food-safe in the amount asked, at a normal pace. Gross is fine; harmful is not.',
+  },
+  {
+    category: 'violence',
+    patterns: [
+      /\b(slap|punch|kick|hit (?:a|the|them|someone)|push (?:a|the|them|someone)|shove|tackle|wrestle|fight|threaten|chase (?:a|the|them|someone)|corner (?:a|the|them|someone)|headbutt|choke)\b/i,
+    ],
+    remedy: 'Nobody is touched, threatened, chased or made to feel unsafe.',
+  },
+  {
+    category: 'self_harm',
+    patterns: [
+      /\b(cut yourself|burn yourself|hurt yourself|wax (?:your|off)|hold your breath|until it hurts|electric shock|shock yourself|slap yourself|punch yourself|bruise|bleed|pierce|tattoo|shave your (?:head|eyebrows?)|eyebrow)\b/i,
+    ],
+    remedy:
+      'Nothing that causes the player pain or lasting change, even as a joke.',
+  },
+  {
+    category: 'sexual',
+    patterns: [
+      /\b(sexy|sexual|seduce|flirt|pick.?up line|ask (?:a|the|them|someone|(?:a |the )?strangers?|(?:a |the )?passer.?by|anyone) (?:out|on a date)|twerk|lap dance|kiss|lingerie|bikini|thong|crotch|butt|boobs?|breasts?|nipple|strip(?:tease)?|pole dance|onlyfans|nude|naked)\b/i,
+    ],
+    remedy: 'Nothing sexual, suggestive, or undressed.',
+  },
+  {
+    category: 'hate',
+    patterns: [
+      /\b(accent|racist|racial|ethnic|religion|religious|church|mosque|synagogue|prayer|political|politician|protest|slogan|flag|nationalit(?:y|ies)|immigrants?|refugees?|gay|trans|fat|disabled|homeless|beggar|make fun of|mock)\b/i,
+    ],
+    remedy:
+      'Nothing that targets or references a group, a faith, a body, or a side.',
+  },
+  {
+    category: 'privacy',
+    patterns: [
+      /\b(licen[cs]e plate|number plate|car plate|address|phone number|their name|full name|id card|passport|documents?|toilet|bathroom|changing room|locker room|hospital|clinic|school|classroom|inside (?:a|their|someone's) (?:home|house|flat|apartment)|their screen|over (?:their|his|her) shoulder)\b/i,
+    ],
+    remedy: 'No private places, no personal details of anyone.',
+  },
+  {
+    category: 'medical',
+    patterns: [
+      /\b(pills?|tablets?|vitamins?|supplements?|medic(?:ine|ation)|injection|syringe|needle|blood|vomit|puke|throw up|urine|pee|spit (?:on|at)|bandage|first aid|cpr)\b/i,
+    ],
+    remedy: 'Nothing medical, no medication, no bodily fluids.',
+  },
+  {
+    category: 'gambling',
+    patterns: [
+      /\b(bet|betting|wager|casino|slot machine|slots|poker|roulette|lottery|scratch card|bookmaker|bookies)\b/i,
+    ],
+    remedy: 'No bets, no casinos, no games for money.',
   },
   {
     category: 'spending',

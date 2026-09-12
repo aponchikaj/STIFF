@@ -32,6 +32,22 @@ describe('corsOrigins', () => {
   });
 
   /**
+   * The game is a second domain, not a subdomain — so its panel is cross-site
+   * to the API by construction, and being absent here is the whole difference
+   * between the panel working and every request failing in the browser.
+   */
+  it('allows the game and its panel on stiff.co', () => {
+    const origins = corsOrigins();
+    expect(origins).toEqual(
+      expect.arrayContaining([
+        'https://stiff.co',
+        'https://www.stiff.co',
+        'https://admin.stiff.co',
+      ]),
+    );
+  });
+
+  /**
    * A subdomain nobody serves is a subdomain someone else can take. The list
    * names hosts one at a time for exactly that reason — there is no wildcard.
    */
@@ -50,6 +66,7 @@ describe('corsOrigins', () => {
       delete process.env.STAFF_FRONTEND_URL;
       delete process.env.ADMIN_FRONTEND_URL;
       delete process.env.GAME_FRONTEND_URL;
+      delete process.env.GAME_ADMIN_FRONTEND_URL;
 
       const origins = corsOrigins();
       expect(origins).toEqual(
@@ -58,6 +75,8 @@ describe('corsOrigins', () => {
           'http://localhost:3001',
           'http://localhost:3002',
           'http://localhost:3003',
+          // The game's panel. Its own port, because it is its own app.
+          'http://localhost:3004',
         ]),
       );
     });
@@ -65,7 +84,10 @@ describe('corsOrigins', () => {
 
   it('takes the deployed origins from the environment', () => {
     process.env.GAME_FRONTEND_URL = 'https://game.example.test';
-    expect(corsOrigins()).toContain('https://game.example.test');
+    process.env.GAME_ADMIN_FRONTEND_URL = 'https://panel.example.test';
+    const origins = corsOrigins();
+    expect(origins).toContain('https://game.example.test');
+    expect(origins).toContain('https://panel.example.test');
   });
 
   /** Set to the same value twice, the list must not carry it twice. */
