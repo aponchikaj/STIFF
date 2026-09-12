@@ -18,9 +18,9 @@ export function ThemeToggle() {
       type="button"
       onClick={toggle}
       aria-label="Toggle light and dark mode"
-      className="spin-on-hover flex size-10 items-center justify-center rounded-[2px] text-foreground transition-colors hover:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted"
+      className="spin-on-hover inline-flex size-9 items-center justify-center rounded-[var(--radius-control)] border border-line text-muted transition-colors hover:border-line-strong hover:text-ink"
     >
-      <AsteriskMark className="size-4" />
+      <AsteriskMark className="size-[15px]" />
     </button>
   );
 }

@@ -11,13 +11,19 @@ import type {
 import { errorMessage } from "@/lib/hooks";
 import { useSession } from "../providers";
 import {
-  btnGhostSm,
-  btnSolidSm,
+  Badge,
+  btnGhost,
+  btnIcon,
+  btnPrimarySm,
+  btnSecondarySm,
+  chipCls,
   ErrorNote,
   Field,
   inputCls,
   labelCls,
   Loading,
+  Note,
+  Panel,
   textareaCls,
 } from "../ui";
 
@@ -70,38 +76,37 @@ export function ContentTab() {
   if (!blocks) return <Loading label="Loading content" />;
 
   return (
-    <div className="flex flex-col gap-14">
-      {groups.map((group) => (
-        <section key={group.name} className="flex flex-col gap-8">
-          <h2 className="border-b border-subtle pb-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
-            {group.name}
-          </h2>
-          <div className="grid gap-10 lg:grid-cols-2">
-            {group.blocks.map((block) => (
-              <BlockEditor
-                key={block.key}
-                block={block}
-                initial={saved[block.key] ?? {}}
-              />
-            ))}
-          </div>
-        </section>
-      ))}
+    <div className="flex flex-col gap-5">
+      {groups.map((group) =>
+        group.blocks.map((block) => (
+          <BlockEditor
+            key={block.key}
+            group={group.name}
+            block={block}
+            initial={saved[block.key] ?? {}}
+          />
+        )),
+      )}
     </div>
   );
 }
 
 function BlockEditor({
+  group,
   block,
   initial,
 }: {
+  group: string;
   block: ContentBlock;
   initial: Values;
 }) {
   const { refreshFeatures } = useSession();
   const [values, setValues] = useState<Values>(() => seed(block, initial));
+  const [baseline, setBaseline] = useState<Values>(() => seed(block, initial));
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+
+  const dirty = JSON.stringify(values) !== JSON.stringify(baseline);
 
   function set(key: string, value: unknown) {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -112,10 +117,12 @@ function BlockEditor({
     e.preventDefault();
     setBusy(true);
     setNote(null);
+    const snapshot = values;
     try {
       await adminApi.updateContent(block.key, values);
       // The shop switch changes the whole site chrome, so refresh it here.
       if (block.key === "features") await refreshFeatures();
+      setBaseline(snapshot);
       setNote("Saved. Live on the site now.");
     } catch (err) {
       setNote(errorMessage(err));
@@ -125,36 +132,50 @@ function BlockEditor({
   }
 
   return (
-    <form onSubmit={save} className="flex flex-col gap-4">
-      <div>
-        <p className={labelCls}>{block.label}</p>
-        {block.description && (
-          <p className="mt-1 text-sm text-muted">{block.description}</p>
-        )}
-      </div>
-
-      {block.fields.map((field) => (
-        <FieldEditor
-          key={field.key}
-          block={block}
-          field={field}
-          value={values[field.key]}
-          onChange={(next) => set(field.key, next)}
-        />
-      ))}
-
-      <button
-        type="submit"
-        disabled={busy}
-        className={`${btnSolidSm} self-start`}
+    <form onSubmit={save}>
+      <Panel
+        eyebrow={group}
+        title={block.label}
+        className={dirty ? "border-caution/40" : ""}
+        aside={
+          <>
+            {dirty && <Badge tone="caution">Unsaved</Badge>}
+            <button type="submit" disabled={busy} className={btnPrimarySm}>
+              {busy ? "Saving…" : "Save"}
+            </button>
+          </>
+        }
       >
-        {busy ? "Saving…" : "Save"}
-      </button>
-      <p aria-live="polite" className="min-h-4 text-xs text-muted">
-        {note}
-      </p>
+        {block.description && (
+          <p className="mb-4 max-w-prose text-[13px] leading-6 text-muted">
+            {block.description}
+          </p>
+        )}
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          {block.fields.map((field) => (
+            <div key={field.key} className={spanFor(field)}>
+              <FieldEditor
+                block={block}
+                field={field}
+                value={values[field.key]}
+                onChange={(next) => set(field.key, next)}
+              />
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4">
+          <Note>{note}</Note>
+        </div>
+      </Panel>
     </form>
   );
+}
+
+/** Short text sits two to a row; anything tall takes the full width. */
+function spanFor(field: ContentField): string {
+  return field.type === "text" ? "sm:col-span-1" : "sm:col-span-2";
 }
 
 function FieldEditor({
@@ -173,10 +194,14 @@ function FieldEditor({
   if (field.type === "boolean") {
     const on = value === true;
     return (
-      <div className="flex flex-wrap items-center justify-between gap-4 border border-subtle p-4">
-        <div>
-          <p className="text-sm font-medium">{field.label}</p>
-          {field.hint && <p className="mt-1 text-xs text-muted">{field.hint}</p>}
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-[var(--radius-control)] border border-line bg-raised px-4 py-3">
+        <div className="min-w-0">
+          <p className="text-[13px] font-semibold text-ink">{field.label}</p>
+          {field.hint && (
+            <p className="mt-0.5 text-[11px] leading-5 text-faint">
+              {field.hint}
+            </p>
+          )}
         </div>
         <div className="flex gap-1.5">
           {[true, false].map((state) => (
@@ -185,11 +210,7 @@ function FieldEditor({
               type="button"
               aria-pressed={on === state}
               onClick={() => onChange(state)}
-              className={`flex h-9 items-center rounded-[2px] px-4 text-[11px] font-bold uppercase tracking-[0.15em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted ${
-                on === state
-                  ? "bg-foreground text-background"
-                  : "border border-subtle text-muted hover:border-foreground hover:text-foreground"
-              }`}
+              className={chipCls(on === state)}
             >
               {state ? "On" : "Off"}
             </button>
@@ -202,22 +223,22 @@ function FieldEditor({
   if (field.type === "list") {
     const items = Array.isArray(value) ? (value as ContentListItem[]) : [];
     return (
-      <fieldset className="flex flex-col gap-3 border border-subtle p-4">
-        <legend className="px-1 text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
-          {field.label}
-        </legend>
-        {field.hint && <p className="text-xs text-muted">{field.hint}</p>}
+      <fieldset className="rounded-[var(--radius-control)] border border-line px-4 pb-4 pt-3">
+        <legend className={`${labelCls} px-1`}>{field.label}</legend>
+        {field.hint && (
+          <p className="text-[11px] leading-5 text-faint">{field.hint}</p>
+        )}
 
         {items.map((item, i) => (
-          <div key={i} className="flex flex-col gap-2 border-t border-subtle pt-3">
+          <div key={i} className="mt-3 flex flex-col gap-2 border-t border-line pt-3">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] tracking-[0.2em] text-muted">
+              <span className="tnum text-[11px] font-semibold tracking-[0.1em] text-faint">
                 {String(i + 1).padStart(2, "0")}
               </span>
-              <div className="flex gap-1">
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  className={btnGhostSm}
+                  className={`${btnIcon} disabled:opacity-40`}
                   disabled={i === 0}
                   onClick={() => onChange(move(items, i, i - 1))}
                   aria-label={`Move ${item.title || "item"} up`}
@@ -226,7 +247,7 @@ function FieldEditor({
                 </button>
                 <button
                   type="button"
-                  className={btnGhostSm}
+                  className={`${btnIcon} disabled:opacity-40`}
                   disabled={i === items.length - 1}
                   onClick={() => onChange(move(items, i, i + 1))}
                   aria-label={`Move ${item.title || "item"} down`}
@@ -235,7 +256,7 @@ function FieldEditor({
                 </button>
                 <button
                   type="button"
-                  className={btnGhostSm}
+                  className={`${btnGhost} ml-1.5`}
                   onClick={() => onChange(items.filter((_, j) => j !== i))}
                   aria-label={`Remove ${item.title || "item"}`}
                 >
@@ -267,7 +288,7 @@ function FieldEditor({
 
         <button
           type="button"
-          className={`${btnGhostSm} self-start`}
+          className={`${btnSecondarySm} mt-3`}
           onClick={() => onChange([...items, { title: "", body: "" }])}
         >
           Add item
@@ -278,7 +299,7 @@ function FieldEditor({
 
   const text = typeof value === "string" ? value : "";
   return (
-    <Field id={id} label={field.label}>
+    <Field id={id} label={field.label} hint={field.hint}>
       {field.type === "textarea" ? (
         <textarea
           id={id}

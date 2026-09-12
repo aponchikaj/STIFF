@@ -7,15 +7,26 @@ import { errorMessage, useAsync } from "@/lib/hooks";
 import { asRotation, imageUrl } from "@/lib/image";
 import { GalleryUpload } from "./gallery-upload";
 import {
-  btnGhostSm,
-  btnSolidSm,
+  Badge,
+  btnGhost,
+  btnPrimarySm,
+  checkboxCls,
+  Empty,
   ErrorNote,
   inputCls,
   labelCls,
   Loading,
+  Note,
+  Panel,
 } from "../ui";
 
 const TURNS = [0, 90, 180, 270] as const;
+
+/** A square control for the reorder and rotate affordances. */
+const iconBtn =
+  "inline-flex size-8 items-center justify-center rounded-[var(--radius-control)] border border-line text-[13px] text-muted transition-colors hover:border-line-strong hover:text-ink disabled:cursor-not-allowed disabled:opacity-40";
+
+const dangerGhost = "text-danger hover:text-danger";
 
 async function rotateShot(
   item: GalleryItem,
@@ -51,25 +62,19 @@ export function GalleryTab() {
   const [note, setNote] = useState<string | null>(null);
 
   return (
-    <div className="flex flex-col gap-12">
+    <div className="flex flex-col gap-5">
       <GalleryUpload onPublished={reload} />
 
-      <section>
-        <p className={labelCls}>Archive ({data?.total ?? 0})</p>
-        {loading && <Loading label="Loading gallery" />}
-        {error && <ErrorNote message={error} />}
-        <p aria-live="polite" className="min-h-4 text-xs text-muted">
-          {note}
-        </p>
-        {data && (
-          <ArchiveList
-            items={data.items}
-            products={catalogue?.items ?? []}
-            onChanged={reload}
-            onError={setNote}
-          />
-        )}
-      </section>
+      <ArchiveList
+        items={data?.items ?? null}
+        total={data?.total ?? 0}
+        products={catalogue?.items ?? []}
+        loading={loading}
+        error={error}
+        note={note}
+        onChanged={reload}
+        onError={setNote}
+      />
     </div>
   );
 }
@@ -81,18 +86,26 @@ export function GalleryTab() {
  */
 function ArchiveList({
   items,
+  total,
   products,
+  loading,
+  error,
+  note,
   onChanged,
   onError,
 }: {
-  items: GalleryItem[];
+  items: GalleryItem[] | null;
+  total: number;
   products: Product[];
+  loading: boolean;
+  error: string | null;
+  note: string | null;
   onChanged: () => void;
   onError: (message: string) => void;
 }) {
   const [order, setOrder] = useState<GalleryItem[] | null>(null);
   const [saving, setSaving] = useState(false);
-  const list = order ?? items;
+  const list = order ?? items ?? [];
   const dirty = order !== null;
 
   function move(index: number, direction: -1 | 1) {
@@ -120,139 +133,166 @@ function ArchiveList({
   }
 
   return (
-    <>
-      {dirty && (
-        <div className="mt-4 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => void save()}
-            disabled={saving}
-            className={btnSolidSm}
-          >
-            {saving ? "Saving…" : "Save order"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setOrder(null)}
-            disabled={saving}
-            className={btnGhostSm}
-          >
-            Cancel
-          </button>
-        </div>
-      )}
+    <Panel
+      eyebrow="Published"
+      title="Archive"
+      aside={
+        <>
+          <span className="tnum text-[11px] text-faint">{total} shots</span>
+          {dirty && (
+            <>
+              <button
+                type="button"
+                onClick={() => void save()}
+                disabled={saving}
+                className={btnPrimarySm}
+              >
+                {saving ? "Saving…" : "Save order"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrder(null)}
+                disabled={saving}
+                className={btnGhost}
+              >
+                Cancel
+              </button>
+            </>
+          )}
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {loading && <Loading label="Loading gallery" />}
+        {error && <ErrorNote message={error} />}
+        <Note>{note}</Note>
 
-      <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {list.map((item, index) => (
-          <li key={item.id}>
-            <div className="relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={imageUrl(item.imageUrl, 320, "tile", item.rotation)}
-                alt={item.altText ?? item.title}
-                loading="lazy"
-                decoding="async"
-                className={`aspect-square w-full rounded-[2px] bg-surface object-cover ${
-                  item.isArchived ? "opacity-40" : ""
-                }`}
-              />
-              {item.isArchived && (
-                <span className="absolute left-0 top-0 w-full bg-foreground py-1 text-center text-[9px] font-bold uppercase tracking-[0.2em] text-background">
-                  Archived
-                </span>
-              )}
-            </div>
+        {items && list.length === 0 && !loading && (
+          <Empty>Nothing published yet — upload a shoot above.</Empty>
+        )}
 
-            <p className="mt-1 truncate text-[10px] font-medium uppercase tracking-[0.15em] text-muted">
-              {item.title}
-            </p>
-            {!item.altText && (
-              <p className="text-[10px] uppercase tracking-[0.15em] text-muted/60">
-                No alt text
-              </p>
-            )}
+        {list.length > 0 && (
+          <ul className="grid gap-4 sm:grid-cols-3 xl:grid-cols-4">
+            {list.map((item, index) => (
+              <li
+                key={item.id}
+                className="flex flex-col gap-2.5 rounded-[var(--radius-control)] border border-line p-3"
+              >
+                <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={imageUrl(item.imageUrl, 320, "tile", item.rotation)}
+                    alt={item.altText ?? item.title}
+                    loading="lazy"
+                    decoding="async"
+                    className={`aspect-square w-full rounded-[var(--radius-control)] bg-raised object-cover ${
+                      item.isArchived ? "opacity-40" : ""
+                    }`}
+                  />
+                  {item.isArchived && (
+                    <span className="absolute left-2 top-2">
+                      <Badge tone="solid">Archived</Badge>
+                    </span>
+                  )}
+                </div>
 
-            <div className="mt-1 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => move(index, -1)}
-                disabled={index === 0}
-                aria-label={`Move ${item.title} earlier`}
-                className={btnGhostSm}
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                onClick={() => move(index, 1)}
-                disabled={index === list.length - 1}
-                aria-label={`Move ${item.title} later`}
-                className={btnGhostSm}
-              >
-                ↓
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  void rotateShot(item, -1, onChanged, onError)
-                }
-                aria-label={`Rotate ${item.title} counter-clockwise`}
-                className={btnGhostSm}
-              >
-                ↺
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  void rotateShot(item, 1, onChanged, onError)
-                }
-                aria-label={`Rotate ${item.title} clockwise`}
-                className={btnGhostSm}
-              >
-                ↻
-              </button>
-              <AltTextButton item={item} onChanged={onChanged} onError={onError} />
-              <LinkedProductsButton
-                item={item}
-                products={products}
-                onError={onError}
-              />
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await adminApi.updateGalleryItem(item.id, {
-                      isArchived: !item.isArchived,
-                    });
-                    onChanged();
-                  } catch (err) {
-                    onError(errorMessage(err));
-                  }
-                }}
-                className={btnGhostSm}
-              >
-                {item.isArchived ? "Unarchive" : "Archive"}
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  if (!confirm(`Delete "${item.title}" forever?`)) return;
-                  try {
-                    await adminApi.deleteGalleryItem(item.id);
-                    onChanged();
-                  } catch (err) {
-                    onError(errorMessage(err));
-                  }
-                }}
-                className={btnGhostSm}
-              >
-                Delete
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </>
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-semibold text-ink">
+                    {item.title}
+                  </p>
+                  {!item.altText && (
+                    <p className="text-[11px] leading-5 text-caution">
+                      No alt text
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => move(index, -1)}
+                    disabled={index === 0}
+                    aria-label={`Move ${item.title} earlier`}
+                    className={iconBtn}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => move(index, 1)}
+                    disabled={index === list.length - 1}
+                    aria-label={`Move ${item.title} later`}
+                    className={iconBtn}
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void rotateShot(item, -1, onChanged, onError)}
+                    aria-label={`Rotate ${item.title} counter-clockwise`}
+                    className={iconBtn}
+                  >
+                    ↺
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void rotateShot(item, 1, onChanged, onError)}
+                    aria-label={`Rotate ${item.title} clockwise`}
+                    className={iconBtn}
+                  >
+                    ↻
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <AltTextButton
+                    item={item}
+                    onChanged={onChanged}
+                    onError={onError}
+                  />
+                  <LinkedProductsButton
+                    item={item}
+                    products={products}
+                    onError={onError}
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await adminApi.updateGalleryItem(item.id, {
+                          isArchived: !item.isArchived,
+                        });
+                        onChanged();
+                      } catch (err) {
+                        onError(errorMessage(err));
+                      }
+                    }}
+                    className={btnGhost}
+                  >
+                    {item.isArchived ? "Unarchive" : "Archive"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!confirm(`Delete "${item.title}" forever?`)) return;
+                      try {
+                        await adminApi.deleteGalleryItem(item.id);
+                        onChanged();
+                      } catch (err) {
+                        onError(errorMessage(err));
+                      }
+                    }}
+                    className={`${btnGhost} ${dangerGhost}`}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </Panel>
   );
 }
 
@@ -278,7 +318,7 @@ function AltTextButton({
           setValue(item.altText ?? "");
           setEditing(true);
         }}
-        className={btnGhostSm}
+        className={btnGhost}
       >
         {item.altText ? "Edit alt" : "Add alt"}
       </button>
@@ -308,16 +348,16 @@ function AltTextButton({
         maxLength={300}
         autoFocus
         aria-label={`Alt text for ${item.title}`}
-        className={`${inputCls} h-9 text-xs`}
+        className={`${inputCls} h-9`}
       />
       <div className="flex items-center gap-3">
-        <button type="submit" disabled={saving} className={btnGhostSm}>
+        <button type="submit" disabled={saving} className={btnGhost}>
           {saving ? "Saving…" : "Save"}
         </button>
         <button
           type="button"
           onClick={() => setEditing(false)}
-          className={btnGhostSm}
+          className={btnGhost}
         >
           Cancel
         </button>
@@ -363,7 +403,7 @@ function LinkedProductsButton({
 
   if (!editing) {
     return (
-      <button type="button" onClick={() => void open()} className={btnGhostSm}>
+      <button type="button" onClick={() => void open()} className={btnGhost}>
         {count === null ? "Pieces" : `Pieces (${count})`}
       </button>
     );
@@ -387,19 +427,18 @@ function LinkedProductsButton({
         }
       }}
     >
+      <p className={labelCls}>Pieces in this shot</p>
       {selected === null ? (
-        <p className="text-[10px] uppercase tracking-[0.15em] text-muted">
-          Loading…
-        </p>
+        <p className="text-[11px] leading-5 text-faint">Loading…</p>
       ) : products.length === 0 ? (
-        <p className="text-[10px] uppercase tracking-[0.15em] text-muted">
+        <p className="text-[11px] leading-5 text-faint">
           No products to link yet.
         </p>
       ) : (
-        <ul className="max-h-40 overflow-y-auto border border-subtle p-2">
+        <ul className="max-h-40 overflow-y-auto rounded-[var(--radius-control)] border border-line p-2">
           {products.map((product) => (
             <li key={product.id}>
-              <label className="flex items-center gap-2 py-0.5 text-[11px]">
+              <label className="flex items-center gap-2 py-0.5 text-[12px] text-ink">
                 <input
                   type="checkbox"
                   checked={selected.includes(product.id)}
@@ -410,7 +449,7 @@ function LinkedProductsButton({
                         : (current ?? []).filter((id) => id !== product.id),
                     )
                   }
-                  className="size-3.5"
+                  className={checkboxCls}
                 />
                 <span className="truncate">{product.name}</span>
               </label>
@@ -422,14 +461,14 @@ function LinkedProductsButton({
         <button
           type="submit"
           disabled={saving || selected === null}
-          className={btnGhostSm}
+          className={btnGhost}
         >
           {saving ? "Saving…" : "Save"}
         </button>
         <button
           type="button"
           onClick={() => setEditing(false)}
-          className={btnGhostSm}
+          className={btnGhost}
         >
           Cancel
         </button>

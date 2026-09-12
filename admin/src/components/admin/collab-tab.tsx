@@ -7,13 +7,19 @@ import { formatDate } from "@/lib/format";
 import { errorMessage } from "@/lib/hooks";
 import { CollabCodeCard } from "./collab-code-card";
 import {
-  btnOutline,
-  btnSolidSm,
+  btnPrimarySm,
+  btnSecondarySm,
+  Card,
   chipCls,
+  Empty,
+  ErrorNote,
+  eyebrow,
   Field,
   inputCls,
-  labelCls,
   Loading,
+  Note,
+  Panel,
+  Stat,
 } from "../ui";
 
 const FILTERS: { id: "all" | CollabCodeStatus; label: string }[] = [
@@ -22,6 +28,9 @@ const FILTERS: { id: "all" | CollabCodeStatus; label: string }[] = [
   { id: "claimed", label: "Opened" },
   { id: "revoked", label: "Revoked" },
 ];
+
+/** The strict-mode pair: a chip that also has to read as disabled. */
+const toggleCls = "disabled:cursor-not-allowed disabled:opacity-45";
 
 export function CollabTab() {
   const [overview, setOverview] = useState<CollabOverview | null>(null);
@@ -223,37 +232,28 @@ export function CollabTab() {
   if (loading && !overview) return <Loading label="Loading collab" />;
   if (!overview) {
     return (
-      <p className="text-sm text-muted">{note ?? "Could not load the collab."}</p>
+      <div className="flex flex-col gap-5">
+        <Card className="p-5">
+          <ErrorNote message={note ?? "Could not load the collab."} />
+        </Card>
+      </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <section className="border border-foreground p-5 sm:p-7">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-xl">
-            <p className={labelCls}>Drop</p>
-            <h2 className="mt-2 font-display text-3xl uppercase tracking-tight sm:text-5xl">
-              {overview.title}
-            </h2>
-            <p className="mt-3 text-sm leading-6 text-muted">
-              {overview.strictMode
-                ? "Strict is on. Each QR opens once, on the phone that scanned it. Screening is blocked as far as the browser allows, and a forwarded link is dead."
-                : "Strict is off. The same QR can be scanned again. Screening and sharing are allowed. A code is still required to reach the film."}
-            </p>
-          </div>
-          <div>
-            <p className={`${labelCls} mb-2`}>Strict mode</p>
+    <div className="flex flex-col gap-5">
+      <Panel
+        eyebrow="Drop"
+        title={overview.title}
+        aside={
+          <>
+            <span className={eyebrow}>Strict</span>
             <div className="flex gap-1.5">
               <button
                 type="button"
                 disabled={busy !== null}
                 onClick={() => void saveSettings({ strictMode: true })}
-                className={`flex h-11 items-center rounded-[2px] px-5 text-[11px] font-bold uppercase tracking-[0.15em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted ${
-                  overview.strictMode
-                    ? "bg-foreground text-background"
-                    : "border border-subtle text-muted hover:border-foreground hover:text-foreground"
-                }`}
+                className={`${chipCls(overview.strictMode)} ${toggleCls}`}
               >
                 On
               </button>
@@ -261,222 +261,231 @@ export function CollabTab() {
                 type="button"
                 disabled={busy !== null}
                 onClick={() => void saveSettings({ strictMode: false })}
-                className={`flex h-11 items-center rounded-[2px] px-5 text-[11px] font-bold uppercase tracking-[0.15em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted ${
-                  !overview.strictMode
-                    ? "bg-foreground text-background"
-                    : "border border-subtle text-muted hover:border-foreground hover:text-foreground"
-                }`}
+                className={`${chipCls(!overview.strictMode)} ${toggleCls}`}
               >
                 Off
               </button>
             </div>
-          </div>
-        </div>
-        <dl className="mt-8 grid grid-cols-2 gap-px bg-subtle sm:grid-cols-4">
-          <Stat label="Unused" value={overview.unused} />
-          <Stat label="Opened" value={overview.claimed} />
-          <Stat label="Revoked" value={overview.revoked} />
-          <Stat label="Left to mint" value={remaining} />
-        </dl>
-      </section>
-
-      <div className="grid gap-8 lg:grid-cols-2">
-        <section className="border border-subtle p-5">
-          <p className={labelCls}>Film</p>
-          <p className="mt-2 text-sm leading-6 text-muted">
-            {overview.hasVideo
-              ? `On file${overview.videoUploadedAt ? ` · ${formatDate(overview.videoUploadedAt)}` : ""}. Replace anytime — codes already minted stay valid.`
-              : "Nothing uploaded. A scan will not burn a code until a film is here."}
+          </>
+        }
+      >
+        <div className="flex flex-col gap-5">
+          <p className="max-w-2xl text-[13px] leading-6 text-muted">
+            {overview.strictMode
+              ? "Strict is on. Each QR opens once, on the phone that scanned it. Screening is blocked as far as the browser allows, and a forwarded link is dead."
+              : "Strict is off. The same QR can be scanned again. Screening and sharing are allowed. A code is still required to reach the film."}
           </p>
-          <input
-            ref={fileInput}
-            type="file"
-            accept="video/mp4,video/webm,video/quicktime"
-            className="sr-only"
-            onChange={(event) => void onVideo(event.target.files?.[0])}
-          />
-          <div className="mt-5 flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-6 border-t border-line pt-5 sm:grid-cols-4">
+            <Stat label="Unused" value={overview.unused} />
+            <Stat label="Opened" value={overview.claimed} />
+            <Stat label="Revoked" value={overview.revoked} />
+            <Stat label="Left to mint" value={remaining} />
+          </div>
+          <Note>{note}</Note>
+        </div>
+      </Panel>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Panel eyebrow="Scan target" title="Film">
+          <div className="flex flex-col gap-4">
+            <p className="text-[13px] leading-6 text-muted">
+              {overview.hasVideo
+                ? `On file${overview.videoUploadedAt ? ` · ${formatDate(overview.videoUploadedAt)}` : ""}. Replace anytime — codes already minted stay valid.`
+                : "Nothing uploaded. A scan will not burn a code until a film is here."}
+            </p>
+            <input
+              ref={fileInput}
+              type="file"
+              accept="video/mp4,video/webm,video/quicktime"
+              className="sr-only"
+              onChange={(event) => void onVideo(event.target.files?.[0])}
+            />
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={busy !== null}
+                onClick={() => fileInput.current?.click()}
+                className={btnPrimarySm}
+              >
+                {busy === "video"
+                  ? "Uploading…"
+                  : overview.hasVideo
+                    ? "Replace film"
+                    : "Upload film"}
+              </button>
+              {overview.hasVideo && (
+                <>
+                  <button
+                    type="button"
+                    disabled={busy !== null}
+                    onClick={() => void preview()}
+                    className={btnSecondarySm}
+                  >
+                    {busy === "preview" ? "Loading…" : "Preview"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy !== null}
+                    onClick={() => void removeVideo()}
+                    className={btnSecondarySm}
+                  >
+                    Remove
+                  </button>
+                </>
+              )}
+            </div>
+            {previewUrl && (
+              <video
+                src={previewUrl}
+                controls
+                playsInline
+                className="aspect-video w-full rounded-[var(--radius-control)] bg-black object-contain"
+              />
+            )}
+          </div>
+        </Panel>
+
+        <Panel eyebrow="Print run" title="Mint QR codes">
+          <div className="flex flex-col gap-4">
+            <p className="text-[13px] leading-6 text-muted">
+              Type how many you need. Cap is {overview.maxCodes} · {remaining}{" "}
+              still free. Each card below has its own PNG download. “Download
+              all” is a zip of those same images — no CSV, no links.
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <Field id="qr-count" label="How many">
+                <input
+                  id="qr-count"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={remaining || overview.maxCodes}
+                  value={countInput}
+                  onChange={(event) => setCountInput(event.target.value)}
+                  className={`${inputCls} tnum sm:w-32`}
+                />
+              </Field>
+              <button
+                type="button"
+                disabled={busy !== null || remaining === 0}
+                onClick={() => void generate()}
+                className={btnPrimarySm}
+              >
+                {busy === "generate" ? "Minting…" : "Generate"}
+              </button>
+            </div>
+            <div>
+              <button
+                type="button"
+                disabled={busy !== null || printable === 0}
+                onClick={() => void downloadZip()}
+                className={`${btnSecondarySm} w-full sm:w-auto`}
+              >
+                {busy === "zip"
+                  ? "Building pack…"
+                  : `Download all QR codes${printable > 0 ? ` · ${printable}` : ""}`}
+              </button>
+            </div>
+          </div>
+        </Panel>
+      </div>
+
+      <Panel eyebrow="Campaign" title="Drop settings">
+        <div className="flex flex-col gap-5">
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field id="collab-title" label="Title">
+              <input
+                id="collab-title"
+                value={titleInput}
+                onChange={(event) => setTitleInput(event.target.value)}
+                className={inputCls}
+              />
+            </Field>
+            <Field id="collab-cap" label="Cap">
+              <input
+                id="collab-cap"
+                type="number"
+                inputMode="numeric"
+                min={overview.unused + overview.claimed}
+                max={2000}
+                value={capInput}
+                onChange={(event) => setCapInput(event.target.value)}
+                className={`${inputCls} tnum`}
+              />
+            </Field>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <button
               type="button"
               disabled={busy !== null}
-              onClick={() => fileInput.current?.click()}
-              className={btnSolidSm}
+              onClick={() => {
+                const maxCodes = Number.parseInt(capInput, 10);
+                if (!Number.isInteger(maxCodes) || maxCodes < 1) {
+                  setNote("Cap must be a whole number, at least 1.");
+                  return;
+                }
+                void saveSettings({
+                  title: titleInput.trim() || overview.title,
+                  maxCodes,
+                });
+              }}
+              className={btnPrimarySm}
             >
-              {busy === "video"
-                ? "Uploading…"
-                : overview.hasVideo
-                  ? "Replace film"
-                  : "Upload film"}
+              {busy === "settings" ? "Saving…" : "Save settings"}
             </button>
-            {overview.hasVideo && (
-              <>
-                <button
-                  type="button"
-                  disabled={busy !== null}
-                  onClick={() => void preview()}
-                  className={btnOutline}
-                >
-                  {busy === "preview" ? "Loading…" : "Preview"}
-                </button>
-                <button
-                  type="button"
-                  disabled={busy !== null}
-                  onClick={() => void removeVideo()}
-                  className={btnOutline}
-                >
-                  Remove
-                </button>
-              </>
-            )}
-          </div>
-          {previewUrl && (
-            <video
-              src={previewUrl}
-              controls
-              playsInline
-              className="mt-5 aspect-video w-full bg-black object-contain"
-            />
-          )}
-        </section>
-
-        <section className="border border-subtle p-5">
-          <p className={labelCls}>Mint QR codes</p>
-          <p className="mt-2 text-sm leading-6 text-muted">
-            Type how many you need. Cap is {overview.maxCodes} · {remaining}{" "}
-            still free. Each card below has its own PNG download. “Download all”
-            is a zip of those same images — no CSV, no links.
-          </p>
-          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
-            <Field id="qr-count" label="How many">
-              <input
-                id="qr-count"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                max={remaining || overview.maxCodes}
-                value={countInput}
-                onChange={(event) => setCountInput(event.target.value)}
-                className={`${inputCls} tabular-nums sm:w-32`}
-              />
-            </Field>
-            <button
-              type="button"
-              disabled={busy !== null || remaining === 0}
-              onClick={() => void generate()}
-              className={btnSolidSm}
-            >
-              {busy === "generate" ? "Minting…" : "Generate"}
-            </button>
-          </div>
-          <button
-            type="button"
-            disabled={busy !== null || printable === 0}
-            onClick={() => void downloadZip()}
-            className={`${btnSolidSm} mt-4 w-full sm:w-auto`}
-          >
-            {busy === "zip"
-              ? "Building pack…"
-              : `Download all QR codes${printable > 0 ? ` · ${printable}` : ""}`}
-          </button>
-        </section>
-      </div>
-
-      <section className="border border-subtle p-5">
-        <p className={labelCls}>Drop settings</p>
-        <div className="mt-5 grid gap-5 sm:grid-cols-2">
-          <Field id="collab-title" label="Title">
-            <input
-              id="collab-title"
-              value={titleInput}
-              onChange={(event) => setTitleInput(event.target.value)}
-              className={inputCls}
-            />
-          </Field>
-          <Field id="collab-cap" label="Cap">
-            <input
-              id="collab-cap"
-              type="number"
-              inputMode="numeric"
-              min={overview.unused + overview.claimed}
-              max={2000}
-              value={capInput}
-              onChange={(event) => setCapInput(event.target.value)}
-              className={`${inputCls} tabular-nums`}
-            />
-          </Field>
-        </div>
-        <button
-          type="button"
-          disabled={busy !== null}
-          onClick={() => {
-            const maxCodes = Number.parseInt(capInput, 10);
-            if (!Number.isInteger(maxCodes) || maxCodes < 1) {
-              setNote("Cap must be a whole number, at least 1.");
-              return;
-            }
-            void saveSettings({
-              title: titleInput.trim() || overview.title,
-              maxCodes,
-            });
-          }}
-          className={`${btnSolidSm} mt-5`}
-        >
-          {busy === "settings" ? "Saving…" : "Save settings"}
-        </button>
-        <p className="mt-4 text-[11px] uppercase tracking-[0.15em] text-muted">
-          QR target · {overview.qrBaseUrl}/c/{overview.slug}/…
-        </p>
-      </section>
-
-      {note && (
-        <p
-          role="status"
-          className="border border-foreground px-4 py-3 text-sm leading-6"
-        >
-          {note}
-        </p>
-      )}
-
-      <section>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className={labelCls}>QR codes</p>
-            <p className="mt-2 text-sm text-muted">
-              Each pair is a card. Download the QR image from the card, or open
-              settings to label, reset, replace, revoke, or delete it.
+            <p className="break-all text-[11px] leading-5 text-faint">
+              QR target · {overview.qrBaseUrl}/c/{overview.slug}/…
             </p>
           </div>
-          <Field id="qr-search" label="Find">
-            <input
-              id="qr-search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Serial or label"
-              className={`${inputCls} sm:w-56`}
-            />
-          </Field>
         </div>
-        <div className="-mx-4 mt-5 flex gap-1.5 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
-          {FILTERS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setFilter(item.id)}
-              className={`${chipCls(filter === item.id)} shrink-0`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-        {loading ? (
-          <Loading label="Loading codes" />
-        ) : codes.length === 0 ? (
-          <p className="mt-6 text-sm text-muted">No codes in this filter.</p>
-        ) : visible.length === 0 ? (
-          <p className="mt-6 text-sm text-muted">No codes match that search.</p>
-        ) : (
-          <>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      </Panel>
+
+      <Panel
+        eyebrow="Minted"
+        title="QR codes"
+        aside={
+          <span className="tnum text-[11px] text-faint">
+            {visible.length}
+            {visible.length !== total ? ` of ${total}` : ""} shown
+          </span>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <p className="max-w-2xl text-[13px] leading-6 text-muted">
+            Each pair is a card. Download the QR image from the card, or open
+            settings to label, reset, replace, revoke, or delete it.
+          </p>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+              {FILTERS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setFilter(item.id)}
+                  className={`${chipCls(filter === item.id)} shrink-0`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <Field id="qr-search" label="Find">
+              <input
+                id="qr-search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Serial or label"
+                className={`${inputCls} sm:w-56`}
+              />
+            </Field>
+          </div>
+          {loading ? (
+            <Loading label="Loading codes" />
+          ) : codes.length === 0 ? (
+            <Empty>No codes in this filter.</Empty>
+          ) : visible.length === 0 ? (
+            <Empty>No codes match that search.</Empty>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {visible.map((code) => (
                 <CollabCodeCard
                   key={code.id}
@@ -487,26 +496,9 @@ export function CollabTab() {
                 />
               ))}
             </div>
-            <p className="mt-4 text-[11px] uppercase tracking-[0.15em] text-muted">
-              {visible.length}
-              {visible.length !== total ? ` of ${total}` : ""} shown
-            </p>
-          </>
-        )}
-      </section>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="bg-background px-4 py-5 sm:px-5">
-      <dt className="text-[11px] uppercase tracking-[0.15em] text-muted">
-        {label}
-      </dt>
-      <dd className="mt-2 font-display text-3xl tracking-tight tabular-nums">
-        {value}
-      </dd>
+          )}
+        </div>
+      </Panel>
     </div>
   );
 }

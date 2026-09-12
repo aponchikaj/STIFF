@@ -5,12 +5,29 @@ import { adminApi } from "@/lib/api";
 import type { CollabCodeRow } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { errorMessage } from "@/lib/hooks";
-import { btnGhostSm, btnOutline, btnSolidSm, inputCls, labelCls } from "../ui";
+import {
+  Badge,
+  btnDanger,
+  btnGhost,
+  btnPrimarySm,
+  btnSecondarySm,
+  Field,
+  inputCls,
+  labelCls,
+  type Tone,
+} from "../ui";
 
 const STATUS: Record<CollabCodeRow["status"], string> = {
   unused: "Ready",
   claimed: "Opened",
   revoked: "Revoked",
+};
+
+/** Colour is the state, never decoration: minted, opened, dead. */
+const STATUS_TONE: Record<CollabCodeRow["status"], Tone> = {
+  unused: "neutral",
+  claimed: "positive",
+  revoked: "danger",
 };
 
 export function CollabCodeCard({
@@ -199,77 +216,65 @@ export function CollabCodeCard({
 
   return (
     <article
-      className={`flex flex-col border p-4 ${
-        code.status === "revoked"
-          ? "border-subtle opacity-70"
-          : "border-foreground/80"
+      className={`flex flex-col rounded-[var(--radius-control)] border border-line p-4 ${
+        code.status === "revoked" ? "opacity-70" : ""
       }`}
     >
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-display text-2xl tracking-tight tabular-nums">
+        <div className="min-w-0">
+          <p className="font-display tnum text-[22px] leading-none">
             {code.serial}
           </p>
-          {code.label ? (
-            <p className="mt-1 text-sm text-foreground">{code.label}</p>
-          ) : (
-            <p className="mt-1 text-sm text-muted">No label</p>
-          )}
+          <p
+            className={`mt-1.5 truncate text-[13px] ${
+              code.label ? "text-ink" : "text-faint"
+            }`}
+          >
+            {code.label || "No label"}
+          </p>
         </div>
-        <span
-          className={`flex h-7 items-center rounded-[2px] px-2.5 text-[10px] font-bold uppercase tracking-[0.15em] ${
-            code.status === "unused"
-              ? "bg-foreground text-background"
-              : code.status === "claimed"
-                ? "border border-foreground text-foreground"
-                : "border border-subtle text-muted"
-          }`}
-        >
-          {STATUS[code.status]}
-        </span>
+        <Badge tone={STATUS_TONE[code.status]}>{STATUS[code.status]}</Badge>
       </div>
-      <p className="mt-3 text-[11px] uppercase tracking-[0.15em] text-muted">
+      <p className="mt-2 text-[11px] leading-5 text-faint">
         {code.claimedAt
           ? `Opened ${formatDate(code.claimedAt)}`
           : `Minted ${formatDate(code.createdAt)}`}
       </p>
 
-      <div className="mt-4 flex flex-col gap-2">
+      <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+        <button
+          type="button"
+          disabled={locked}
+          onClick={() => setOpen((value) => !value)}
+          className={btnSecondarySm}
+        >
+          {open ? "Hide settings" : "Settings"}
+        </button>
+        <button
+          type="button"
+          disabled={locked}
+          onClick={() => void remove()}
+          className={btnDanger}
+        >
+          Delete
+        </button>
         {printable && (
           <button
             type="button"
             disabled={locked || downloading}
             onClick={() => void download()}
-            className={btnSolidSm}
+            className={btnPrimarySm}
           >
             {downloading ? "Downloading…" : "Download QR image"}
           </button>
         )}
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={locked}
-            onClick={() => setOpen((value) => !value)}
-            className={btnOutline}
-          >
-            {open ? "Hide settings" : "Settings"}
-          </button>
-          <button
-            type="button"
-            disabled={locked}
-            onClick={() => void remove()}
-            className={btnOutline}
-          >
-            Delete
-          </button>
-        </div>
       </div>
 
       {open && (
-        <div className="mt-4 flex flex-col gap-4 border-t border-subtle pt-4">
+        <div className="mt-4 flex flex-col gap-4 border-t border-line pt-4">
           {printable && (
             <div className="flex items-start gap-4">
-              <div className="flex size-28 shrink-0 items-center justify-center border border-subtle bg-white">
+              <div className="flex size-28 shrink-0 items-center justify-center rounded-[var(--radius-control)] border border-line bg-white">
                 {preview ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -278,12 +283,12 @@ export function CollabCodeCard({
                     className="size-full object-contain p-1"
                   />
                 ) : (
-                  <span className="px-2 text-center text-[10px] uppercase tracking-[0.15em] text-muted">
+                  <span className="px-2 text-center text-[10px] font-bold uppercase tracking-[0.1em] text-faint">
                     {previewBusy ? "Loading" : "QR"}
                   </span>
                 )}
               </div>
-              <p className="text-sm leading-6 text-muted">
+              <p className="text-[13px] leading-6 text-muted">
                 Download is a PNG of this square. Print it on pair {code.serial}
                 {code.label ? ` · ${code.label}` : ""}.
               </p>
@@ -298,7 +303,7 @@ export function CollabCodeCard({
                   href={scanUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="break-all text-sm leading-6 text-foreground underline decoration-subtle underline-offset-4 hover:decoration-foreground"
+                  className="break-all text-[13px] leading-6 text-ink underline decoration-line underline-offset-4 hover:decoration-ink"
                 >
                   {scanUrl}
                 </a>
@@ -307,7 +312,7 @@ export function CollabCodeCard({
                     type="button"
                     disabled={locked}
                     onClick={() => void copyLink()}
-                    className={btnOutline}
+                    className={btnSecondarySm}
                   >
                     {copied ? "Copied" : "Copy link"}
                   </button>
@@ -315,21 +320,18 @@ export function CollabCodeCard({
                     href={scanUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className={btnOutline}
+                    className={btnSecondarySm}
                   >
                     Open
                   </a>
                 </div>
               </>
             ) : (
-              <p className="text-sm text-muted">Loading link…</p>
+              <p className="text-[13px] text-muted">Loading link…</p>
             )}
           </div>
 
-          <div className="flex flex-col gap-2">
-            <label htmlFor={`label-${code.id}`} className={labelCls}>
-              Label
-            </label>
+          <Field id={`label-${code.id}`} label="Label">
             <input
               id={`label-${code.id}`}
               value={label}
@@ -338,23 +340,25 @@ export function CollabCodeCard({
               onChange={(event) => setLabel(event.target.value)}
               className={inputCls}
             />
+          </Field>
+          <div>
             <button
               type="button"
               disabled={locked || saving || !dirty}
               onClick={() => void saveLabel()}
-              className={btnOutline}
+              className={btnSecondarySm}
             >
               {saving ? "Saving…" : "Save label"}
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap items-center justify-end gap-4 border-t border-line pt-4">
             {code.status !== "unused" && (
               <button
                 type="button"
                 disabled={locked}
                 onClick={() => void reset()}
-                className={btnGhostSm}
+                className={btnGhost}
               >
                 Reset scan
               </button>
@@ -364,7 +368,7 @@ export function CollabCodeCard({
                 type="button"
                 disabled={locked}
                 onClick={() => void regenerate()}
-                className={btnGhostSm}
+                className={btnGhost}
               >
                 New QR
               </button>
@@ -374,7 +378,7 @@ export function CollabCodeCard({
                 type="button"
                 disabled={locked}
                 onClick={() => void revoke()}
-                className={btnGhostSm}
+                className={`${btnGhost} text-danger hover:text-danger`}
               >
                 Revoke
               </button>

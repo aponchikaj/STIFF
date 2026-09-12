@@ -52,7 +52,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             scripts do. */}
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
       </head>
-      <body className="flex min-h-full flex-col bg-background text-foreground">
+      <body className="min-h-full bg-page text-ink">
         <Providers>
           <AdminChrome>{children}</AdminChrome>
         </Providers>

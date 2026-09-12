@@ -2,185 +2,202 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Light mode: binary and bold — pure black on white, hard visible borders,
-   one neutral gray for image backdrops (Balenciaga/reckless language). */
+/*
+ * The panels' design system.
+ *
+ * Not the shop's. stiff.ge is a brutalist storefront — pure black on pure
+ * white, no accent colour, everything uppercase — and that is right for a
+ * clothing brand and wrong for a tool somebody stares at for an hour
+ * settling hand-ins. Three departures, each deliberate:
+ *
+ * 1. **A tinted page behind white cards.** Depth is what lets a dense screen
+ *    separate into regions without drawing a box around everything.
+ * 2. **Semantic colour, for state only.** A cheating verdict, a rejected
+ *    attempt and a P3 report have to be tellable apart at a glance, and
+ *    monochrome actively prevents that. Never decoration — only status.
+ * 3. **Uppercase demoted to labels.** When everything is uppercase nothing
+ *    is emphasised. Eyebrows, nav and buttons keep it; content does not.
+ *
+ * What stays: Archivo and Archivo Black, high contrast, the asterisk, and a
+ * discipline about whitespace.
+ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #000000;
-  --muted: #3f3f46;
-  --subtle: #d4d4d8;
-  --surface: #f4f4f4;
+  /* Surfaces, warm-neutral rather than clinical white. */
+  --page: #f5f5f3;
+  --card: #ffffff;
+  --raised: #fafaf9;
+  --ink: #0a0a0a;
+  --muted: #64646b;
+  --faint: #9a9aa1;
+  --line: #e5e5e1;
+  --line-strong: #d3d3ce;
+
+  /* State. Low chroma on purpose: it reads as information, not decoration. */
+  --positive: #15683f;
+  --positive-tint: #e6f2ea;
+  --caution: #8a5a00;
+  --caution-tint: #fbf1de;
+  --danger: #a3211a;
+  --danger-tint: #fbeceb;
+  --info: #24518f;
+  --info-tint: #e9eff9;
+
+  --radius-control: 4px;
+  --radius-card: 14px;
+  --radius-pill: 999px;
+
+  --shadow-card: 0 1px 2px rgb(10 10 10 / 0.04);
+  --shadow-raised: 0 4px 16px -4px rgb(10 10 10 / 0.1),
+    0 1px 3px rgb(10 10 10 / 0.05);
+  --shadow-pop: 0 16px 48px -12px rgb(10 10 10 / 0.22);
 }
 
-/* Dark mode: lifted — near-black base so photography doesn't sink,
-   near-white text, ~15%-white hairlines, elevated surface cards. */
 .dark {
-  --background: #0a0a0a;
-  --foreground: #f5f5f5;
-  --muted: #d4d4d8;
-  --subtle: #2e2e2e;
-  --surface: #141414;
-}
+  --page: #0a0a0b;
+  --card: #141416;
+  --raised: #1b1b1e;
+  --ink: #f4f4f2;
+  --muted: #9d9da5;
+  --faint: #6e6e77;
+  --line: #26262b;
+  --line-strong: #35353c;
 
-/* Inverted band: flips the token set relative to the active theme, so a
-   section can sit on a black background in light mode (and white in dark)
-   while every child component keeps using the same semantic colors. */
-.theme-invert {
-  --background: #0a0a0a;
-  --foreground: #f5f5f5;
-  --muted: #d4d4d8;
-  --subtle: #2e2e2e;
-  --surface: #141414;
-}
+  --positive: #5ec48d;
+  --positive-tint: #12281d;
+  --caution: #e0a94b;
+  --caution-tint: #2c2213;
+  --danger: #f08279;
+  --danger-tint: #2e1614;
+  --info: #7ea6e8;
+  --info-tint: #151d2c;
 
-.dark .theme-invert {
-  --background: #ffffff;
-  --foreground: #000000;
-  --muted: #3f3f46;
-  --subtle: #d4d4d8;
-  --surface: #f4f4f4;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-raised: 0 4px 16px -4px rgb(0 0 0 / 0.6), 0 1px 3px rgb(0 0 0 / 0.4);
+  --shadow-pop: 0 16px 48px -12px rgb(0 0 0 / 0.7);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-page: var(--page);
+  --color-card: var(--card);
+  --color-raised: var(--raised);
+  --color-ink: var(--ink);
   --color-muted: var(--muted);
-  --color-subtle: var(--subtle);
-  --color-surface: var(--surface);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-positive: var(--positive);
+  --color-positive-tint: var(--positive-tint);
+  --color-caution: var(--caution);
+  --color-caution-tint: var(--caution-tint);
+  --color-danger: var(--danger);
+  --color-danger-tint: var(--danger-tint);
+  --color-info: var(--info);
+  --color-info-tint: var(--info-tint);
+
+  /* Aliases so anything still written against the shop's names keeps working
+     while the screens are moved over. */
+  --color-background: var(--card);
+  --color-foreground: var(--ink);
+  --color-subtle: var(--line);
+  --color-surface: var(--raised);
+
+  --radius-control: var(--radius-control);
+  --radius-card: var(--radius-card);
+
   --font-sans: var(--font-archivo);
   --font-display: var(--font-archivo-black);
 }
 
+html {
+  color-scheme: light;
+}
+
+.dark html,
+html.dark {
+  color-scheme: dark;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  /* Archivo for body/UI; Archivo Black is reserved for display type. */
-  font-family: var(--font-archivo), Arial, Helvetica, sans-serif;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  /* 14px is the panel's body size: dense enough for a table, large enough
+     to read for an hour. */
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-h1,
-h2 {
+/* Display face for the page title and the big numbers only. Used anywhere
+   else it stops being emphasis. */
+.font-display,
+h1 {
   font-family: var(--font-archivo-black), var(--font-archivo), sans-serif;
+  letter-spacing: -0.02em;
 }
 
-/* Hero backdrop. Filter is applied once onto its own compositor layer so
-   scrolling composites the texture instead of re-filtering every frame.
-   Light theme takes the photo as shot; dark inverts it so the cat reads
-   white against the near-black page instead of sinking into it. */
-.hero-photo {
-  opacity: 0.55;
-  filter: grayscale(1) contrast(1.08);
-  transform: translateZ(0);
-  contain: paint;
-  backface-visibility: hidden;
+/* Numbers that sit in a column must not dance as they change. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 
-.dark .hero-photo {
-  opacity: 0.45;
-  filter: invert(1) grayscale(1) contrast(1.08);
+/* One focus treatment everywhere, visible on both themes and on any surface. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 3px;
 }
 
-/* Holds the centred hero column legible over the photo: near-solid through
-   the middle, open at the sides so the frame still reads as a photograph,
-   solid at the top and bottom so it melts into the navbar and marquee. */
-.hero-scrim {
-  background:
-    radial-gradient(
-      46% 54% at 50% 47%,
-      color-mix(in srgb, var(--background) 90%, transparent) 0%,
-      color-mix(in srgb, var(--background) 86%, transparent) 48%,
-      color-mix(in srgb, var(--background) 42%, transparent) 78%,
-      transparent 100%
-    ),
-    linear-gradient(
-      to bottom,
-      var(--background) 0%,
-      color-mix(in srgb, var(--background) 18%, transparent) 24%,
-      color-mix(in srgb, var(--background) 22%, transparent) 76%,
-      color-mix(in srgb, var(--background) 88%, transparent) 100%
-    );
+::selection {
+  background: var(--ink);
+  color: var(--card);
 }
 
-/* The asterisk has six arms, so it ticks one arm per beat instead of sliding
-   round continuously — mechanical rather than generic, and because the glyph
-   is six-fold symmetric every hold lands on a pose identical to rest. */
+/* A scrollbar that belongs to the page rather than the operating system. */
+@supports (scrollbar-width: thin) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+}
+
+/*
+ * The asterisk is the mark, so it is also the loader: six arms, one tick per
+ * beat. Because the glyph is six-fold symmetric, every hold lands on a pose
+ * identical to rest — mechanical rather than a generic spinner.
+ */
 @keyframes asterisk-tick {
-  0%,
-  10% {
-    transform: rotate(0deg);
-  }
-  16%,
-  27% {
-    transform: rotate(60deg);
-  }
-  33%,
-  44% {
-    transform: rotate(120deg);
-  }
-  50%,
-  61% {
-    transform: rotate(180deg);
-  }
-  66%,
-  77% {
-    transform: rotate(240deg);
-  }
-  83%,
-  94% {
-    transform: rotate(300deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
+  0%, 10% { transform: rotate(0deg); }
+  16%, 27% { transform: rotate(60deg); }
+  33%, 44% { transform: rotate(120deg); }
+  50%, 61% { transform: rotate(180deg); }
+  66%, 77% { transform: rotate(240deg); }
+  83%, 94% { transform: rotate(300deg); }
+  100% { transform: rotate(360deg); }
 }
 
-/* Paired with the tick on the intro loader: the mark breathes while the page
-   boots. Kept on a wrapper so it doesn't fight the rotation transform. */
-@keyframes asterisk-breathe {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(0.9);
-    opacity: 0.6;
-  }
+@keyframes panel-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
 }
 
-@keyframes marquee {
-  to {
-    transform: translateX(-50%);
-  }
+@keyframes bar-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
 }
 
-/* Intro: group starts shifted right by 40% (≈ half the wordmark) so the
-   asterisk reads as centered, then settles left while STIFF slides out. */
-@keyframes intro-shift {
-  from {
-    transform: translateX(40%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes intro-slide {
-  from {
-    transform: translateX(-108%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-/* Ambient motion is decorative — skipped under reduced motion. */
 @media (prefers-reduced-motion: no-preference) {
   .animate-asterisk-tick {
     animation: asterisk-tick 1.9s cubic-bezier(0.16, 1, 0.3, 1) infinite;
   }
-  .animate-asterisk-breathe {
-    animation: asterisk-breathe 1.9s ease-in-out infinite;
+  /* One quiet entrance for a screen's content. Not staggered per row: on a
+     table of two hundred that reads as jank, not choreography. */
+  .rise {
+    animation: panel-rise 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   .spin-on-hover {
     transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
@@ -188,173 +205,15 @@ h2 {
   .spin-on-hover:hover {
     transform: rotate(360deg);
   }
-  .marquee-track {
-    animation: marquee 22s linear infinite;
-  }
-  .intro-hold {
-    transform: translateX(40%);
-  }
-  .intro-shift-run {
-    animation: intro-shift 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-  .intro-slide-run {
-    animation: intro-slide 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-  /* Navbar stays parked above the viewport while the intro plays,
-     then drops in once the overlay starts fading. */
-  html.intro-nav-wait .site-header {
-    transform: translateY(-100%);
-  }
-  html.intro-nav-drop .site-header {
-    transform: translateY(0);
-    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  .bar-grow {
+    transform-origin: bottom;
+    animation: bar-grow 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 }
 
-/* Hairline scroll progress — compositor-only, no JS. Hidden when the
-   browser can't drive it off the main thread, or when motion is reduced. */
-.scroll-progress {
-  display: none;
-}
-
-@keyframes scroll-progress {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-
-@keyframes hero-exit {
-  to {
-    opacity: 0;
-    transform: translateY(8rem) scale(0.94);
-  }
-}
-
-@keyframes hero-spin {
-  to {
-    transform: rotate(270deg);
-  }
-}
-
-@keyframes parallax-y {
-  from {
-    transform: translateY(1.75rem);
-  }
-  to {
-    transform: translateY(-1.75rem);
-  }
-}
-
-@keyframes scroll-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@supports (animation-timeline: scroll()) {
-  @media (prefers-reduced-motion: no-preference) {
-    .scroll-progress {
-      display: block;
-      transform: scaleX(0);
-      transform-origin: left center;
-      animation: scroll-progress linear;
-      animation-timeline: scroll();
-    }
-
-    /* First viewport of scroll = the hero leaving. Pointer-fine only:
-       trackpads expose 120Hz stutter that phones hide, and parallax on
-       touch fights momentum scrolling. */
-    @media (pointer: fine) {
-      .hero-copy {
-        animation: hero-exit linear both;
-        animation-timeline: scroll();
-        animation-range: 0 100vh;
-      }
-      .hero-asterisk {
-        animation: hero-spin linear both;
-        animation-timeline: scroll();
-        animation-range: 0 100vh;
-      }
-    }
-  }
-}
-
-@supports (animation-timeline: view()) {
-  @media (prefers-reduced-motion: no-preference) and (pointer: fine) {
-    .parallax {
-      animation: parallax-y linear both;
-      animation-timeline: view();
-      animation-range: cover;
-    }
-    .scroll-spin {
-      animation: scroll-spin linear both;
-      animation-timeline: view();
-      animation-range: cover;
-    }
-  }
-}
-
-/* Skip paint for off-screen cards and the footer marquee. Intrinsic size
-   keeps the scrollbar stable while the browser hasn't laid them out yet. */
+/* Off-screen sections skip paint; the intrinsic size keeps the scrollbar
+   from jumping while they are still unlaid-out. */
 .cv-auto {
   content-visibility: auto;
-  contain-intrinsic-size: auto 20rem;
-}
-
-.marquee-band {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 12dvh;
-}
-
-/* Sealed collab room: no selection, no callout sheet, no long-press save. */
-.collab-room {
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-}
-
-.collab-watermark-a,
-.collab-watermark-b {
-  position: absolute;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.28);
-  mix-blend-mode: overlay;
-  white-space: nowrap;
-}
-
-.collab-watermark-a {
-  top: 18%;
-  left: 12%;
-  animation: collab-drift 11s ease-in-out infinite;
-}
-
-.collab-watermark-b {
-  bottom: 22%;
-  right: 10%;
-  animation: collab-drift 13s ease-in-out infinite reverse;
-}
-
-@keyframes collab-drift {
-  0% {
-    transform: translate(0, 0);
-  }
-  50% {
-    transform: translate(18px, 12px);
-  }
-  100% {
-    transform: translate(0, 0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .collab-watermark-a,
-  .collab-watermark-b {
-    animation: none;
-  }
+  contain-intrinsic-size: auto 24rem;
 }

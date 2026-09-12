@@ -4,7 +4,16 @@ import { useEffect, useState } from "react";
 import { adminApi, commentsApi } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { errorMessage, useAsync } from "@/lib/hooks";
-import { btnGhostSm, ErrorNote, inputCls, Loading } from "../ui";
+import {
+  btnGhost,
+  btnSecondarySm,
+  Empty,
+  ErrorNote,
+  inputCls,
+  Loading,
+  Note,
+  Panel,
+} from "../ui";
 
 export function CommentsTab() {
   const [search, setSearch] = useState("");
@@ -31,78 +40,103 @@ export function CommentsTab() {
   }, [search]);
 
   return (
-    <div>
-      <input
-        type="search"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search comment text"
-        aria-label="Search comments"
-        className={`${inputCls} h-10 max-w-sm`}
-      />
-      {loading && <Loading label="Loading comments" />}
-      {error && <ErrorNote message={error} />}
-      <p aria-live="polite" className="mt-2 min-h-4 text-xs text-muted">
-        {note}
-      </p>
+    <div className="flex flex-col gap-5">
+      <Panel
+        eyebrow={data ? `${data.total} in total` : undefined}
+        title="Everything people have written"
+        bleed
+        aside={
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search comment text"
+            aria-label="Search comments"
+            className={`${inputCls} w-56 sm:w-64`}
+          />
+        }
+      >
+        <div className="border-t border-line px-5 py-3">
+          <Note>{note}</Note>
+        </div>
 
-      <ul className="mt-4 border-t border-subtle">
-        {data?.items.map((comment) => (
-          <li key={comment.id} className="border-b border-subtle py-4">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <p className="text-xs font-bold uppercase tracking-wide">
-                {comment.user.username}
-              </p>
-              <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-muted">
-                on {comment.targetType} · {formatDate(comment.createdAt)}
-              </p>
-            </div>
-            <p className="mt-1 text-sm leading-6 text-muted">{comment.body}</p>
+        {loading && (
+          <div className="px-5">
+            <Loading label="Loading comments" />
+          </div>
+        )}
+        {error && (
+          <div className="px-5 pb-2">
+            <ErrorNote message={error} />
+          </div>
+        )}
+
+        {data && data.items.length === 0 && !loading && (
+          <Empty>No comments match that search.</Empty>
+        )}
+
+        <ul>
+          {data?.items.map((comment) => (
+            <li
+              key={comment.id}
+              className="flex items-start justify-between gap-4 border-t border-line px-5 py-3 transition-colors hover:bg-raised"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <p className="text-[13px] font-bold text-ink">
+                    {comment.user.username}
+                  </p>
+                  <p className="text-[11px] text-faint">
+                    on {comment.targetType} · {formatDate(comment.createdAt)}
+                  </p>
+                </div>
+                <p className="mt-1 text-[13px] leading-6 text-ink">
+                  {comment.body}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  setNote(null);
+                  try {
+                    await commentsApi.deleteComment(comment.id);
+                    reload();
+                  } catch (err) {
+                    setNote(errorMessage(err));
+                  }
+                }}
+                className={`${btnGhost} shrink-0 hover:text-danger`}
+              >
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        {pageCount > 1 && (
+          <div className="flex items-center justify-between gap-3 border-t border-line px-5 py-3">
             <button
               type="button"
-              onClick={async () => {
-                setNote(null);
-                try {
-                  await commentsApi.deleteComment(comment.id);
-                  reload();
-                } catch (err) {
-                  setNote(errorMessage(err));
-                }
-              }}
-              className={`${btnGhostSm} mt-2`}
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+              className={btnSecondarySm}
             >
-              Delete
+              Prev
             </button>
-          </li>
-        ))}
-      </ul>
-      {data && data.items.length === 0 && !loading && (
-        <p className="py-8 text-sm text-muted">No comments found.</p>
-      )}
-
-      {pageCount > 1 && (
-        <div className="mt-4 flex items-center gap-3">
-          <button
-            type="button"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-            className={btnGhostSm}
-          >
-            ← Prev
-          </button>
-          <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
-            {page} / {pageCount}
-          </span>
-          <button
-            type="button"
-            disabled={page >= pageCount}
-            onClick={() => setPage((p) => p + 1)}
-            className={btnGhostSm}
-          >
-            Next →
-          </button>
-        </div>
-      )}
+            <span className="tnum text-[11px] font-semibold uppercase tracking-[0.12em] text-faint">
+              {page} / {pageCount}
+            </span>
+            <button
+              type="button"
+              disabled={page >= pageCount}
+              onClick={() => setPage((p) => p + 1)}
+              className={btnSecondarySm}
+            >
+              Next
+            </button>
+          </div>
+        )}
+      </Panel>
     </div>
   );
 }

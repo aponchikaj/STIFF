@@ -8,3 +8,4 @@ export * as productsApi from "./products";
 export * as galleryApi from "./gallery";
 export * as commentsApi from "./comments";
 export * as contentApi from "./content";
+export * as gameShopApi from "./game-shop";
