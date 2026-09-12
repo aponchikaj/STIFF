@@ -1,22 +1,20 @@
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
-import { DataSource } from 'typeorm';
 import { GameAttempt } from './entities/game-attempt.entity';
+import { GameEnrolment } from './entities/game-enrolment.entity';
 import { GameSeason } from './entities/game-season.entity';
 import { GameAdminService } from './game-admin.service';
+import { SeasonsService } from './seasons.service';
+import { VerdictsService } from './verdicts.service';
 
 /**
- * Running a season.
+ * Running a season: the seasons themselves, and who is in them.
  *
- * The verdict is the sharp edge here: it is the only thing that puts an
- * attempt into the feed *and* the only thing that pays Nerve, and the score is
- * what ranks the season. Paying it twice is not a cosmetic bug, so the
- * transition is claimed rather than read-then-written.
+ * The verdict used to live here. It moved to `VerdictsService` when the
+ * vote resolver became a second thing that settles an attempt, and its
+ * tests moved with it (`verdicts.service.spec.ts`); what stays is that
+ * this service still hands the panel's calls through unchanged.
  */
 
 function attempt(overrides: Partial<GameAttempt> = {}): GameAttempt {
@@ -32,7 +30,9 @@ describe('GameAdminService', () => {
   let service: GameAdminService;
   let seasonRepo: Record<string, jest.Mock>;
   let attemptRepo: Record<string, jest.Mock>;
-  let claim: jest.Mock;
+  let enrolmentRepo: Record<string, jest.Mock>;
+  let seasons: { current: jest.Mock };
+  let verdicts: { settle: jest.Mock; unpublish: jest.Mock };
 
   beforeEach(async () => {
     seasonRepo = {
@@ -48,22 +48,18 @@ describe('GameAdminService', () => {
       createQueryBuilder: jest.fn(),
       query: jest.fn().mockResolvedValue([[{ id: 'a1' }], 1]),
     };
-    // Matched the transition; this caller owns it.
-    claim = jest.fn().mockResolvedValue([[{ id: 'a1' }], 1]);
-
-    const dataSource = {
-      transaction: jest.fn(
-        async (cb: (m: unknown) => Promise<unknown>) =>
-          await cb({ query: claim }),
-      ),
-    };
+    enrolmentRepo = { find: jest.fn().mockResolvedValue([]) };
+    seasons = { current: jest.fn().mockResolvedValue({ id: 's1' }) };
+    verdicts = { settle: jest.fn(), unpublish: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         GameAdminService,
         { provide: getRepositoryToken(GameSeason), useValue: seasonRepo },
         { provide: getRepositoryToken(GameAttempt), useValue: attemptRepo },
-        { provide: DataSource, useValue: dataSource },
+        { provide: getRepositoryToken(GameEnrolment), useValue: enrolmentRepo },
+        { provide: SeasonsService, useValue: seasons },
+        { provide: VerdictsService, useValue: verdicts },
       ],
     }).compile();
 
@@ -155,131 +151,55 @@ describe('GameAdminService', () => {
     });
   });
 
-  describe('settle', () => {
-    it('publishes an approved attempt', async () => {
-      await service.settle('a1', { verdict: 'approve', nerve: 25 });
-      expect(claim).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE "game_attempts"'),
-        ['a1', 'published'],
+  describe('listEnrolments', () => {
+    it('is empty between seasons rather than an error', async () => {
+      seasons.current.mockResolvedValue(null);
+      await expect(service.listEnrolments()).resolves.toEqual([]);
+      expect(enrolmentRepo.find).not.toHaveBeenCalled();
+    });
+
+    it('scopes to the live season and the filters given', async () => {
+      await service.listEnrolments({ status: 'cheater', role: 'watcher' });
+      expect(enrolmentRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { seasonId: 's1', status: 'cheater', role: 'watcher' },
+        }),
       );
     });
 
-    it('rejects without publishing', async () => {
-      await service.settle('a1', { verdict: 'reject' });
-      expect(claim).toHaveBeenCalledWith(expect.anything(), ['a1', 'rejected']);
-    });
-
-    it('pays the Nerve and moves the tie-break timestamp', async () => {
-      await service.settle('a1', { verdict: 'approve', nerve: 25 });
-      expect(claim).toHaveBeenCalledWith(
-        expect.stringContaining('"nerve" = "nerve" + $2'),
-        ['e1', 25],
+    it('clamps the limit', async () => {
+      await service.listEnrolments({ limit: 9999 });
+      expect(enrolmentRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 500 }),
       );
-    });
-
-    it('pays nothing on a rejection, whatever was sent', async () => {
-      await service.settle('a1', { verdict: 'reject', nerve: 999 });
-      const paid = claim.mock.calls.some(([sql]: [string]) =>
-        sql.includes('"nerve"'),
-      );
-      expect(paid).toBe(false);
-    });
-
-    it('pays nothing when the award is zero', async () => {
-      await service.settle('a1', { verdict: 'approve', nerve: 0 });
-      const paid = claim.mock.calls.some(([sql]: [string]) =>
-        sql.includes('"nerve"'),
-      );
-      expect(paid).toBe(false);
-    });
-
-    it('never pays a negative award', async () => {
-      await service.settle('a1', { verdict: 'approve', nerve: -50 });
-      const paid = claim.mock.calls.some(([sql]: [string]) =>
-        sql.includes('"nerve"'),
-      );
-      expect(paid).toBe(false);
-    });
-
-    /**
-     * The reason the transition is claimed. Two reviewers opening the same
-     * item would otherwise both settle it and both pay its Nerve.
-     */
-    it('refuses when someone else already settled it', async () => {
-      claim.mockResolvedValue([[], 0]);
-      await expect(
-        service.settle('a1', { verdict: 'approve', nerve: 25 }),
-      ).rejects.toThrow(ConflictException);
-    });
-
-    it('pays nothing at all when it loses that race', async () => {
-      claim.mockResolvedValue([[], 0]);
-      await expect(
-        service.settle('a1', { verdict: 'approve', nerve: 25 }),
-      ).rejects.toThrow();
-      expect(claim).toHaveBeenCalledTimes(1);
-    });
-
-    /** Ash never returns, so the floor is in the statement. */
-    it('burns a heart without going below zero', async () => {
-      await service.settle('a1', { verdict: 'reject', burnHeart: true });
-      expect(claim).toHaveBeenCalledWith(
-        expect.stringContaining('GREATEST("heartsRemaining" - 1, 0)'),
-        ['e1'],
-      );
-    });
-
-    it('leaves hearts alone unless asked', async () => {
-      await service.settle('a1', { verdict: 'reject' });
-      const burnt = claim.mock.calls.some(([sql]: [string]) =>
-        sql.includes('heartsRemaining'),
-      );
-      expect(burnt).toBe(false);
-    });
-
-    it('is a 404 for an attempt that is not there', async () => {
-      attemptRepo.findOne.mockResolvedValue(null);
-      await expect(
-        service.settle('a1', { verdict: 'approve' }),
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    /** Nothing was uploaded, so there is nothing to have a verdict about. */
-    it('refuses to settle a day nobody handed in', async () => {
-      attemptRepo.findOne.mockResolvedValue(
-        attempt({ status: 'awaiting_upload' }),
-      );
-      await expect(
-        service.settle('a1', { verdict: 'approve' }),
-      ).rejects.toThrow(BadRequestException);
     });
   });
 
-  describe('unpublish', () => {
-    it('takes it back out of the feed', async () => {
-      await service.unpublish('a1');
-      expect(attemptRepo.query).toHaveBeenCalledWith(
-        expect.stringContaining(`"status" = 'rejected'`),
-        ['a1'],
-      );
-    });
-
-    it('refuses something that is not in the feed', async () => {
-      attemptRepo.query.mockResolvedValue([[], 0]);
-      await expect(service.unpublish('a1')).rejects.toThrow(ConflictException);
-    });
-
+  describe('delegation', () => {
     /**
-     * Deliberately does not claw the Nerve back. A score that moves after the
-     * fact reorders a board people have already seen; the compensating ledger
-     * entry that does it properly is Level 5's job.
+     * Two things settle an attempt now — the panel and the vote resolver —
+     * so the logic lives in `VerdictsService` and this is only its door.
      */
-    it('does not touch the score', async () => {
-      await service.unpublish('a1');
-      const touched = attemptRepo.query.mock.calls.some(([sql]: [string]) =>
-        sql.includes('"nerve"'),
-      );
-      expect(touched).toBe(false);
+    it('hands settle to the verdicts service and returns its answer', async () => {
+      const settled = attempt({ status: 'published' });
+      verdicts.settle.mockResolvedValue(settled);
+      const opts = { verdict: 'approve' as const, nerve: 25, by: 'admin-1' };
+      await expect(service.settle('a1', opts)).resolves.toBe(settled);
+      expect(verdicts.settle).toHaveBeenCalledWith('a1', opts);
+    });
+
+    it('hands unpublish to the verdicts service', async () => {
+      const back = attempt({ status: 'rejected' });
+      verdicts.unpublish.mockResolvedValue(back);
+      await expect(service.unpublish('a1')).resolves.toBe(back);
+      expect(verdicts.unpublish).toHaveBeenCalledWith('a1', {});
+    });
+
+    /** The clawback row names who took it back. */
+    it('passes the admin through to unpublish', async () => {
+      verdicts.unpublish.mockResolvedValue(attempt({ status: 'rejected' }));
+      await service.unpublish('a1', { by: 'admin-1' });
+      expect(verdicts.unpublish).toHaveBeenCalledWith('a1', { by: 'admin-1' });
     });
   });
 });
