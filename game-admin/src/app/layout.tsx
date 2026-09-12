@@ -45,14 +45,12 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       className={`${archivo.variable} ${archivoBlack.variable} h-full antialiased`}
     >
       <head>
-        <link rel="preconnect" href="https://res.cloudinary.com" />
-        <link rel="dns-prefetch" href="https://res.cloudinary.com" />
         {/* Applies the stored theme before first paint to avoid a flash.
             Carries the request's CSP nonce, the same way Next's own inline
             scripts do. */}
         <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
       </head>
-      <body className="flex min-h-full flex-col bg-background text-foreground">
+      <body className="min-h-full bg-page text-ink">
         <Providers>
           <Chrome>{children}</Chrome>
         </Providers>

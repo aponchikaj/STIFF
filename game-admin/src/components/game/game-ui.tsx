@@ -1,114 +1,49 @@
 "use client";
 
 import { useState } from "react";
-import { btnGhostSm, eyebrowCls } from "../ui";
 import { errorMessage } from "@/lib/hooks";
+import { btnGhost } from "../ui";
 
-/* Small pieces every game screen shares, so the eight of them read as one. */
+/*
+ * The pieces every game screen shares, on top of the panel's primitives.
+ *
+ * Anything generic — buttons, cards, badges, stats, tables — lives in
+ * `../ui`. What is here is either specific to the game's data (hearts, a
+ * demotion reason spelled out) or specific to operating it (arming an
+ * irreversible action, reporting what the last one did).
+ */
 
-export type Tone = "neutral" | "solid" | "outline" | "warn";
-
-/** A status word. `solid` is the emphatic state, `warn` the one to look at. */
-export function Pill({
-  tone = "neutral",
-  children,
-}: {
-  tone?: Tone;
-  children: React.ReactNode;
-}) {
-  const cls =
-    tone === "solid"
-      ? "bg-foreground text-background"
-      : tone === "warn"
-        ? "border border-foreground text-foreground"
-        : tone === "outline"
-          ? "border border-subtle text-foreground"
-          : "border border-subtle text-muted";
-  return (
-    <span
-      className={`inline-flex rounded-[2px] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.15em] ${cls}`}
-    >
-      {children}
-    </span>
-  );
-}
-
-/** One number with a label under it. A row of these is the summary strip. */
-export function Stat({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: React.ReactNode;
-  hint?: React.ReactNode;
-}) {
-  return (
-    <div className="border-t border-subtle pt-3">
-      <p className={eyebrowCls}>{label}</p>
-      <p className="mt-2 text-3xl tabular-nums tracking-tight">{value}</p>
-      {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
-    </div>
-  );
-}
-
-export function SectionTitle({
-  children,
-  aside,
-}: {
-  children: React.ReactNode;
-  aside?: React.ReactNode;
-}) {
-  return (
-    <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
-      <h3 className="text-sm font-bold uppercase tracking-[0.15em]">
-        {children}
-      </h3>
-      {aside}
-    </div>
-  );
-}
-
-export function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="py-8 text-sm text-muted">{children}</p>;
-}
-
-/** Key–value rows for a detail pane. */
-export function Facts({
-  rows,
-}: {
-  rows: { label: string; value: React.ReactNode }[];
-}) {
-  return (
-    <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5 text-xs">
-      {rows.map((row) => (
-        <div key={row.label} className="contents">
-          <dt className="text-muted">{row.label}</dt>
-          <dd className="min-w-0 break-words">{row.value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
+export { Badge as Pill, Stat, SectionTitle, Empty, Facts, Note } from "../ui";
+export type { Tone } from "../ui";
 
 /**
- * A button for an action that cannot be taken back. The first press arms it,
- * the second fires; anything else disarms. No modal, and no browser dialog.
+ * A button for something that cannot be taken back.
+ *
+ * The first press arms it, the second fires, and anything else disarms —
+ * losing focus, or the row scrolling out from under the cursor. No browser
+ * dialog: `confirm()` steals the whole window for a decision that belongs
+ * next to the thing being decided, and its wording cannot say what will
+ * actually happen.
  */
 export function ConfirmButton({
   label,
-  confirmLabel = "Sure?",
+  confirmLabel = "Press again",
   onConfirm,
-  className = btnGhostSm,
+  className = btnGhost,
   disabled,
+  tone = "danger",
 }: {
   label: string;
   confirmLabel?: string;
   onConfirm: () => void | Promise<void>;
   className?: string;
   disabled?: boolean;
+  /** `danger` turns the armed state red; `neutral` leaves it plain. */
+  tone?: "danger" | "neutral";
 }) {
   const [armed, setArmed] = useState(false);
+  const armedCls =
+    tone === "danger" ? "text-danger underline" : "text-ink underline";
   return (
     <button
       type="button"
@@ -122,15 +57,20 @@ export function ConfirmButton({
         setArmed(false);
         void onConfirm();
       }}
-      className={className}
       aria-pressed={armed}
+      className={`${className} ${armed ? armedCls : ""}`}
     >
       {armed ? confirmLabel : label}
     </button>
   );
 }
 
-/** Runs an action, keeps its outcome as a one-line note, then reloads. */
+/**
+ * Runs an action, keeps its outcome as one line, then reloads.
+ *
+ * Failures land in the same place successes do. An error that appears
+ * somewhere else is an error the operator learns to miss.
+ */
 export function useAction(reload?: () => void) {
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -153,12 +93,50 @@ export function useAction(reload?: () => void) {
   return { note, setNote, busy, act };
 }
 
-export function Note({ children }: { children: React.ReactNode }) {
+// ------------------------------------------------------------ the game's --
+
+/**
+ * Hearts as pips: filled for what is left, hollow for what is spent.
+ *
+ * A player's remaining hearts is the number that decides whether they are
+ * still in the season, so it is shown as a shape you can count without
+ * reading rather than as "2/3".
+ */
+export function Hearts({
+  remaining,
+  total,
+}: {
+  remaining: number;
+  total: number;
+}) {
+  const left = Math.max(remaining, 0);
+  const spent = Math.max(total - left, 0);
   return (
-    <p aria-live="polite" className="mt-2 min-h-4 text-xs text-muted">
-      {children}
-    </p>
+    <span
+      className="inline-flex items-center gap-1"
+      aria-label={`${left} of ${total} hearts left`}
+    >
+      {Array.from({ length: left }, (_, i) => (
+        <span
+          key={`on-${i}`}
+          className={`inline-block size-1.5 rounded-full ${
+            left === 1 ? "bg-danger" : "bg-ink"
+          }`}
+        />
+      ))}
+      {Array.from({ length: spent }, (_, i) => (
+        <span
+          key={`off-${i}`}
+          className="inline-block size-1.5 rounded-full border border-line-strong"
+        />
+      ))}
+    </span>
   );
+}
+
+/** The text form, for places a row is too tight for pips. */
+export function hearts(remaining: number, total: number): string {
+  return `${"●".repeat(Math.max(remaining, 0))}${"○".repeat(Math.max(total - remaining, 0))}`;
 }
 
 // ------------------------------------------------------------ formatting --
@@ -177,7 +155,7 @@ export function formatDateTime(iso: string | null | undefined): string {
 export function timeAgo(iso: string | null | undefined): string {
   if (!iso) return "—";
   const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
-  return durationWords(seconds) + " ago";
+  return `${durationWords(seconds)} ago`;
 }
 
 export function durationWords(seconds: number): string {
@@ -187,15 +165,16 @@ export function durationWords(seconds: number): string {
   return `${Math.round(seconds / 86400)} d`;
 }
 
-export function hearts(remaining: number, total: number): string {
-  return `${"●".repeat(Math.max(remaining, 0))}${"○".repeat(Math.max(total - remaining, 0))}`;
-}
-
 export function shortId(id: string | null | undefined): string {
   return id ? id.slice(0, 8) : "—";
 }
 
-/** A readable word for a reason id like `missed_daily_minimum`. */
+/** A readable phrase from an id like `missed_daily_minimum`. */
 export function words(id: string | null | undefined): string {
   return id ? id.replace(/_/g, " ") : "—";
+}
+
+/** Whole numbers with thousands separators, for anything counted. */
+export function n(value: number): string {
+  return value.toLocaleString("en-GB");
 }

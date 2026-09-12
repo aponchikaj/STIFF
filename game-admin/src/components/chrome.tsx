@@ -1,37 +1,90 @@
 "use client";
 
 import Link from "next/link";
+import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { GAME_URL } from "@/lib/game-site";
+import { AsteriskMark } from "./asterisk-mark";
+import {
+  IconBoard,
+  IconExternal,
+  IconLogout,
+  IconOverview,
+  IconPlayers,
+  IconReports,
+  IconReview,
+  IconSeason,
+  IconShop,
+  IconTasks,
+} from "./nav-icons";
 import { useSession } from "./providers";
 import { ThemeToggle } from "./theme-toggle";
-import { btnGhostSm, btnOutline, chipCls, Loading } from "./ui";
+import { btnSecondary, Loading, pageTitle } from "./ui";
 
 /**
  * The panel's sections, in the order an operator meets them on a season day:
  * what is happening, the season itself, the queue waiting on a person, the
- * people, the board, then the things set up in advance — the task pool and
- * the coin shop — and finally what players have reported.
+ * people, the board, then what was set up in advance — the task pool and the
+ * coin shop — and finally what players have reported.
+ *
+ * Grouped, because eight flat items is a list you read every time and three
+ * groups of two or three is a shape you learn once. `Today` is what changes
+ * hour to hour; `Setup` is what you prepare between seasons.
  *
  * Sections live in the URL rather than component state, so a view can be
  * bookmarked, sent to whoever is handling it, and survives a refresh.
  */
-const SECTIONS = [
-  { href: "/", label: "Overview" },
-  { href: "/seasons", label: "Seasons" },
-  { href: "/review", label: "Review" },
-  { href: "/players", label: "Players" },
-  { href: "/board", label: "Board" },
-  { href: "/tasks", label: "Tasks" },
-  { href: "/shop", label: "Coin shop" },
-  { href: "/reports", label: "Reports" },
-] as const;
+interface NavItem {
+  href: Route;
+  label: string;
+  icon: (props: { className?: string }) => React.ReactElement;
+}
+
+interface NavGroup {
+  label: string | null;
+  items: NavItem[];
+}
+
+const GROUPS: NavGroup[] = [
+  {
+    label: null,
+    items: [{ href: "/", label: "Overview", icon: IconOverview }],
+  },
+  {
+    label: "Today",
+    items: [
+      { href: "/review", label: "Review", icon: IconReview },
+      { href: "/reports", label: "Reports", icon: IconReports },
+      { href: "/players", label: "Players", icon: IconPlayers },
+      { href: "/board", label: "Board", icon: IconBoard },
+    ],
+  },
+  {
+    label: "Setup",
+    items: [
+      { href: "/seasons", label: "Seasons", icon: IconSeason },
+      { href: "/tasks", label: "Tasks", icon: IconTasks },
+      { href: "/shop", label: "Coin shop", icon: IconShop },
+    ],
+  },
+];
+
+const ALL = GROUPS.flatMap((g) => g.items);
+
+function titleFor(pathname: string): string {
+  if (pathname === "/") return "Overview";
+  const match = ALL.filter((s) => s.href !== "/").find((s) =>
+    pathname.startsWith(s.href),
+  );
+  return match?.label ?? "Game";
+}
 
 export function Chrome({ children }: { children: React.ReactNode }) {
   const { user, loading, sessionError, refreshUser } = useSession();
   const pathname = usePathname();
   const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const isLoginRoute = pathname === "/login";
 
@@ -43,19 +96,25 @@ export function Chrome({ children }: { children: React.ReactNode }) {
     if (!user) router.replace("/login");
   }, [loading, user, sessionError, isLoginRoute, router]);
 
-  if (isLoginRoute) return <main className="flex-1">{children}</main>;
+  // A tap on a section should not leave the drawer sitting over the screen.
+  useEffect(() => setMenuOpen(false), [pathname]);
+
+  if (isLoginRoute) return <main className="min-h-dvh">{children}</main>;
 
   if (!loading && !user && sessionError) {
     return (
-      <main className="flex flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
-        <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
+      <main className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
+        <AsteriskMark className="size-6 text-line-strong" />
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
           Can&apos;t reach the server
         </p>
-        <p className="max-w-sm text-xs leading-6 text-muted">{sessionError}</p>
+        <p className="max-w-sm text-[13px] leading-6 text-muted">
+          {sessionError}
+        </p>
         <button
           type="button"
           onClick={() => void refreshUser()}
-          className={btnOutline}
+          className={btnSecondary}
         >
           Try again
         </button>
@@ -65,82 +124,158 @@ export function Chrome({ children }: { children: React.ReactNode }) {
 
   if (loading || !user) {
     return (
-      <main className="flex flex-1 items-center justify-center px-4">
+      <main className="flex min-h-dvh items-center justify-center px-6">
         <Loading label="Checking session" />
       </main>
     );
   }
 
   return (
+    <div className="min-h-dvh lg:grid lg:grid-cols-[248px_1fr]">
+      <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
+      <div className="flex min-w-0 flex-col">
+        <TopBar
+          title={titleFor(pathname)}
+          onMenu={() => setMenuOpen((v) => !v)}
+        />
+        <main className="min-w-0 flex-1 px-5 pb-16 pt-6 sm:px-8">
+          <div className="rise mx-auto w-full max-w-[1400px]">{children}</div>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const pathname = usePathname();
+  const { user, logout } = useSession();
+  const router = useRouter();
+
+  return (
     <>
-      <Header />
-      <main className="w-full flex-1 px-4 pb-16 sm:px-6">{children}</main>
+      {/* The drawer's backdrop only exists on small screens, where the rail
+          is over the content rather than beside it. */}
+      {open && (
+        <button
+          type="button"
+          aria-label="Close menu"
+          onClick={onClose}
+          className="fixed inset-0 z-30 bg-ink/25 lg:hidden"
+        />
+      )}
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 flex w-[248px] flex-col border-r border-line bg-card transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:h-dvh lg:translate-x-0 ${
+          open ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="flex items-center gap-2.5 px-5 pb-6 pt-6">
+          <AsteriskMark className="size-4 text-ink" />
+          <span className="font-display text-[15px] tracking-[-0.01em]">
+            STIFF
+          </span>
+          {/* The two panels look alike. Saying which one this is, in the one
+              place the eye always lands, is cheaper than a mistake. */}
+          <span className="ml-auto rounded-[var(--radius-pill)] border border-line px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-muted">
+            Game
+          </span>
+        </div>
+
+        <nav aria-label="Sections" className="flex-1 overflow-y-auto px-3">
+          {GROUPS.map((group, i) => (
+            <div key={group.label ?? "root"} className={i === 0 ? "" : "mt-6"}>
+              {group.label && (
+                <p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-faint">
+                  {group.label}
+                </p>
+              )}
+              <ul className="flex flex-col gap-0.5">
+                {group.items.map((item) => {
+                  const active =
+                    item.href === "/"
+                      ? pathname === "/"
+                      : pathname.startsWith(item.href);
+                  const Icon = item.icon;
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        aria-current={active ? "page" : undefined}
+                        className={`flex items-center gap-3 rounded-[var(--radius-control)] px-2.5 py-2 text-[13px] font-semibold transition-colors ${
+                          active
+                            ? "bg-ink text-card"
+                            : "text-muted hover:bg-raised hover:text-ink"
+                        }`}
+                      >
+                        <Icon className="size-[18px] shrink-0" />
+                        {item.label}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </nav>
+
+        <div className="border-t border-line p-3">
+          <a
+            href={GAME_URL}
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 rounded-[var(--radius-control)] px-2.5 py-2 text-[13px] font-semibold text-muted transition-colors hover:bg-raised hover:text-ink"
+          >
+            <IconExternal className="size-[18px] shrink-0" />
+            View the game
+          </a>
+          <div className="mt-2 flex items-center gap-2 rounded-[var(--radius-control)] px-2.5 py-2">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-bold text-card">
+              {user?.username?.slice(0, 1).toUpperCase() ?? "?"}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[12px] font-semibold text-ink">
+                {user?.username}
+              </span>
+              <span className="block text-[10px] uppercase tracking-[0.1em] text-faint">
+                admin.stiff.co
+              </span>
+            </span>
+            <button
+              type="button"
+              aria-label="Log out"
+              title="Log out"
+              onClick={async () => {
+                await logout();
+                router.replace("/login");
+              }}
+              className="text-muted transition-colors hover:text-danger"
+            >
+              <IconLogout className="size-[18px]" />
+            </button>
+          </div>
+        </div>
+      </aside>
     </>
   );
 }
 
-function Header() {
-  const { user, logout } = useSession();
-  const pathname = usePathname();
-  const router = useRouter();
-  if (!user) return null;
-
+function TopBar({ title, onMenu }: { title: string; onMenu: () => void }) {
   return (
-    <header className="w-full px-4 pt-10 sm:px-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-4xl uppercase tracking-tight sm:text-6xl">
-            Game
-          </h1>
-          <p className="mt-2 text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
-            {user.username} · season operations
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Named, because this panel and the shop's look alike and an
-              operator with both open should never have to guess which is
-              which before pressing something irreversible. */}
-          <span className="rounded-[2px] border border-subtle px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.15em] text-muted">
-            admin.stiff.co
-          </span>
-          <a href={GAME_URL} rel="noopener noreferrer" className={btnGhostSm}>
-            View the game ↗
-          </a>
+    <header className="sticky top-0 z-20 border-b border-line bg-page/85 px-5 py-4 backdrop-blur-md sm:px-8">
+      <div className="mx-auto flex w-full max-w-[1400px] items-center gap-3">
+        <button
+          type="button"
+          onClick={onMenu}
+          aria-label="Open menu"
+          className="-ml-1 inline-flex size-9 items-center justify-center rounded-[var(--radius-control)] border border-line text-muted lg:hidden"
+        >
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" className="size-[18px]">
+            <path d="M3 6h14M3 10h14M3 14h14" />
+          </svg>
+        </button>
+        <h1 className={pageTitle}>{title}</h1>
+        <div className="ml-auto flex items-center gap-2">
           <ThemeToggle />
-          <button
-            type="button"
-            onClick={async () => {
-              await logout();
-              router.replace("/login");
-            }}
-            className={btnGhostSm}
-          >
-            Log out
-          </button>
         </div>
       </div>
-
-      <nav
-        aria-label="Sections"
-        className="-mx-4 mt-8 flex gap-1.5 overflow-x-auto px-4 pb-2 sm:mx-0 sm:flex-wrap sm:px-0"
-      >
-        {SECTIONS.map((section) => {
-          const active =
-            section.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(section.href);
-          return (
-            <Link
-              key={section.href}
-              href={section.href}
-              aria-current={active ? "page" : undefined}
-              className={`${chipCls(active)} shrink-0`}
-            >
-              {section.label}
-            </Link>
-          );
-        })}
-      </nav>
     </header>
   );
 }

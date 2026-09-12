@@ -4,9 +4,5 @@ import { ShopTab } from "@/components/game/shop-tab";
 export const metadata: Metadata = { title: "Coin shop" };
 
 export default function Page() {
-  return (
-    <section className="py-10">
-      <ShopTab />
-    </section>
-  );
+  return <ShopTab />;
 }

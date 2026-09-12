@@ -10,15 +10,19 @@ import type {
 } from "@/lib/api";
 import { useAsync } from "@/lib/hooks";
 import {
-  btnOutline,
-  btnSolidSm,
+  btnDanger,
+  btnPrimary,
+  checkboxCls,
   chipCls,
   ErrorNote,
+  eyebrow,
   Field,
   inputCls,
   labelCls,
   Loading,
+  Panel,
   textareaCls,
+  type Tone,
 } from "../ui";
 import {
   ConfirmButton,
@@ -26,7 +30,6 @@ import {
   Facts,
   Note,
   Pill,
-  SectionTitle,
   durationWords,
   formatDateTime,
   shortId,
@@ -41,13 +44,12 @@ const MAX_NERVE = 10_000;
 const MAX_REASON = 500;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const VERDICT_TONE: Record<CheatVerdictKind, "neutral" | "outline" | "warn"> =
-  {
-    cheating: "warn",
-    suspicious: "outline",
-    authentic: "neutral",
-    unchecked: "neutral",
-  };
+const VERDICT_TONE: Record<CheatVerdictKind, Tone> = {
+  cheating: "danger",
+  suspicious: "caution",
+  authentic: "positive",
+  unchecked: "neutral",
+};
 
 /**
  * The review queue: every hand-in waiting for a verdict, oldest first, with
@@ -82,65 +84,77 @@ export function ReviewTab() {
   const items = queue.data?.items ?? [];
 
   return (
-    <div className="space-y-12">
-      <section>
-        <SectionTitle
-          aside={
-            queue.data && (
-              <span className="text-xs tabular-nums text-muted">
+    <div className="flex flex-col gap-5">
+      <Panel
+        title="Waiting for a verdict"
+        bleed
+        aside={
+          <>
+            {queue.data && (
+              <span className="tnum text-[11px] text-faint">
                 {queue.data.total} waiting
                 {queue.data.total > items.length &&
                   ` · showing the oldest ${items.length}`}
               </span>
-            )
-          }
-        >
-          Waiting for a verdict
-        </SectionTitle>
-
-        <div
-          role="group"
-          aria-label="Filter by day"
-          className="flex flex-wrap gap-2"
-        >
-          <button
-            type="button"
-            onClick={() => setDay(undefined)}
-            className={chipCls(day === undefined)}
-            aria-pressed={day === undefined}
-          >
-            All
-          </button>
-          {DAYS.map((d) => (
-            <button
-              key={d}
-              type="button"
-              onClick={() => setDay(d)}
-              className={chipCls(day === d)}
-              aria-pressed={day === d}
+            )}
+            <div
+              role="group"
+              aria-label="Filter by day"
+              className="flex flex-wrap gap-2"
             >
-              Day {d}
-            </button>
-          ))}
-        </div>
-        <Note>{note}</Note>
-
-        {queue.loading && !queue.data && <Loading label="Loading the queue" />}
-        {queue.error && <ErrorNote message={queue.error} />}
+              <button
+                type="button"
+                onClick={() => setDay(undefined)}
+                className={chipCls(day === undefined)}
+                aria-pressed={day === undefined}
+              >
+                All
+              </button>
+              {DAYS.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setDay(d)}
+                  className={chipCls(day === d)}
+                  aria-pressed={day === d}
+                >
+                  Day {d}
+                </button>
+              ))}
+            </div>
+          </>
+        }
+      >
+        {queue.loading && !queue.data && (
+          <div className="px-5">
+            <Loading label="Loading the queue" />
+          </div>
+        )}
+        {queue.error && (
+          <div className="px-5">
+            <ErrorNote message={queue.error} />
+          </div>
+        )}
         {queue.data && items.length === 0 && <Empty>The queue is clear.</Empty>}
 
-        <ul className="mt-4 border-t border-subtle">
-          {items.map((item) => (
-            <ReviewItem
-              key={item.id}
-              item={item}
-              busy={busy}
-              onSettle={(input, done) => settle(item, input, done)}
-              onInvalid={setNote}
-            />
-          ))}
-        </ul>
-      </section>
+        {items.length > 0 && (
+          <ul>
+            {items.map((item) => (
+              <ReviewItem
+                key={item.id}
+                item={item}
+                busy={busy}
+                onSettle={(input, done) => settle(item, input, done)}
+                onInvalid={setNote}
+              />
+            ))}
+          </ul>
+        )}
+
+        <div className="border-t border-line px-5 py-3.5">
+          <Note>{note}</Note>
+        </div>
+      </Panel>
 
       <Unpublish
         busy={busy}
@@ -209,29 +223,30 @@ function ReviewItem({
   }
 
   return (
-    <li className="border-b border-subtle py-6">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <p className="flex flex-wrap items-baseline gap-2 text-sm">
-          <span className="font-bold uppercase tracking-wide">{handle}</span>
-          <span className="text-xs tabular-nums text-muted">
-            {item.enrolment.nerve} Nerve
-          </span>
+    <li className="border-t border-line px-5 py-5">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="text-[13px] font-bold">{handle}</span>
           <Pill tone="outline">day {item.day}</Pill>
           <Pill>{item.kind}</Pill>
-        </p>
-        <p className="text-xs text-muted">
+          <span className="tnum text-[11px] text-faint">
+            {item.enrolment.nerve} Nerve
+          </span>
+        </div>
+        <p className="text-[11px] text-faint">
           <time dateTime={submitted}>{formatDateTime(submitted)}</time> ·{" "}
           {timeAgo(submitted)}
         </p>
       </div>
 
-      <div className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="min-w-0 space-y-4">
+      <div className="mt-4 grid gap-5 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">
+        {/* ------------------------------------------------ what they sent */}
+        <div className="flex min-w-0 flex-col gap-3">
           <Media item={item} />
           {item.caption ? (
-            <p className="text-sm leading-6">{item.caption}</p>
+            <p className="text-[13px] leading-6">{item.caption}</p>
           ) : (
-            <p className="text-xs text-muted">No caption.</p>
+            <p className="text-[11px] text-faint">No caption.</p>
           )}
           <Facts
             rows={[
@@ -256,49 +271,52 @@ function ReviewItem({
               { label: "File", value: `${megabytes(item.byteSize)} MB` },
               {
                 label: "Attempt",
-                value: <span className="font-mono">{item.id}</span>,
+                value: (
+                  <span className="break-all font-mono text-[11px]">
+                    {item.id}
+                  </span>
+                ),
               },
             ]}
           />
         </div>
 
-        <div className="min-w-0 space-y-6">
+        {/* -------------------------------------------------- the verdict */}
+        <div className="flex min-w-0 flex-col gap-4">
           <ModelVerdict item={item} />
 
-          <div className="space-y-4 border-t border-subtle pt-4">
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="w-40">
-                <Field id={`nerve-${item.id}`} label="Nerve override">
-                  <input
-                    id={`nerve-${item.id}`}
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    max={MAX_NERVE}
-                    step={1}
-                    value={nerve}
-                    onChange={(e) => setNerve(e.target.value)}
-                    placeholder="task's reward"
-                    className={inputCls}
-                  />
-                </Field>
-              </div>
+          <div className="border-t border-line pt-4">
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,9rem)_auto] sm:items-end">
+              <Field id={`nerve-${item.id}`} label="Nerve override">
+                <input
+                  id={`nerve-${item.id}`}
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={MAX_NERVE}
+                  step={1}
+                  value={nerve}
+                  onChange={(e) => setNerve(e.target.value)}
+                  placeholder="task's reward"
+                  className={`${inputCls} tnum`}
+                />
+              </Field>
               <button
                 type="button"
                 disabled={busy}
                 onClick={approve}
-                className={`${btnSolidSm} h-12`}
+                className={btnPrimary}
               >
                 Approve
               </button>
             </div>
-            <p className="text-xs text-muted">
+            <p className="mt-2.5 text-[11px] leading-5 text-faint">
               Leave the override blank to pay what the task promises. A clan
               hand-in always pays the task&apos;s reward to both members.
             </p>
           </div>
 
-          <div className="space-y-3 border-t border-subtle pt-4">
+          <div className="border-t border-line pt-4">
             <Field id={`reason-${item.id}`} label="Reason for rejecting">
               <textarea
                 id={`reason-${item.id}`}
@@ -310,35 +328,34 @@ function ReviewItem({
                 className={textareaCls}
               />
             </Field>
-            <p className="text-right text-[10px] tabular-nums text-muted">
+            <p className="tnum mt-1 text-right text-[11px] text-faint">
               {reason.length}/{MAX_REASON}
             </p>
-            <label className="flex items-start gap-3 text-xs leading-5">
+            <label className="mt-2 flex items-start gap-2.5">
               <input
                 type="checkbox"
                 checked={burnHeart}
                 onChange={(e) => setBurnHeart(e.target.checked)}
-                className="mt-1 size-3.5 accent-current"
+                className={`${checkboxCls} mt-0.5`}
               />
-              <span>
-                <span className={labelCls}>Burn a heart</span>
-                <br />
-                <span className="text-muted">
+              <span className="min-w-0">
+                <span className={`${labelCls} block`}>Burn a heart</span>
+                <span className="mt-1 block text-[11px] leading-5 text-faint">
                   One-way — a burned heart never comes back, and if it was
                   their last, their season ends here and they become a
                   watcher.
                 </span>
               </span>
             </label>
-            <ConfirmButton
-              label={burnHeart ? "Reject and burn a heart" : "Reject"}
-              confirmLabel={
-                burnHeart ? "Burn it — sure?" : "Reject — sure?"
-              }
-              onConfirm={reject}
-              disabled={busy}
-              className={btnOutline}
-            />
+            <div className="mt-3.5">
+              <ConfirmButton
+                label={burnHeart ? "Reject and burn a heart" : "Reject"}
+                confirmLabel={burnHeart ? "Burn it — sure?" : "Reject — sure?"}
+                onConfirm={reject}
+                disabled={busy}
+                className={btnDanger}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -353,9 +370,11 @@ function Media({ item }: { item: ReviewAttempt }) {
     // The bucket may not be public-readable yet; the key still lets someone
     // find the object by hand.
     return (
-      <div className="rounded-[2px] border border-subtle p-4">
+      <div className="rounded-[var(--radius-control)] border border-line bg-raised p-3.5">
         <p className={labelCls}>No public URL</p>
-        <p className="mt-2 break-all font-mono text-xs">{item.objectKey}</p>
+        <p className="mt-1.5 break-all font-mono text-[11px] leading-5">
+          {item.objectKey}
+        </p>
       </div>
     );
   }
@@ -363,14 +382,14 @@ function Media({ item }: { item: ReviewAttempt }) {
     ? `${item.enrolment.handle}: ${item.caption}`
     : `Hand-in by ${item.enrolment.handle}`;
   return (
-    <div className="flex items-center justify-center rounded-[2px] bg-black">
+    <div className="flex items-center justify-center rounded-[var(--radius-control)] border border-line bg-raised">
       {item.kind === "video" ? (
         <video
           controls
           preload="metadata"
           src={item.mediaUrl}
           aria-label={alt}
-          className="max-h-80 w-full object-contain"
+          className="max-h-[200px] w-full rounded-[var(--radius-control)] bg-raised object-contain"
         />
       ) : (
         // eslint-disable-next-line @next/next/no-img-element -- media lives on an external bucket next/image cannot optimise
@@ -378,7 +397,7 @@ function Media({ item }: { item: ReviewAttempt }) {
           src={item.mediaUrl}
           alt={alt}
           loading="lazy"
-          className="max-h-80 w-full object-contain"
+          className="max-h-[200px] w-full rounded-[var(--radius-control)] bg-raised object-contain"
         />
       )}
     </div>
@@ -390,28 +409,28 @@ function Media({ item }: { item: ReviewAttempt }) {
 function ModelVerdict({ item }: { item: ReviewAttempt }) {
   const v = item.aiVerdict;
   return (
-    <div>
-      <p className={labelCls}>What the model thought</p>
+    <div className="rounded-[var(--radius-control)] border border-line bg-raised p-3.5">
+      <p className={eyebrow}>What the model thought</p>
       {!v ? (
-        <p className="mt-2 flex items-center gap-2 text-xs text-muted">
+        <p className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-muted">
           <Pill>not checked</Pill>
           <span>No verdict was written for this hand-in.</span>
         </p>
       ) : (
-        <div className="mt-2 space-y-3">
-          <p className="flex flex-wrap items-center gap-2 text-xs">
+        <div className="mt-2 flex flex-col gap-2.5">
+          <p className="flex flex-wrap items-center gap-2 text-[12px]">
             <Pill tone={VERDICT_TONE[v.verdict]}>{v.verdict}</Pill>
-            <span className="tabular-nums">
+            <span className="tnum font-semibold">
               {Math.round(v.confidence * 100)}% sure
             </span>
-            <span className="text-muted">
+            <span className="text-faint">
               · {v.mode} · {v.enforced ? "enforced" : "not enforced"}
               {v.skipped && ` · skipped: ${words(v.skipped)}`}
               {v.model && ` · ${v.model}`}
             </span>
           </p>
           {v.reasons.length > 0 && (
-            <ul className="list-disc space-y-1 pl-4 text-xs leading-5">
+            <ul className="list-disc space-y-1 pl-4 text-[12px] leading-5 text-muted">
               {v.reasons.map((reason, i) => (
                 <li key={i}>{reason}</li>
               ))}
@@ -428,12 +447,12 @@ function ModelVerdict({ item }: { item: ReviewAttempt }) {
       )}
 
       {item.votingStatus !== "none" && (
-        <p className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
-          <Pill tone={item.votingStatus === "deferred" ? "outline" : "neutral"}>
+        <p className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3 text-[12px] text-muted">
+          <Pill tone={item.votingStatus === "deferred" ? "caution" : "info"}>
             vote {item.votingStatus}
           </Pill>
           {item.voting ? (
-            <span className="tabular-nums">
+            <span className="tnum">
               {item.voting.yes} yes · {item.voting.no} no ·{" "}
               {words(item.voting.outcome)}
             </span>
@@ -462,28 +481,25 @@ function Unpublish({
   const valid = UUID.test(id);
 
   return (
-    <section>
-      <SectionTitle>Take a hand-in out of the feed</SectionTitle>
-      <p className="max-w-2xl text-xs leading-6 text-muted">
+    <Panel title="Take a hand-in out of the feed">
+      <p className="max-w-2xl text-[12px] leading-6 text-muted">
         Removes a published attempt from the feed and claws back the Nerve it
         paid through the score ledger, so the board corrects itself. Coins are
         not touched, and the attempt is not deleted.
       </p>
-      <div className="mt-4 flex flex-wrap items-end gap-3">
-        <div className="w-full max-w-md">
-          <Field id="unpublish-attempt-id" label="Attempt id">
-            <input
-              id="unpublish-attempt-id"
-              type="text"
-              autoComplete="off"
-              spellCheck={false}
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder="00000000-0000-0000-0000-000000000000"
-              className={`${inputCls} font-mono`}
-            />
-          </Field>
-        </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,24rem)_auto] sm:items-end">
+        <Field id="unpublish-attempt-id" label="Attempt id">
+          <input
+            id="unpublish-attempt-id"
+            type="text"
+            autoComplete="off"
+            spellCheck={false}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="00000000-0000-0000-0000-000000000000"
+            className={`${inputCls} font-mono text-[12px]`}
+          />
+        </Field>
         <ConfirmButton
           label="Unpublish"
           confirmLabel="Out of the feed — sure?"
@@ -492,10 +508,10 @@ function Unpublish({
             await onUnpublish(id);
             setValue("");
           }}
-          className={`${btnOutline} h-12`}
+          className={`${btnDanger} h-10 px-5`}
         />
       </div>
-    </section>
+    </Panel>
   );
 }
 

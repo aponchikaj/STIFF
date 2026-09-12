@@ -12,23 +12,32 @@ import type {
 } from "@/lib/api";
 import { useAsync } from "@/lib/hooks";
 import {
-  btnGhostSm,
-  btnOutline,
-  btnSolidSm,
+  btnGhost,
+  btnPrimary,
+  btnPrimarySm,
+  btnSecondary,
+  cardCls,
   chipCls,
   ErrorNote,
+  eyebrow,
   Field,
   inputCls,
   Loading,
+  Panel,
   selectCls,
+  tableCls,
+  TableScroll,
+  tdCls,
   textareaCls,
+  theadCls,
+  thCls,
+  trCls,
 } from "../ui";
 import {
   ConfirmButton,
   Empty,
   Note,
   Pill,
-  SectionTitle,
   Stat,
   formatDateTime,
   shortId,
@@ -37,15 +46,15 @@ import {
 } from "./game-ui";
 
 const ITEM_TONE: Record<ShopItemStatus, Tone> = {
-  live: "solid",
-  draft: "neutral",
-  archived: "outline",
+  live: "positive",
+  draft: "caution",
+  archived: "neutral",
 };
 
 // `paid` is the one that needs a person: it is waiting to be handed over.
 const PURCHASE_TONE: Record<PurchaseStatus, Tone> = {
-  paid: "outline",
-  fulfilled: "solid",
+  paid: "caution",
+  fulfilled: "positive",
   cancelled: "neutral",
 };
 
@@ -176,155 +185,173 @@ export function ShopTab() {
   }
 
   return (
-    <div className="space-y-12">
-      <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
-        <Stat label="Live items" value={countOf("live")} hint="on sale now" />
-        <Stat
-          label="Waiting"
-          value={purchases.data ? waiting : "…"}
-          hint="paid, not yet handed over"
-        />
-        <Stat
-          label="Fulfilled"
-          value={purchases.data ? fulfilled : "…"}
-          hint="handed over"
-        />
-        <Stat
-          label="Coins spent"
-          value={purchases.data ? coinsSpent : "…"}
-          hint={`over the ${loadedPurchases.length} purchases loaded, refunds excluded`}
-        />
+    <div className="flex flex-col gap-5">
+      <div
+        className={`${cardCls} grid grid-cols-2 divide-line sm:grid-cols-4 sm:divide-x`}
+      >
+        <div className="p-5">
+          <Stat label="Live items" value={countOf("live")} hint="on sale now" />
+        </div>
+        <div className="p-5">
+          <Stat
+            label="Waiting"
+            value={purchases.data ? waiting : "…"}
+            hint="paid, not yet handed over"
+          />
+        </div>
+        <div className="p-5">
+          <Stat
+            label="Fulfilled"
+            value={purchases.data ? fulfilled : "…"}
+            hint="handed over"
+          />
+        </div>
+        <div className="p-5">
+          <Stat
+            label="Coins spent"
+            value={purchases.data ? coinsSpent : "…"}
+            hint={`over the ${loadedPurchases.length} purchases loaded, refunds excluded`}
+          />
+        </div>
       </div>
 
       {/* ------------------------------------------------------- items -- */}
-      <section>
-        <SectionTitle
-          aside={
-            <button
-              type="button"
-              onClick={() => setCreating((open) => !open)}
-              aria-expanded={creating}
-              className={btnSolidSm}
-            >
-              {creating ? "Close form" : "+ New item"}
-            </button>
-          }
-        >
-          Items
-        </SectionTitle>
-        <p className="mb-4 max-w-2xl text-xs leading-6 text-muted">
-          Only live items are on sale. A new item lands as a draft unless you
-          say otherwise; archiving takes it off sale without touching the
-          purchases already made. Stock left blank is unlimited.
-        </p>
+      <Panel
+        title="Items"
+        aside={
+          <button
+            type="button"
+            onClick={() => setCreating((open) => !open)}
+            aria-expanded={creating}
+            className={btnPrimarySm}
+          >
+            {creating ? "Close form" : "New item"}
+          </button>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <p className="max-w-2xl text-[12px] leading-6 text-muted">
+            Only live items are on sale. A new item lands as a draft unless you
+            say otherwise; archiving takes it off sale without touching the
+            purchases already made. Stock left blank is unlimited.
+          </p>
 
-        {creating && (
-          <div className="mb-6 border border-subtle p-4 sm:p-6">
-            <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
-              New item
-            </p>
-            <ItemForm
-              idPrefix="new-item"
-              busy={itemsAction.busy}
-              submitLabel="Create item"
-              onSave={createItem}
-              onCancel={() => setCreating(false)}
-              onSaved={() => setCreating(false)}
-            />
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-center gap-2">
-          {ITEM_FILTERS.map((filter) => (
-            <button
-              key={filter.value}
-              type="button"
-              aria-pressed={itemFilter === filter.value}
-              onClick={() => setItemFilter(filter.value)}
-              className={chipCls(itemFilter === filter.value)}
-            >
-              {filter.label} {countOf(filter.value)}
-            </button>
-          ))}
-        </div>
-        <Note>{itemsAction.note}</Note>
-
-        {visibleItems.length === 0 ? (
-          <Empty>
-            {allItems.length === 0
-              ? "Nothing listed yet. Add the first item above; it lands as a draft until you publish it."
-              : `No ${itemFilter === "all" ? "" : itemFilter + " "}items.`}
-          </Empty>
-        ) : (
-          <ul className="mt-4 border-t border-subtle">
-            {visibleItems.map((item) => (
-              <ItemRow
-                key={item.id}
-                item={item}
+          {creating && (
+            <div className="rounded-[var(--radius-control)] border border-line bg-raised p-4 sm:p-5">
+              <p className={`${eyebrow} mb-4`}>New item</p>
+              <ItemForm
+                idPrefix="new-item"
                 busy={itemsAction.busy}
-                editing={editingId === item.id}
-                onToggleEdit={() =>
-                  setEditingId((current) =>
-                    current === item.id ? null : item.id,
-                  )
-                }
-                onStatus={(status) => setItemStatus(item, status)}
-                onSave={(values) => saveItem(item, values)}
-                onSaved={() => setEditingId(null)}
+                submitLabel="Create item"
+                onSave={createItem}
+                onCancel={() => setCreating(false)}
+                onSaved={() => setCreating(false)}
               />
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-2">
+            {ITEM_FILTERS.map((filter) => (
+              <button
+                key={filter.value}
+                type="button"
+                aria-pressed={itemFilter === filter.value}
+                onClick={() => setItemFilter(filter.value)}
+                className={chipCls(itemFilter === filter.value)}
+              >
+                {filter.label} {countOf(filter.value)}
+              </button>
             ))}
-          </ul>
-        )}
-      </section>
+          </div>
+          <Note>{itemsAction.note}</Note>
+
+          {visibleItems.length === 0 ? (
+            <Empty>
+              {allItems.length === 0
+                ? "Nothing listed yet. Add the first item above; it lands as a draft until you publish it."
+                : `No ${itemFilter === "all" ? "" : itemFilter + " "}items.`}
+            </Empty>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {visibleItems.map((item) => (
+                <ItemCard
+                  key={item.id}
+                  item={item}
+                  busy={itemsAction.busy}
+                  editing={editingId === item.id}
+                  onToggleEdit={() =>
+                    setEditingId((current) =>
+                      current === item.id ? null : item.id,
+                    )
+                  }
+                  onStatus={(status) => setItemStatus(item, status)}
+                  onSave={(values) => saveItem(item, values)}
+                  onSaved={() => setEditingId(null)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </Panel>
 
       {/* --------------------------------------------------- purchases -- */}
-      <section>
-        <SectionTitle
-          aside={
-            <span className="text-xs text-muted">
-              newest first · latest {PURCHASE_LIMIT}
-            </span>
-          }
-        >
-          Purchases
-        </SectionTitle>
-        <p className="mb-4 max-w-2xl text-xs leading-6 text-muted">
-          A paid purchase is waiting to be handed over; mark it fulfilled once
-          it has been. Cancelling returns the coins to the player and the stock
-          to the item, and a cancelled purchase cannot be changed again.
-        </p>
+      <Panel
+        title="Purchases"
+        aside={
+          <span className="text-[11px] text-faint">
+            newest first · latest {PURCHASE_LIMIT}
+          </span>
+        }
+        bleed
+      >
+        <div className="flex flex-col gap-4 px-5 pb-4">
+          <p className="max-w-2xl text-[12px] leading-6 text-muted">
+            A paid purchase is waiting to be handed over; mark it fulfilled once
+            it has been. Cancelling returns the coins to the player and the
+            stock to the item, and a cancelled purchase cannot be changed again.
+          </p>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {PURCHASE_FILTERS.map((filter) => (
-            <button
-              key={filter.value}
-              type="button"
-              aria-pressed={purchaseFilter === filter.value}
-              onClick={() => setPurchaseFilter(filter.value)}
-              className={chipCls(purchaseFilter === filter.value)}
-            >
-              {filter.label}
-            </button>
-          ))}
-          <select
-            aria-label="Filter purchases by item"
-            value={purchaseItemId}
-            onChange={(e) => setPurchaseItemId(e.target.value)}
-            className={`${selectCls} h-9`}
-          >
-            <option value="">All items</option>
-            {allItems.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
+          <div className="flex flex-wrap items-center gap-2">
+            {PURCHASE_FILTERS.map((filter) => (
+              <button
+                key={filter.value}
+                type="button"
+                aria-pressed={purchaseFilter === filter.value}
+                onClick={() => setPurchaseFilter(filter.value)}
+                className={chipCls(purchaseFilter === filter.value)}
+              >
+                {filter.label}
+              </button>
             ))}
-          </select>
-        </div>
-        <Note>{purchasesAction.note}</Note>
+            <span className="block w-56">
+              <select
+                aria-label="Filter purchases by item"
+                value={purchaseItemId}
+                onChange={(e) => setPurchaseItemId(e.target.value)}
+                className={selectCls}
+              >
+                <option value="">All items</option>
+                {allItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </span>
+          </div>
 
-        {purchases.error && <ErrorNote message={purchases.error} />}
+          <Note>{purchasesAction.note}</Note>
+        </div>
+
+        {purchases.error && (
+          <div className="px-5 pb-5">
+            <ErrorNote message={purchases.error} />
+          </div>
+        )}
         {purchases.loading && !purchases.data && (
-          <Loading label="Loading purchases" />
+          <div className="px-5 pb-5">
+            <Loading label="Loading purchases" />
+          </div>
         )}
         {purchases.data && loadedPurchases.length === 0 && (
           <Empty>
@@ -334,36 +361,62 @@ export function ShopTab() {
           </Empty>
         )}
         {loadedPurchases.length > 0 && (
-          <ul className="mt-4 border-t border-subtle">
-            {loadedPurchases.map((purchase) => (
-              <PurchaseRow
-                key={purchase.id}
-                purchase={purchase}
-                busy={purchasesAction.busy}
-                onStatus={(status, note) =>
-                  purchasesAction.act(
-                    () =>
-                      gameApi.setPurchaseStatus(purchase.id, {
-                        status,
-                        note: note.trim() || undefined,
-                      }),
-                    status === "fulfilled"
-                      ? `${who(purchase)}’s ${purchase.itemName} is marked handed over.`
-                      : `${who(purchase)} has ${purchase.priceCoins} coins back and the ${purchase.itemName} is back in stock.`,
-                  )
-                }
-              />
-            ))}
-          </ul>
+          <TableScroll>
+            <table className={tableCls}>
+              <thead className={theadCls}>
+                <tr className="border-t border-line">
+                  <th scope="col" className={thCls}>
+                    Player
+                  </th>
+                  <th scope="col" className={thCls}>
+                    Item
+                  </th>
+                  <th scope="col" className={thCls}>
+                    Price
+                  </th>
+                  <th scope="col" className={thCls}>
+                    Status
+                  </th>
+                  <th scope="col" className={thCls}>
+                    Bought
+                  </th>
+                  <th scope="col" className={`${thCls} text-right`}>
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {loadedPurchases.map((purchase) => (
+                  <PurchaseRow
+                    key={purchase.id}
+                    purchase={purchase}
+                    busy={purchasesAction.busy}
+                    onStatus={(status, note) =>
+                      purchasesAction.act(
+                        () =>
+                          gameApi.setPurchaseStatus(purchase.id, {
+                            status,
+                            note: note.trim() || undefined,
+                          }),
+                        status === "fulfilled"
+                          ? `${who(purchase)}’s ${purchase.itemName} is marked handed over.`
+                          : `${who(purchase)} has ${purchase.priceCoins} coins back and the ${purchase.itemName} is back in stock.`,
+                      )
+                    }
+                  />
+                ))}
+              </tbody>
+            </table>
+          </TableScroll>
         )}
-      </section>
+      </Panel>
     </div>
   );
 }
 
-// ------------------------------------------------------------- item row --
+// ------------------------------------------------------------ item card --
 
-function ItemRow({
+function ItemCard({
   item,
   busy,
   editing,
@@ -381,79 +434,76 @@ function ItemRow({
   onSaved: () => void;
 }) {
   return (
-    <li className="border-b border-subtle py-4">
-      <div className="flex gap-4">
+    <article
+      className={`flex flex-col gap-3 rounded-[var(--radius-control)] border border-line bg-raised p-4 ${
+        // The editor is a form, not a tile: let it take the whole row.
+        editing ? "sm:col-span-2 xl:col-span-3" : ""
+      }`}
+    >
+      <div className="flex items-start gap-3">
         <Thumb item={item} />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <p className="flex flex-wrap items-baseline gap-2">
-              <span className="text-sm font-bold uppercase tracking-wide">
-                {item.name}
-              </span>
-              <span className="text-xs tabular-nums text-muted">
-                {item.priceCoins} coins
-              </span>
-            </p>
-            <span className="flex flex-wrap items-center gap-2">
-              <Pill tone={ITEM_TONE[item.status]}>{item.status}</Pill>
-              <span className="text-[10px] font-medium uppercase tracking-[0.15em] text-muted">
-                {stockWords(item.stock)} · {limitWords(item.perPersonLimit)} ·
-                sort {item.sortOrder}
-              </span>
-            </span>
-          </div>
-          {item.description && (
-            <p className="mt-1 line-clamp-2 max-w-2xl text-xs leading-5 text-muted">
-              {item.description}
-            </p>
-          )}
-
-          <div className="mt-3 flex flex-wrap gap-4">
-            <button
-              type="button"
-              onClick={onToggleEdit}
-              aria-expanded={editing}
-              className={btnGhostSm}
-            >
-              {editing ? "Close editor" : "Edit"}
-            </button>
-            {item.status === "draft" && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => onStatus("live")}
-                className={btnGhostSm}
-              >
-                Publish
-              </button>
-            )}
-            {item.status === "live" && (
-              <ConfirmButton
-                label="Archive"
-                confirmLabel="Take it off sale?"
-                disabled={busy}
-                onConfirm={() => onStatus("archived")}
-              />
-            )}
-            {item.status === "archived" && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => onStatus("draft")}
-                className={btnGhostSm}
-              >
-                Unarchive to draft
-              </button>
-            )}
-          </div>
+          <p className="truncate text-[13px] font-bold">{item.name}</p>
+          <p className="tnum mt-1 text-[13px] text-muted">
+            {item.priceCoins} coins
+          </p>
         </div>
+        <Pill tone={ITEM_TONE[item.status]}>{item.status}</Pill>
+      </div>
+
+      {item.description && (
+        <p className="line-clamp-2 text-[12px] leading-5 text-muted">
+          {item.description}
+        </p>
+      )}
+
+      <p className="text-[11px] leading-5 text-faint">
+        {stockWords(item.stock)} · {limitWords(item.perPersonLimit)} · sort{" "}
+        {item.sortOrder}
+      </p>
+
+      <div className="mt-auto flex flex-wrap items-center gap-4 border-t border-line pt-3">
+        <button
+          type="button"
+          onClick={onToggleEdit}
+          aria-expanded={editing}
+          className={btnGhost}
+        >
+          {editing ? "Close editor" : "Edit"}
+        </button>
+        {item.status === "draft" && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onStatus("live")}
+            className={btnGhost}
+          >
+            Publish
+          </button>
+        )}
+        {item.status === "live" && (
+          <ConfirmButton
+            label="Archive"
+            confirmLabel="Take it off sale?"
+            disabled={busy}
+            onConfirm={() => onStatus("archived")}
+          />
+        )}
+        {item.status === "archived" && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onStatus("draft")}
+            className={btnGhost}
+          >
+            Unarchive to draft
+          </button>
+        )}
       </div>
 
       {editing && (
-        <div className="mt-4 border border-subtle p-4 sm:p-6">
-          <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
-            Editing: {item.name}
-          </p>
+        <div className="rounded-[var(--radius-control)] border border-line bg-card p-4 sm:p-5">
+          <p className={`${eyebrow} mb-4`}>Editing: {item.name}</p>
           <ItemForm
             idPrefix={`item-${item.id}`}
             item={item}
@@ -465,7 +515,7 @@ function ItemRow({
           />
         </div>
       )}
-    </li>
+    </article>
   );
 }
 
@@ -474,7 +524,7 @@ function Thumb({ item }: { item: GameShopItem }) {
     return (
       <div
         aria-hidden
-        className="size-16 shrink-0 rounded-[2px] border border-subtle bg-surface"
+        className="size-14 shrink-0 rounded-[var(--radius-control)] border border-line bg-card"
       />
     );
   }
@@ -483,7 +533,7 @@ function Thumb({ item }: { item: GameShopItem }) {
     <img
       src={item.imageUrl}
       alt=""
-      className="size-16 shrink-0 rounded-[2px] border border-subtle object-cover"
+      className="size-14 shrink-0 rounded-[var(--radius-control)] border border-line object-cover"
     />
   );
 }
@@ -513,57 +563,58 @@ function PurchaseRow({
   const [note, setNote] = useState("");
   const handle = who(purchase);
   return (
-    <li className="border-b border-subtle py-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <p className="flex flex-wrap items-baseline gap-2">
-          <span className="text-sm font-bold uppercase tracking-wide">
-            {handle}
+    <tr className={`${trCls} align-top`}>
+      <td className={`${tdCls} text-[13px] font-bold`}>{handle}</td>
+      <td className={tdCls}>
+        {purchase.itemName}
+        {purchase.note && (
+          <span className="mt-0.5 block max-w-[24rem] text-[11px] leading-5 text-faint">
+            {purchase.note}
           </span>
-          <span className="text-xs text-muted">{purchase.itemName}</span>
-          <span className="text-xs tabular-nums text-muted">
-            {purchase.priceCoins} coins
-          </span>
-        </p>
-        <span className="flex flex-wrap items-center gap-2">
-          <Pill tone={PURCHASE_TONE[purchase.status]}>{purchase.status}</Pill>
-          <span className="text-[10px] font-medium uppercase tracking-[0.15em] text-muted">
-            {formatDateTime(purchase.createdAt)}
-          </span>
-        </span>
-      </div>
-      {purchase.note && (
-        <p className="mt-1 max-w-2xl text-xs leading-5 text-muted">
-          {purchase.note}
-        </p>
-      )}
-
-      {purchase.status === "paid" && (
-        <div className="mt-3 flex flex-wrap items-center gap-4">
-          <input
-            aria-label={`Note on ${handle}’s ${purchase.itemName}`}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Note (optional)"
-            maxLength={500}
-            className={`${inputCls} h-10 max-w-xs`}
-          />
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => onStatus("fulfilled", note)}
-            className={btnGhostSm}
-          >
-            Mark fulfilled
-          </button>
-          <ConfirmButton
-            label="Cancel & refund"
-            confirmLabel="Refund the coins and restock?"
-            disabled={busy}
-            onConfirm={() => onStatus("cancelled", note)}
-          />
-        </div>
-      )}
-    </li>
+        )}
+      </td>
+      <td className={`${tdCls} tnum whitespace-nowrap`}>
+        {purchase.priceCoins} coins
+      </td>
+      <td className={tdCls}>
+        <Pill tone={PURCHASE_TONE[purchase.status]}>{purchase.status}</Pill>
+      </td>
+      <td className={`${tdCls} whitespace-nowrap text-[12px] text-faint`}>
+        {formatDateTime(purchase.createdAt)}
+      </td>
+      <td className={`${tdCls} text-right`}>
+        {purchase.status === "paid" ? (
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <span className="block w-44">
+              <input
+                aria-label={`Note on ${handle}’s ${purchase.itemName}`}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Note (optional)"
+                maxLength={500}
+                className={inputCls}
+              />
+            </span>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onStatus("fulfilled", note)}
+              className={btnGhost}
+            >
+              Mark fulfilled
+            </button>
+            <ConfirmButton
+              label="Cancel & refund"
+              confirmLabel="Refund the coins and restock?"
+              disabled={busy}
+              onConfirm={() => onStatus("cancelled", note)}
+            />
+          </div>
+        ) : (
+          <span className="text-faint">—</span>
+        )}
+      </td>
+    </tr>
   );
 }
 
@@ -664,7 +715,7 @@ function ItemForm({
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Field id={id("name")} label="Name">
           <input
             id={id("name")}
@@ -720,26 +771,6 @@ function ItemForm({
             className={inputCls}
           />
         </Field>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="sm:col-span-2">
-          <Field id={id("image")} label="Image URL">
-            <input
-              id={id("image")}
-              type="url"
-              inputMode="url"
-              value={values.imageUrl}
-              onChange={(e) => patch({ imageUrl: e.target.value })}
-              placeholder="https://media.stiff.ge/…"
-              maxLength={600}
-              autoCapitalize="off"
-              autoCorrect="off"
-              spellCheck={false}
-              className={inputCls}
-            />
-          </Field>
-        </div>
         <Field id={id("status")} label="Status">
           <select
             id={id("status")}
@@ -747,7 +778,7 @@ function ItemForm({
             onChange={(e) =>
               patch({ status: e.target.value as ShopItemStatus })
             }
-            className={`${selectCls} h-12 w-full`}
+            className={selectCls}
           >
             <option value="draft">Draft</option>
             <option value="live">Live</option>
@@ -771,33 +802,55 @@ function ItemForm({
             aria-describedby={id("sort-hint")}
             className={inputCls}
           />
-          <p id={id("sort-hint")} className="text-xs text-muted">
+          <p id={id("sort-hint")} className="text-[11px] leading-5 text-faint">
             Lower comes first in the shop.
           </p>
         </Field>
+
+        <div className="sm:col-span-2 lg:col-span-3">
+          <Field id={id("image")} label="Image URL">
+            <input
+              id={id("image")}
+              type="url"
+              inputMode="url"
+              value={values.imageUrl}
+              onChange={(e) => patch({ imageUrl: e.target.value })}
+              placeholder="https://media.stiff.ge/…"
+              maxLength={600}
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              className={inputCls}
+            />
+          </Field>
+        </div>
+
+        <div className="sm:col-span-2 lg:col-span-3">
+          <Field id={id("description")} label="Description">
+            <textarea
+              id={id("description")}
+              rows={3}
+              value={values.description}
+              onChange={(e) => patch({ description: e.target.value })}
+              maxLength={2000}
+              className={textareaCls}
+            />
+          </Field>
+        </div>
       </div>
 
-      <Field id={id("description")} label="Description">
-        <textarea
-          id={id("description")}
-          rows={3}
-          value={values.description}
-          onChange={(e) => patch({ description: e.target.value })}
-          maxLength={2000}
-          className={textareaCls}
-        />
-      </Field>
-
-      <p aria-live="polite" className="min-h-4 text-xs text-muted">
-        {problem}
-      </p>
-
-      <div className="flex flex-wrap gap-3">
-        <button type="submit" disabled={busy} className={btnSolidSm}>
-          {submitLabel}
-        </button>
-        <button type="button" onClick={onCancel} className={btnOutline}>
+      <div className="flex flex-wrap items-center justify-end gap-3 border-t border-line pt-4">
+        <p
+          aria-live="polite"
+          className="mr-auto min-h-5 text-[12px] leading-5 text-danger"
+        >
+          {problem}
+        </p>
+        <button type="button" onClick={onCancel} className={btnSecondary}>
           Cancel
+        </button>
+        <button type="submit" disabled={busy} className={btnPrimary}>
+          {submitLabel}
         </button>
       </div>
     </form>

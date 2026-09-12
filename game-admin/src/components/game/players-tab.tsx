@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { gameApi } from "@/lib/api";
 import type {
@@ -12,28 +12,39 @@ import type {
 import { ENROLMENT_STATUSES } from "@/lib/api";
 import { useAsync } from "@/lib/hooks";
 import {
-  btnGhostSm,
-  btnOutline,
-  btnSolidSm,
+  btnDanger,
+  btnGhost,
+  btnPrimarySm,
+  btnSecondarySm,
+  cardCls,
+  checkboxCls,
   chipCls,
   ErrorNote,
+  eyebrow,
   Field,
   inputCls,
   labelCls,
   Loading,
+  Panel,
   selectCls,
+  Stat,
+  tableCls,
+  TableScroll,
+  tdCls,
   textareaCls,
+  thCls,
+  theadCls,
+  trCls,
+  type Tone,
 } from "../ui";
 import {
   ConfirmButton,
   Empty,
   Facts,
+  Hearts,
   Note,
   Pill,
-  SectionTitle,
-  Stat,
   formatDateTime,
-  hearts,
   shortId,
   timeAgo,
   useAction,
@@ -49,10 +60,10 @@ const ROLE_CHIPS: { value: RoleFilter; label: string }[] = [
   { value: "watcher", label: "Watchers" },
 ];
 
-const STATUS_TONE: Record<EnrolmentStatus, "neutral" | "outline" | "warn"> = {
-  active: "neutral",
-  demoted: "outline",
-  cheater: "warn",
+const STATUS_TONE: Record<EnrolmentStatus, Tone> = {
+  active: "positive",
+  demoted: "caution",
+  cheater: "danger",
 };
 
 const UUID_RE =
@@ -109,130 +120,214 @@ export function PlayersTab() {
   const counts = tally(people);
 
   return (
-    <div className="space-y-10">
-      <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
-        <Stat label="Players" value={counts.players} hint="on the board" />
-        <Stat label="Watchers" value={counts.watchers} hint="off it" />
-        <Stat label="Demoted" value={counts.demoted} hint="hearts, minimum or balance" />
-        <Stat label="Cheaters" value={counts.cheaters} hint="flagged by a person or the model" />
+    <div className="flex flex-col gap-5">
+      {/* ------------------------------------------------------- the count */}
+      <div
+        className={`${cardCls} grid grid-cols-2 divide-line sm:grid-cols-4 sm:divide-x`}
+      >
+        <div className="p-5">
+          <Stat label="Players" value={counts.players} hint="on the board" />
+        </div>
+        <div className="p-5">
+          <Stat label="Watchers" value={counts.watchers} hint="off it" />
+        </div>
+        <div className="p-5">
+          <Stat
+            label="Demoted"
+            value={counts.demoted}
+            hint="hearts, minimum or balance"
+            tone={counts.demoted > 0 ? "caution" : undefined}
+          />
+        </div>
+        <div className="p-5">
+          <Stat
+            label="Cheaters"
+            value={counts.cheaters}
+            hint="flagged by a person or the model"
+            tone={counts.cheaters > 0 ? "danger" : undefined}
+          />
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-end gap-4">
-        <div className="flex flex-col gap-2">
-          <span className={labelCls} id="players-role-label">
-            Role
-          </span>
-          <div
-            role="group"
-            aria-labelledby="players-role-label"
-            className="flex flex-wrap gap-2"
-          >
-            {ROLE_CHIPS.map((chip) => (
-              <button
-                key={chip.value}
-                type="button"
-                aria-pressed={role === chip.value}
-                onClick={() => setRole(chip.value)}
-                className={chipCls(role === chip.value)}
+      {/* -------------------------------------------------------- the list */}
+      <Panel
+        title="Everyone in the season"
+        bleed
+        aside={
+          data && (
+            <span className="tnum text-[11px] text-faint">
+              {shown.length === people.length
+                ? `${people.length} enrolled`
+                : `${shown.length} of ${people.length} enrolled`}
+            </span>
+          )
+        }
+      >
+        <div className="flex flex-wrap items-end gap-3 border-t border-line px-5 py-4">
+          <div className="flex flex-col gap-1.5">
+            <span className={labelCls} id="players-role-label">
+              Role
+            </span>
+            <div
+              role="group"
+              aria-labelledby="players-role-label"
+              className="flex flex-wrap gap-2"
+            >
+              {ROLE_CHIPS.map((chip) => (
+                <button
+                  key={chip.value}
+                  type="button"
+                  aria-pressed={role === chip.value}
+                  onClick={() => setRole(chip.value)}
+                  className={chipCls(role === chip.value)}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="w-36">
+            <Field id="players-status" label="Status">
+              <select
+                id="players-status"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as StatusFilter)}
+                className={selectCls}
               >
-                {chip.label}
-              </button>
-            ))}
+                <option value="all">all</option>
+                {ENROLMENT_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          <div className="w-56">
+            <Field id="players-search" label="Handle">
+              <input
+                id="players-search"
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search handles"
+                aria-label="Search handles"
+                className={inputCls}
+              />
+            </Field>
           </div>
         </div>
-        <Field id="players-status" label="Status">
-          <select
-            id="players-status"
-            value={status}
-            onChange={(e) => setStatus(e.target.value as StatusFilter)}
-            className={selectCls}
-          >
-            <option value="all">all</option>
-            {ENROLMENT_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field id="players-search" label="Handle">
-          <input
-            id="players-search"
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search handles"
-            aria-label="Search handles"
-            className={`${inputCls} h-10 w-64`}
-          />
-        </Field>
-      </div>
 
-      {loading && <Loading label="Loading enrolments" />}
-      {error && <ErrorNote message={error} />}
+        {loading && (
+          <div className="px-5">
+            <Loading label="Loading enrolments" />
+          </div>
+        )}
+        {error && (
+          <div className="px-5">
+            <ErrorNote message={error} />
+          </div>
+        )}
 
-      {data && people.length === 0 && !loading && (
-        <Empty>
-          Nobody here. The list covers the live season only, so it is empty
-          between seasons — and empty for a filter nobody matches.
-        </Empty>
-      )}
-      {data && people.length > 0 && shown.length === 0 && (
-        <Empty>No handle contains “{search.trim()}”.</Empty>
-      )}
+        {data && people.length === 0 && !loading && (
+          <Empty>
+            Nobody here. The list covers the live season only, so it is empty
+            between seasons — and empty for a filter nobody matches.
+          </Empty>
+        )}
+        {data && people.length > 0 && shown.length === 0 && (
+          <Empty>No handle contains “{search.trim()}”.</Empty>
+        )}
 
-      <ul className="border-t border-subtle">
-        {shown.map((p) => {
-          const open = openId === p.id;
-          return (
-            <li key={p.id} className="border-b border-subtle py-4">
-              <div className="flex flex-wrap items-baseline justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-bold uppercase tracking-wide">
-                    {p.handle}
-                  </span>
-                  <Pill tone={p.role === "player" ? "solid" : "neutral"}>
-                    {p.role}
-                  </Pill>
-                  <Pill tone={STATUS_TONE[p.status]}>{p.status}</Pill>
-                  {p.status !== "active" && (
-                    <span className="text-xs text-muted">
-                      {words(p.demotionReason)} · {timeAgo(p.demotedAt)}
-                    </span>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-baseline gap-4 text-xs text-muted">
-                  <span className="tabular-nums text-foreground">
-                    {p.nerve} Nerve
-                  </span>
-                  <span className="tabular-nums">{p.coins} coins</span>
-                  <span
-                    className="text-[10px] tracking-widest"
-                    aria-label={`${p.heartsRemaining} of ${p.heartsTotal} hearts`}
-                  >
-                    {hearts(p.heartsRemaining, p.heartsTotal)}
-                  </span>
-                  <span>joined {formatDateTime(p.createdAt)}</span>
-                  <button
-                    type="button"
-                    aria-expanded={open}
-                    aria-controls={`enrolment-${p.id}`}
-                    onClick={() => setOpenId(open ? null : p.id)}
-                    className={btnGhostSm}
-                  >
-                    {open ? "Close" : "Details"}
-                  </button>
-                </div>
-              </div>
-              {open && (
-                <div id={`enrolment-${p.id}`} className="mt-6">
-                  <EnrolmentDetails enrolment={p} reloadList={reload} />
-                </div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+        {shown.length > 0 && (
+          <TableScroll>
+            <table className={tableCls}>
+              <thead>
+                <tr className={theadCls}>
+                  <th className={thCls}>Handle</th>
+                  <th className={thCls}>Standing</th>
+                  <th className={`${thCls} text-right`}>Nerve</th>
+                  <th className={`${thCls} text-right`}>Coins</th>
+                  <th className={thCls}>Hearts</th>
+                  <th className={thCls}>Joined</th>
+                  <th className={`${thCls} text-right`}>
+                    <span className="sr-only">Details</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((p) => {
+                  const open = openId === p.id;
+                  return (
+                    <Fragment key={p.id}>
+                      <tr className={trCls}>
+                        <td className={tdCls}>
+                          <span className="block text-[13px] font-bold">
+                            {p.handle}
+                          </span>
+                          {p.status !== "active" && (
+                            <span className="mt-0.5 block text-[11px] text-faint">
+                              {words(p.demotionReason)} · {timeAgo(p.demotedAt)}
+                            </span>
+                          )}
+                        </td>
+                        <td className={tdCls}>
+                          <span className="flex flex-wrap items-center gap-1.5">
+                            <Pill tone={p.role === "player" ? "solid" : "neutral"}>
+                              {p.role}
+                            </Pill>
+                            <Pill tone={STATUS_TONE[p.status]}>{p.status}</Pill>
+                          </span>
+                        </td>
+                        <td className={`${tdCls} tnum text-right font-bold`}>
+                          {p.nerve}
+                        </td>
+                        <td className={`${tdCls} tnum text-right text-muted`}>
+                          {p.coins}
+                        </td>
+                        <td className={tdCls}>
+                          <Hearts
+                            remaining={p.heartsRemaining}
+                            total={p.heartsTotal}
+                          />
+                        </td>
+                        <td
+                          className={`${tdCls} whitespace-nowrap text-[11px] text-faint`}
+                        >
+                          {formatDateTime(p.createdAt)}
+                        </td>
+                        <td className={`${tdCls} text-right`}>
+                          <button
+                            type="button"
+                            aria-expanded={open}
+                            aria-controls={`enrolment-${p.id}`}
+                            onClick={() => setOpenId(open ? null : p.id)}
+                            className={btnGhost}
+                          >
+                            {open ? "Close" : "Details"}
+                          </button>
+                        </td>
+                      </tr>
+                      {open && (
+                        <tr className="border-t border-line">
+                          <td colSpan={7} className="bg-raised p-0">
+                            <div id={`enrolment-${p.id}`} className="p-5">
+                              <EnrolmentDetails
+                                enrolment={p}
+                                reloadList={reload}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </TableScroll>
+        )}
+      </Panel>
     </div>
   );
 }
@@ -256,7 +351,10 @@ function EnrolmentDetails({
   const facts: { label: string; value: React.ReactNode }[] = [
     { label: "id", value: <code className="text-[11px]">{p.id}</code> },
     { label: "user", value: <code className="text-[11px]">{p.userId}</code> },
-    { label: "season", value: <code className="text-[11px]">{p.seasonId}</code> },
+    {
+      label: "season",
+      value: <code className="text-[11px]">{p.seasonId}</code>,
+    },
     { label: "last scored", value: formatDateTime(p.lastScoredAt) },
     { label: "last vote win", value: formatDateTime(p.lastVoteWinAt) },
   ];
@@ -268,77 +366,91 @@ function EnrolmentDetails({
   }
 
   return (
-    <div className="grid gap-10 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-      <div className="space-y-10">
-        <section>
-          <SectionTitle>Record</SectionTitle>
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className="flex min-w-0 flex-col gap-5">
+        <Panel title="Record">
           <Facts rows={facts} />
-        </section>
+        </Panel>
 
-        <section>
-          <SectionTitle
-            aside={
-              <span className="text-xs text-muted">
-                the score is always the sum of these rows
-              </span>
-            }
-          >
-            Score ledger
-          </SectionTitle>
-          {ledger.loading && <Loading label="Loading the ledger" />}
-          {ledger.error && <ErrorNote message={ledger.error} />}
+        <Panel
+          title="Score ledger"
+          bleed
+          aside={
+            <span className="text-[11px] text-faint">
+              the score is always the sum of these rows
+            </span>
+          }
+        >
+          {ledger.loading && (
+            <div className="px-5">
+              <Loading label="Loading the ledger" />
+            </div>
+          )}
+          {ledger.error && (
+            <div className="px-5">
+              <ErrorNote message={ledger.error} />
+            </div>
+          )}
           {ledger.data && ledger.data.ledger.length === 0 && (
             <Empty>No Nerve has moved yet.</Empty>
           )}
           {ledger.data && ledger.data.ledger.length > 0 && (
             <LedgerTable rows={ledger.data.ledger} />
           )}
-        </section>
+        </Panel>
       </div>
 
-      <div className="space-y-10">
-        <AdjustScore
-          enrolmentId={p.id}
-          busy={busy}
-          onSubmit={(delta, reason) =>
-            act(
-              () => gameApi.adjustScore(p.id, { delta, reason }),
-              (r) => {
-                const res = r as Awaited<ReturnType<typeof gameApi.adjustScore>>;
-                // The backend floors at zero, so what moved can be less than
-                // what was asked; say what actually happened.
-                const floored = res.nerveDelta !== delta;
-                return `Moved ${signed(res.nerveDelta)} Nerve; now ${res.nerve}.${floored ? ` (Asked ${signed(delta)}; Nerve floors at zero.)` : ""}`;
-              },
-            )
-          }
-        />
+      <div className="min-w-0">
+        <Panel title="Act on this enrolment">
+          <div className="flex flex-col gap-5">
+            <AdjustScore
+              enrolmentId={p.id}
+              busy={busy}
+              onSubmit={(delta, reason) =>
+                act(
+                  () => gameApi.adjustScore(p.id, { delta, reason }),
+                  (r) => {
+                    const res = r as Awaited<
+                      ReturnType<typeof gameApi.adjustScore>
+                    >;
+                    // The backend floors at zero, so what moved can be less
+                    // than what was asked; say what actually happened.
+                    const floored = res.nerveDelta !== delta;
+                    return `Moved ${signed(res.nerveDelta)} Nerve; now ${res.nerve}.${floored ? ` (Asked ${signed(delta)}; Nerve floors at zero.)` : ""}`;
+                  },
+                )
+              }
+            />
 
-        {p.status !== "cheater" && (
-          <FlagCheater
-            busy={busy}
-            onConfirm={(reason, attemptId) =>
-              act(
-                () => gameApi.flagCheater(p.id, { reason, attemptId }),
-                `${p.handle} flagged: Nerve, hearts and coins zeroed, now a watcher.`,
-              )
-            }
-          />
-        )}
+            {p.status !== "cheater" && (
+              <FlagCheater
+                busy={busy}
+                onConfirm={(reason, attemptId) =>
+                  act(
+                    () => gameApi.flagCheater(p.id, { reason, attemptId }),
+                    `${p.handle} flagged: Nerve, hearts and coins zeroed, now a watcher.`,
+                  )
+                }
+              />
+            )}
 
-        {p.status !== "active" && (
-          <Reinstate
-            busy={busy}
-            onConfirm={(restore) =>
-              act(
-                () => gameApi.reinstate(p.id, { restore }),
-                `${p.handle} reinstated as a player${restore ? ", with what was zeroed put back" : ", from zero"}.`,
-              )
-            }
-          />
-        )}
+            {p.status !== "active" && (
+              <Reinstate
+                busy={busy}
+                onConfirm={(restore) =>
+                  act(
+                    () => gameApi.reinstate(p.id, { restore }),
+                    `${p.handle} reinstated as a player${restore ? ", with what was zeroed put back" : ", from zero"}.`,
+                  )
+                }
+              />
+            )}
 
-        <Note>{note}</Note>
+            <div className="border-t border-line pt-3.5">
+              <Note>{note}</Note>
+            </div>
+          </div>
+        </Panel>
       </div>
     </div>
   );
@@ -346,35 +458,37 @@ function EnrolmentDetails({
 
 function LedgerTable({ rows }: { rows: ScoreLedgerRow[] }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-t border-subtle text-xs">
+    <TableScroll>
+      <table className={tableCls}>
         <thead>
-          <tr className="text-left text-muted">
-            <th className="py-2 pr-4 font-medium">when</th>
-            <th className="py-2 pr-4 text-right font-medium">delta</th>
-            <th className="py-2 pr-4 text-right font-medium">after</th>
-            <th className="py-2 pr-4 font-medium">reason</th>
-            <th className="py-2 pr-4 font-medium">ref</th>
-            <th className="py-2 font-medium">by</th>
+          <tr className={theadCls}>
+            <th className={thCls}>When</th>
+            <th className={`${thCls} text-right`}>Delta</th>
+            <th className={`${thCls} text-right`}>After</th>
+            <th className={thCls}>Reason</th>
+            <th className={thCls}>Ref</th>
+            <th className={thCls}>By</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.id} className="border-t border-subtle">
-              <td className="whitespace-nowrap py-2 pr-4 text-muted">
+            <tr key={row.id} className={trCls}>
+              <td className={`${tdCls} whitespace-nowrap text-[11px] text-faint`}>
                 {formatDateTime(row.createdAt)}
               </td>
-              <td className="py-2 pr-4 text-right tabular-nums">
+              <td
+                className={`${tdCls} tnum text-right font-bold ${
+                  row.delta < 0 ? "text-danger" : "text-positive"
+                }`}
+              >
                 {signed(row.delta)}
               </td>
-              <td className="py-2 pr-4 text-right tabular-nums">
-                {row.scoreAfter}
-              </td>
-              <td className="py-2 pr-4">{words(row.reason)}</td>
-              <td className="whitespace-nowrap py-2 pr-4 text-muted">
+              <td className={`${tdCls} tnum text-right`}>{row.scoreAfter}</td>
+              <td className={tdCls}>{words(row.reason)}</td>
+              <td className={`${tdCls} whitespace-nowrap text-muted`}>
                 {row.refType ? `${row.refType} ${shortId(row.refId)}` : "—"}
               </td>
-              <td className="whitespace-nowrap py-2 text-muted">
+              <td className={`${tdCls} whitespace-nowrap text-muted`}>
                 {/* `by` is an admin id or a word like `ai`; only ids get cut. */}
                 {row.by ? (UUID_RE.test(row.by) ? shortId(row.by) : row.by) : "—"}
               </td>
@@ -382,7 +496,7 @@ function LedgerTable({ rows }: { rows: ScoreLedgerRow[] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </TableScroll>
   );
 }
 
@@ -424,46 +538,48 @@ function AdjustScore({
 
   return (
     <section>
-      <SectionTitle>Adjust score</SectionTitle>
-      <p className="mb-4 text-xs leading-6 text-muted">
+      <p className={eyebrow}>Adjust score</p>
+      <p className="mt-1.5 text-[12px] leading-5 text-faint">
         A correction on the record: one ledger row, reason attached. Nerve
         floors at zero.
       </p>
-      <form onSubmit={submit} className="space-y-4">
-        <Field id={deltaId} label="Delta">
-          <input
-            id={deltaId}
-            type="number"
-            inputMode="numeric"
-            step={1}
-            min={-10000}
-            max={10000}
-            required
-            value={delta}
-            onChange={(e) => setDelta(e.target.value)}
-            placeholder="−25 or 40"
-            className={`${inputCls} h-10 tabular-nums`}
-          />
-        </Field>
-        <Field id={reasonId} label="Reason">
-          <input
-            id={reasonId}
-            type="text"
-            required
-            minLength={3}
-            maxLength={200}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Why this moves"
-            className={`${inputCls} h-10`}
-          />
-        </Field>
-        <div className="flex flex-wrap items-center gap-4">
-          <button type="submit" disabled={busy} className={btnSolidSm}>
+      <form onSubmit={submit} className="mt-3 flex flex-col gap-3">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,8rem)_minmax(0,1fr)]">
+          <Field id={deltaId} label="Delta">
+            <input
+              id={deltaId}
+              type="number"
+              inputMode="numeric"
+              step={1}
+              min={-10000}
+              max={10000}
+              required
+              value={delta}
+              onChange={(e) => setDelta(e.target.value)}
+              placeholder="−25 or 40"
+              className={`${inputCls} tnum`}
+            />
+          </Field>
+          <Field id={reasonId} label="Reason">
+            <input
+              id={reasonId}
+              type="text"
+              required
+              minLength={3}
+              maxLength={200}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Why this moves"
+              className={inputCls}
+            />
+          </Field>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="submit" disabled={busy} className={btnPrimarySm}>
             Apply
           </button>
           {problem && (
-            <span role="alert" className="text-xs text-muted">
+            <span role="alert" className="text-[11px] leading-5 text-danger">
               {problem}
             </span>
           )}
@@ -486,13 +602,13 @@ function FlagCheater({
   const attemptOk = attempt === "" || UUID_RE.test(attempt);
 
   return (
-    <section>
-      <SectionTitle>Flag as cheater</SectionTitle>
-      <p className="mb-4 text-xs leading-6 text-muted">
+    <section className="border-t border-line pt-5">
+      <p className={eyebrow}>Flag as cheater</p>
+      <p className="mt-1.5 text-[12px] leading-5 text-faint">
         Zeroes Nerve, hearts and coins, moves them to watcher, and labels every
         comment they write; the attempt, if given, is rejected too.
       </p>
-      <div className="space-y-4">
+      <div className="mt-3 flex flex-col gap-3">
         <Field id="flag-reason" label="Reason (optional)">
           <textarea
             id="flag-reason"
@@ -512,15 +628,15 @@ function FlagCheater({
             onChange={(e) => setAttemptId(e.target.value)}
             placeholder="UUID of the offending hand-in"
             aria-invalid={!attemptOk}
-            className={`${inputCls} h-10 font-mono text-xs`}
+            className={`${inputCls} font-mono text-[12px]`}
           />
         </Field>
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           <ConfirmButton
             label="Flag as cheater"
             confirmLabel="Zero them and demote?"
             disabled={busy || !attemptOk}
-            className={btnOutline}
+            className={btnDanger}
             onConfirm={() =>
               onConfirm(
                 reason.trim() || undefined,
@@ -532,7 +648,7 @@ function FlagCheater({
             }
           />
           {!attemptOk && (
-            <span role="alert" className="text-xs text-muted">
+            <span role="alert" className="text-[11px] leading-5 text-danger">
               That is not a UUID.
             </span>
           )}
@@ -551,28 +667,33 @@ function Reinstate({
 }) {
   const [restore, setRestore] = useState(true);
   return (
-    <section>
-      <SectionTitle>Reinstate</SectionTitle>
-      <p className="mb-4 text-xs leading-6 text-muted">
+    <section className="border-t border-line pt-5">
+      <p className={eyebrow}>Reinstate</p>
+      <p className="mt-1.5 text-[12px] leading-5 text-faint">
         The one way back to player. Their cheater label, if any, comes off.
       </p>
-      <div className="space-y-4">
-        <label className="flex items-center gap-3 text-xs">
+      <div className="mt-3 flex flex-col gap-3">
+        <label className="flex items-start gap-2.5 text-[12px] leading-5">
           <input
             type="checkbox"
             checked={restore}
             onChange={(e) => setRestore(e.target.checked)}
-            className="size-4 accent-foreground"
+            className={`${checkboxCls} mt-0.5`}
           />
           <span>Restore what was zeroed (Nerve, hearts, coins at demotion)</span>
         </label>
-        <ConfirmButton
-          label="Reinstate as player"
-          confirmLabel={restore ? "Restore and reinstate?" : "Reinstate from zero?"}
-          disabled={busy}
-          className={btnOutline}
-          onConfirm={() => onConfirm(restore)}
-        />
+        <div>
+          <ConfirmButton
+            label="Reinstate as player"
+            confirmLabel={
+              restore ? "Restore and reinstate?" : "Reinstate from zero?"
+            }
+            disabled={busy}
+            className={btnSecondarySm}
+            tone="neutral"
+            onConfirm={() => onConfirm(restore)}
+          />
+        </div>
       </div>
     </section>
   );

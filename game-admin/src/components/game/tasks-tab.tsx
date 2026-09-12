@@ -12,16 +12,25 @@ import type {
 } from "@/lib/api";
 import { useAsync } from "@/lib/hooks";
 import {
-  btnGhostSm,
-  btnSolidSm,
+  btnGhost,
+  btnPrimary,
+  cardCls,
   chipCls,
   ErrorNote,
+  eyebrow,
   Field,
   inputCls,
   labelCls,
   Loading,
+  Panel,
   selectCls,
+  tableCls,
+  TableScroll,
+  tdCls,
   textareaCls,
+  theadCls,
+  thCls,
+  trCls,
 } from "../ui";
 import {
   ConfirmButton,
@@ -29,7 +38,6 @@ import {
   Facts,
   Note,
   Pill,
-  SectionTitle,
   Stat,
   formatDateTime,
   shortId,
@@ -45,9 +53,9 @@ type ModeChoice = TaskMode | "any";
 type RowAction = "approve" | "review" | "retire";
 
 const STATUS_TONE: Record<TemplateStatus, Tone> = {
-  draft: "neutral",
-  approved: "solid",
-  retired: "outline",
+  draft: "caution",
+  approved: "positive",
+  retired: "neutral",
 };
 
 const STATUS_CHIPS: { value: StatusFilter; label: string }[] = [
@@ -58,6 +66,9 @@ const STATUS_CHIPS: { value: StatusFilter; label: string }[] = [
 ];
 
 const TIERS: readonly SeasonDay[] = [1, 2, 3];
+
+/** Columns in the pool table, for the rows that span all of them. */
+const POOL_COLUMNS = 8;
 
 // Mirrors GenerateTasksDto so a bad batch is caught before the round trip.
 const COUNT_MIN = 1;
@@ -118,73 +129,86 @@ export function TasksTab() {
   const rows = list.data?.templates ?? [];
 
   return (
-    <div className="space-y-12">
+    <div className="flex flex-col gap-5">
       <PoolStats stats={stats} />
 
       <GenerateSection onDone={reloadAll} />
 
-      <section>
-        <SectionTitle
-          aside={
-            <span className="text-xs text-muted">
-              {list.data ? `${rows.length} shown` : ""}
-            </span>
-          }
-        >
-          The pool
-        </SectionTitle>
-        <p className="mb-4 max-w-2xl text-xs leading-6 text-muted">
-          Approving re-runs the safety screen and refuses a draft the
-          reviewer rejected until it is reviewed again. Retiring takes a task
-          out of rotation and keeps it on record, so every hand-in keeps its
-          meaning. Nothing here is ever deleted.
-        </p>
+      {/* ------------------------------------------------------- the pool */}
+      <Panel
+        title="The pool"
+        aside={
+          <span className="tnum text-[11px] text-faint">
+            {list.data ? `${rows.length} shown` : ""}
+          </span>
+        }
+        bleed
+      >
+        <div className="flex flex-col gap-4 px-5 pb-4">
+          <p className="max-w-2xl text-[12px] leading-6 text-muted">
+            Approving re-runs the safety screen and refuses a draft the
+            reviewer rejected until it is reviewed again. Retiring takes a task
+            out of rotation and keeps it on record, so every hand-in keeps its
+            meaning. Nothing here is ever deleted.
+          </p>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div
-            role="group"
-            aria-label="Filter by status"
-            className="flex flex-wrap gap-2"
-          >
-            {STATUS_CHIPS.map((chip) => (
-              <button
-                key={chip.value}
-                type="button"
-                onClick={() => setStatus(chip.value)}
-                aria-pressed={status === chip.value}
-                className={chipCls(status === chip.value)}
-              >
-                {chip.label}
-              </button>
-            ))}
-          </div>
-          <label className="flex items-center gap-2">
-            <span className={labelCls}>Tier</span>
-            <select
-              aria-label="Filter by tier"
-              value={tier === "all" ? "all" : String(tier)}
-              onChange={(e) =>
-                setTier(
-                  e.target.value === "all"
-                    ? "all"
-                    : (Number(e.target.value) as SeasonDay),
-                )
-              }
-              className={selectCls}
+          <div className="flex flex-wrap items-center gap-3">
+            <div
+              role="group"
+              aria-label="Filter by status"
+              className="flex flex-wrap gap-2"
             >
-              <option value="all">All tiers</option>
-              {TIERS.map((t) => (
-                <option key={t} value={t}>
-                  Tier {t}
-                </option>
+              {STATUS_CHIPS.map((chip) => (
+                <button
+                  key={chip.value}
+                  type="button"
+                  onClick={() => setStatus(chip.value)}
+                  aria-pressed={status === chip.value}
+                  className={chipCls(status === chip.value)}
+                >
+                  {chip.label}
+                </button>
               ))}
-            </select>
-          </label>
-        </div>
-        <Note>{note}</Note>
+            </div>
+            <label className="flex items-center gap-2">
+              <span className={labelCls}>Tier</span>
+              <span className="block w-36">
+                <select
+                  aria-label="Filter by tier"
+                  value={tier === "all" ? "all" : String(tier)}
+                  onChange={(e) =>
+                    setTier(
+                      e.target.value === "all"
+                        ? "all"
+                        : (Number(e.target.value) as SeasonDay),
+                    )
+                  }
+                  className={selectCls}
+                >
+                  <option value="all">All tiers</option>
+                  {TIERS.map((t) => (
+                    <option key={t} value={t}>
+                      Tier {t}
+                    </option>
+                  ))}
+                </select>
+              </span>
+            </label>
+          </div>
 
-        {list.loading && <Loading label="Loading tasks" />}
-        {list.error && <ErrorNote message={list.error} />}
+          <Note>{note}</Note>
+        </div>
+
+        {list.loading && (
+          <div className="px-5 pb-5">
+            <Loading label="Loading tasks" />
+          </div>
+        )}
+        {list.error && (
+          <div className="px-5 pb-5">
+            <ErrorNote message={list.error} />
+          </div>
+        )}
         {list.data && rows.length === 0 && (
           <Empty>
             {status === "all" && tier === "all"
@@ -194,42 +218,72 @@ export function TasksTab() {
         )}
 
         {rows.length > 0 && (
-          <ul className="mt-4 border-t border-subtle">
-            {rows.map((template) => (
-              <TemplateRow
-                key={template.id}
-                template={template}
-                busy={busy}
-                pending={pending?.id === template.id ? pending.action : null}
-                onApprove={() =>
-                  run(
-                    template,
-                    "approve",
-                    () => gameApi.approveTemplate(template.id),
-                    `“${template.title}” is in the pool.`,
-                  )
-                }
-                onReview={() =>
-                  run(
-                    template,
-                    "review",
-                    () => gameApi.reviewTemplate(template.id),
-                    `“${template.title}” reviewed again. The verdict is on the row.`,
-                  )
-                }
-                onRetire={() =>
-                  run(
-                    template,
-                    "retire",
-                    () => gameApi.retireTemplate(template.id),
-                    `“${template.title}” is retired. It stays on record.`,
-                  )
-                }
-              />
-            ))}
-          </ul>
+          <TableScroll>
+            <table className={tableCls}>
+              <thead className={theadCls}>
+                <tr className="border-t border-line">
+                  <th scope="col" className={thCls}>
+                    Task
+                  </th>
+                  <th scope="col" className={thCls}>
+                    Tier
+                  </th>
+                  <th scope="col" className={thCls}>
+                    Mode
+                  </th>
+                  <th scope="col" className={thCls}>
+                    Clock
+                  </th>
+                  <th scope="col" className={thCls}>
+                    Reward
+                  </th>
+                  <th scope="col" className={thCls}>
+                    Reviewer
+                  </th>
+                  <th scope="col" className={thCls}>
+                    Status
+                  </th>
+                  <th scope="col" className={`${thCls} text-right`}>
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              {rows.map((template) => (
+                <TemplateRow
+                  key={template.id}
+                  template={template}
+                  busy={busy}
+                  pending={pending?.id === template.id ? pending.action : null}
+                  onApprove={() =>
+                    run(
+                      template,
+                      "approve",
+                      () => gameApi.approveTemplate(template.id),
+                      `“${template.title}” is in the pool.`,
+                    )
+                  }
+                  onReview={() =>
+                    run(
+                      template,
+                      "review",
+                      () => gameApi.reviewTemplate(template.id),
+                      `“${template.title}” reviewed again. The verdict is on the row.`,
+                    )
+                  }
+                  onRetire={() =>
+                    run(
+                      template,
+                      "retire",
+                      () => gameApi.retireTemplate(template.id),
+                      `“${template.title}” is retired. It stays on record.`,
+                    )
+                  }
+                />
+              ))}
+            </table>
+          </TableScroll>
         )}
-      </section>
+      </Panel>
     </div>
   );
 }
@@ -250,50 +304,68 @@ function PoolStats({
     : [];
 
   return (
-    <section>
-      <SectionTitle>The Charter in force</SectionTitle>
+    <>
       {stats.error && <ErrorNote message={stats.error} />}
-      <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
-        <Stat
-          label="Charter"
-          value={
-            <span className="font-mono text-2xl">
-              {data ? shortId(data.charterHash) : "…"}
-            </span>
-          }
-          hint="hash of the rules the creator reads"
-        />
-        <Stat
-          label="Generated"
-          value={data?.generated ?? "…"}
-          hint="drafts filed under this Charter"
-        />
-        <Stat
-          label="Rejected"
-          value={data?.rejected ?? "…"}
-          hint="refusals by the screen or the reviewer"
-        />
-        <Stat
-          label="Rejection rate"
-          value={rate == null ? "—" : `${rate}%`}
-          hint="of everything the creator wrote"
-        />
-      </div>
-      {categories.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-2" aria-label="Rejections by category">
-          {categories.map(([category, count]) => (
-            <Pill key={category}>
-              {words(category)}: {count}
-            </Pill>
-          ))}
+
+      <div
+        className={`${cardCls} grid grid-cols-2 divide-line sm:grid-cols-4 sm:divide-x`}
+      >
+        <div className="p-5">
+          <Stat
+            label="Charter"
+            value={
+              <span className="font-mono text-[18px]">
+                {data ? shortId(data.charterHash) : "…"}
+              </span>
+            }
+            hint="hash of the rules the creator reads"
+          />
         </div>
-      )}
-      <p className="mt-3 max-w-2xl text-xs leading-6 text-muted">
-        Watch the rate per category: a rule that never fires is unnecessary
-        or broken; one that fires on most generations means the Charter is
-        not carrying it.
-      </p>
-    </section>
+        <div className="p-5">
+          <Stat
+            label="Generated"
+            value={data?.generated ?? "…"}
+            hint="drafts filed under this Charter"
+          />
+        </div>
+        <div className="p-5">
+          <Stat
+            label="Rejected"
+            value={data?.rejected ?? "…"}
+            hint="refusals by the screen or the reviewer"
+          />
+        </div>
+        <div className="p-5">
+          <Stat
+            label="Rejection rate"
+            value={rate == null ? "—" : `${rate}%`}
+            hint="of everything the creator wrote"
+          />
+        </div>
+      </div>
+
+      <Panel eyebrow="The Charter in force" title="Refusals by category">
+        <div className="flex flex-col gap-3">
+          {categories.length > 0 && (
+            <div
+              className="flex flex-wrap gap-2"
+              aria-label="Rejections by category"
+            >
+              {categories.map(([category, count]) => (
+                <Pill key={category}>
+                  {words(category)}: {count}
+                </Pill>
+              ))}
+            </div>
+          )}
+          <p className="max-w-2xl text-[12px] leading-6 text-muted">
+            Watch the rate per category: a rule that never fires is unnecessary
+            or broken; one that fires on most generations means the Charter is
+            not carrying it.
+          </p>
+        </div>
+      </Panel>
+    </>
   );
 }
 
@@ -320,195 +392,229 @@ function TemplateRow({
   const detailsId = `task-${t.id}-details`;
 
   return (
-    <li className="border-b border-subtle py-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <p className="flex flex-wrap items-baseline gap-2">
-          <span className="text-sm font-bold uppercase tracking-wide">
-            {t.title}
-          </span>
-          <span className="font-mono text-xs text-muted">{t.slug}</span>
-        </p>
-        <span className="flex flex-wrap items-center gap-2">
-          <Pill tone={STATUS_TONE[t.status]}>{t.status}</Pill>
-          <span className="text-[10px] font-medium uppercase tracking-[0.15em] text-muted">
+    <tbody className="align-top">
+      <tr className={trCls}>
+        <td className={tdCls}>
+          <p className="text-[13px] font-bold leading-5">{t.title}</p>
+          <p className="mt-0.5 text-[11px] leading-5 text-faint">
+            <span className="font-mono">{t.slug}</span> ·{" "}
             {t.origin === "generated"
               ? `generated${t.model ? ` · ${t.model}` : ""}`
               : "human"}{" "}
             · {timeAgo(t.createdAt)}
-          </span>
-        </span>
-      </div>
-
-      <p className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
-        <Pill tone="outline">tier {t.tier}</Pill>
-        <span>{t.mode}</span>
-        <span>· proof: {t.proof}</span>
-        <span>· {t.clockMinutes} min</span>
-        <span>
-          · +{t.rewardNerve} Nerve · +{t.rewardCoins} coins
-          {t.mode === "team" && ` · penalty ${t.penaltyCoins} coins`}
-        </span>
-      </p>
-
-      {t.review && (
-        <div className="mt-2 text-xs text-muted">
-          <p className="flex flex-wrap items-center gap-2">
-            <Pill tone={rejected ? "warn" : "neutral"}>
-              reviewer: {t.review.verdict}
-            </Pill>
-            <span>
-              severity {t.review.severity} · round {t.review.round}
-              {t.review.model && ` · ${t.review.model}`} ·{" "}
-              {formatDateTime(t.review.reviewedAt)}
-            </span>
           </p>
-          {rejected && (
+        </td>
+        <td className={`${tdCls} tnum`}>{t.tier}</td>
+        <td className={tdCls}>
+          {t.mode}
+          <span className="block text-[11px] text-faint">
+            proof: {t.proof}
+          </span>
+        </td>
+        <td className={`${tdCls} tnum whitespace-nowrap`}>
+          {t.clockMinutes} min
+        </td>
+        <td className={`${tdCls} tnum whitespace-nowrap`}>
+          +{t.rewardNerve} Nerve
+          <span className="block text-[11px] text-faint">
+            +{t.rewardCoins} coins
+            {t.mode === "team" && ` · penalty ${t.penaltyCoins}`}
+          </span>
+        </td>
+        <td className={tdCls}>
+          {t.review ? (
             <>
+              <Pill tone={rejected ? "danger" : "positive"}>
+                {t.review.verdict}
+              </Pill>
+              <span className="mt-1 block text-[11px] text-faint">
+                severity {t.review.severity} · round {t.review.round}
+              </span>
+            </>
+          ) : (
+            <span className="text-faint">—</span>
+          )}
+        </td>
+        <td className={tdCls}>
+          <Pill tone={STATUS_TONE[t.status]}>{t.status}</Pill>
+        </td>
+        <td className={`${tdCls} text-right`}>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setOpen((o) => !o)}
+              aria-expanded={open}
+              aria-controls={detailsId}
+              className={btnGhost}
+            >
+              {open ? "Collapse" : "Expand"}
+            </button>
+            {t.status === "draft" && (
+              <button
+                type="button"
+                disabled={busy || rejected}
+                onClick={onApprove}
+                className={btnGhost}
+              >
+                {pending === "approve" ? "Approving…" : "Approve"}
+              </button>
+            )}
+            {t.status !== "retired" && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={onReview}
+                className={btnGhost}
+              >
+                {pending === "review" ? "Reviewing…" : "Re-review"}
+              </button>
+            )}
+            {t.status === "approved" && (
+              <ConfirmButton
+                label={pending === "retire" ? "Retiring…" : "Retire"}
+                confirmLabel="Retire it? It leaves rotation for good."
+                disabled={busy}
+                onConfirm={onRetire}
+              />
+            )}
+          </div>
+          {t.status === "draft" && rejected && (
+            <p className="mt-1 text-[11px] leading-5 text-faint">
+              Rejected by the reviewer — re-review first
+            </p>
+          )}
+        </td>
+      </tr>
+
+      {/* The reviewer's refusal stays on the row: it is the reason the
+          approve button is disabled, so it cannot hide behind a toggle. */}
+      {rejected && t.review && (
+        <tr>
+          <td colSpan={POOL_COLUMNS} className="px-5 pb-3.5">
+            <div className="rounded-[var(--radius-control)] border border-danger/25 bg-danger-tint px-3.5 py-2.5 text-[12px] leading-5 text-danger">
               {t.review.blockedTypes.length > 0 && (
-                <p className="mt-1">
-                  blocked: {t.review.blockedTypes.map(words).join(", ")}
-                </p>
+                <p>Blocked: {t.review.blockedTypes.map(words).join(", ")}</p>
               )}
               {t.review.reasons.length > 0 && (
-                <ul className="mt-1 list-disc pl-4 leading-5">
+                <ul className="list-disc pl-4">
                   {t.review.reasons.map((reason, i) => (
                     <li key={i}>{reason}</li>
                   ))}
                 </ul>
               )}
               {t.review.feedback && (
-                <p className="mt-1 leading-5 text-foreground">
-                  {t.review.feedback}
-                </p>
+                <p className="mt-1">{t.review.feedback}</p>
               )}
-            </>
-          )}
-        </div>
+            </div>
+          </td>
+        </tr>
       )}
-
-      <div className="mt-3 flex flex-wrap items-center gap-4">
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          aria-controls={detailsId}
-          className={btnGhostSm}
-        >
-          {open ? "Collapse" : "Expand"}
-        </button>
-        {t.status === "draft" && (
-          <>
-            <button
-              type="button"
-              disabled={busy || rejected}
-              onClick={onApprove}
-              className={btnGhostSm}
-            >
-              {pending === "approve" ? "Approving…" : "Approve"}
-            </button>
-            {rejected && (
-              <span className="text-[11px] text-muted">
-                Rejected by the reviewer — re-review first
-              </span>
-            )}
-          </>
-        )}
-        {t.status !== "retired" && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onReview}
-            className={btnGhostSm}
-          >
-            {pending === "review" ? "Reviewing… (a model call)" : "Re-review"}
-          </button>
-        )}
-        {t.status === "approved" && (
-          <ConfirmButton
-            label={pending === "retire" ? "Retiring…" : "Retire"}
-            confirmLabel="Retire it? It leaves rotation for good."
-            disabled={busy}
-            onConfirm={onRetire}
-          />
-        )}
-      </div>
 
       {open && (
-        <div id={detailsId} className="mt-4 space-y-4 text-xs">
-          <div>
-            <p className={labelCls}>Brief</p>
-            <p className="mt-1 max-w-2xl whitespace-pre-wrap leading-6">
-              {t.brief}
-            </p>
-          </div>
-
-          {t.guards.length > 0 && (
-            <div>
-              <p className={labelCls}>Guards</p>
-              <ul className="mt-1 list-disc pl-4 leading-5">
-                {t.guards.map((guard, i) => (
-                  <li key={i}>{guard}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {t.criteria.length > 0 && (
-            <div>
-              <p className={labelCls}>Criteria</p>
-              <div className="mt-1 overflow-x-auto">
-                <table className="w-full min-w-[32rem] border-t border-subtle text-left">
-                  <thead>
-                    <tr className="text-[10px] uppercase tracking-[0.15em] text-muted">
-                      <th scope="col" className="py-2 pr-4 font-medium">Id</th>
-                      <th scope="col" className="py-2 pr-4 font-medium">Modality</th>
-                      <th scope="col" className="py-2 pr-4 font-medium">Required</th>
-                      <th scope="col" className="py-2 font-medium">Assert</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {t.criteria.map((c) => (
-                      <tr key={c.id} className="border-t border-subtle align-top">
-                        <td className="py-2 pr-4 font-mono">{c.id}</td>
-                        <td className="py-2 pr-4">{c.modality}</td>
-                        <td className="py-2 pr-4">{c.required ? "yes" : "no"}</td>
-                        <td className="py-2 leading-5">{c.assert}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+        <tr>
+          <td colSpan={POOL_COLUMNS} className="px-5 pb-5">
+            <div
+              id={detailsId}
+              className="flex flex-col gap-4 rounded-[var(--radius-control)] border border-line bg-raised p-4"
+            >
+              <div>
+                <p className={labelCls}>Brief</p>
+                <p className="mt-1 max-w-3xl whitespace-pre-wrap text-[13px] leading-6">
+                  {t.brief}
+                </p>
               </div>
-            </div>
-          )}
 
-          {t.rationale && (
-            <div>
-              <p className={labelCls}>Rationale</p>
-              <p className="mt-1 max-w-2xl leading-6">{t.rationale}</p>
-            </div>
-          )}
+              {t.guards.length > 0 && (
+                <div>
+                  <p className={labelCls}>Guards</p>
+                  <ul className="mt-1 list-disc pl-4 text-[12px] leading-5">
+                    {t.guards.map((guard, i) => (
+                      <li key={i}>{guard}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
-          <Facts
-            rows={[
-              {
-                label: "Charter",
-                value: (
-                  <span className="font-mono">{shortId(t.charterHash)}</span>
-                ),
-              },
-              {
-                label: "Approved",
-                value: t.approvedAt
-                  ? `${formatDateTime(t.approvedAt)} by ${shortId(t.approvedBy)}`
-                  : "—",
-              },
-              { label: "Created", value: formatDateTime(t.createdAt) },
-              { label: "Id", value: <span className="font-mono">{t.id}</span> },
-            ]}
-          />
-        </div>
+              {t.criteria.length > 0 && (
+                <div>
+                  <p className={labelCls}>Criteria</p>
+                  <div className="mt-1 overflow-x-auto">
+                    <table className="w-full min-w-[32rem] text-left text-[12px]">
+                      <thead className={theadCls}>
+                        <tr>
+                          <th scope="col" className="py-2 pr-4 font-bold">
+                            Id
+                          </th>
+                          <th scope="col" className="py-2 pr-4 font-bold">
+                            Modality
+                          </th>
+                          <th scope="col" className="py-2 pr-4 font-bold">
+                            Required
+                          </th>
+                          <th scope="col" className="py-2 font-bold">
+                            Assert
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {t.criteria.map((c) => (
+                          <tr key={c.id} className="border-t border-line align-top">
+                            <td className="py-2 pr-4 font-mono">{c.id}</td>
+                            <td className="py-2 pr-4">{c.modality}</td>
+                            <td className="py-2 pr-4">
+                              {c.required ? "yes" : "no"}
+                            </td>
+                            <td className="py-2 leading-5">{c.assert}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {t.rationale && (
+                <div>
+                  <p className={labelCls}>Rationale</p>
+                  <p className="mt-1 max-w-3xl text-[12px] leading-6">
+                    {t.rationale}
+                  </p>
+                </div>
+              )}
+
+              <Facts
+                rows={[
+                  {
+                    label: "Charter",
+                    value: (
+                      <span className="font-mono">{shortId(t.charterHash)}</span>
+                    ),
+                  },
+                  ...(t.review
+                    ? [
+                        {
+                          label: "Reviewed",
+                          value: `${formatDateTime(t.review.reviewedAt)}${
+                            t.review.model ? ` · ${t.review.model}` : ""
+                          }`,
+                        },
+                      ]
+                    : []),
+                  {
+                    label: "Approved",
+                    value: t.approvedAt
+                      ? `${formatDateTime(t.approvedAt)} by ${shortId(t.approvedBy)}`
+                      : "—",
+                  },
+                  { label: "Created", value: formatDateTime(t.createdAt) },
+                  { label: "Id", value: <span className="font-mono">{t.id}</span> },
+                ]}
+              />
+            </div>
+          </td>
+        </tr>
       )}
-    </li>
+    </tbody>
   );
 }
 
@@ -563,211 +669,253 @@ function GenerateSection({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <section>
-      <SectionTitle>Write a batch</SectionTitle>
-      <p className="mb-4 max-w-2xl text-xs leading-6 text-muted">
-        The creator drafts, the screen and the reviewer refuse, and a refusal
-        goes back for a different task. Survivors are filed as drafts below.
-        Generation publishes nothing; approval is a separate, human act.
-      </p>
+    <>
+      <Panel eyebrow="Creator and reviewer" title="Write a batch">
+        <p className="mb-5 max-w-2xl text-[12px] leading-6 text-muted">
+          The creator drafts, the screen and the reviewer refuse, and a refusal
+          goes back for a different task. Survivors are filed as drafts below.
+          Generation publishes nothing; approval is a separate, human act.
+        </p>
 
-      <form
-        onSubmit={submit}
-        noValidate
-        className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]"
-      >
-        <div className="flex flex-wrap gap-5">
-          <Field id="gen-tier" label="Tier">
-            <select
-              id="gen-tier"
-              value={tier}
-              onChange={(e) => setTier(Number(e.target.value) as SeasonDay)}
-              className={selectCls}
-            >
-              {TIERS.map((t) => (
-                <option key={t} value={t}>
-                  Tier {t}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field id="gen-count" label="Count">
-            <input
-              id="gen-count"
-              type="number"
-              inputMode="numeric"
-              min={COUNT_MIN}
-              max={COUNT_MAX}
-              step={1}
-              value={count}
-              onChange={(e) => setCount(e.target.value)}
-              className={`${inputCls} h-10 max-w-24`}
-            />
-          </Field>
-          <Field id="gen-mode" label="Mode">
-            <select
-              id="gen-mode"
-              value={mode}
-              onChange={(e) => setMode(e.target.value as ModeChoice)}
-              className={selectCls}
-            >
-              <option value="any">Any</option>
-              <option value="solo">Solo</option>
-              <option value="team">Team</option>
-            </select>
-          </Field>
-        </div>
+        <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Field id="gen-tier" label="Tier">
+              <select
+                id="gen-tier"
+                value={tier}
+                onChange={(e) => setTier(Number(e.target.value) as SeasonDay)}
+                className={selectCls}
+              >
+                {TIERS.map((t) => (
+                  <option key={t} value={t}>
+                    Tier {t}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field id="gen-count" label="Count">
+              <input
+                id="gen-count"
+                type="number"
+                inputMode="numeric"
+                min={COUNT_MIN}
+                max={COUNT_MAX}
+                step={1}
+                value={count}
+                onChange={(e) => setCount(e.target.value)}
+                className={inputCls}
+              />
+            </Field>
+            <Field id="gen-mode" label="Mode">
+              <select
+                id="gen-mode"
+                value={mode}
+                onChange={(e) => setMode(e.target.value as ModeChoice)}
+                className={selectCls}
+              >
+                <option value="any">Any</option>
+                <option value="solo">Solo</option>
+                <option value="team">Team</option>
+              </select>
+            </Field>
 
-        <div className="flex flex-col gap-5">
-          <Field id="gen-steer" label="Steer (optional)">
-            <textarea
-              id="gen-steer"
-              value={steer}
-              onChange={(e) => setSteer(e.target.value)}
-              maxLength={STEER_MAX}
-              rows={3}
-              placeholder="more indoor tasks, none involving strangers"
-              aria-describedby="gen-steer-hint"
-              className={textareaCls}
-            />
-            <p id="gen-steer-hint" className="text-xs text-muted">
-              {steer.length} / {STEER_MAX}. Direction for the creator, not a
-              way round the Charter.
-            </p>
-          </Field>
-          <Field id="gen-avoid" label="Avoid slugs (optional)">
-            <input
-              id="gen-avoid"
-              value={avoid}
-              onChange={(e) => setAvoid(e.target.value)}
-              placeholder="hum-in-the-lift, mirror-compliment"
-              autoCapitalize="off"
-              autoCorrect="off"
-              spellCheck={false}
-              aria-describedby="gen-avoid-hint"
-              className={`${inputCls} h-10`}
-            />
-            <p id="gen-avoid-hint" className="text-xs text-muted">
-              Comma-separated. The live pool&apos;s slugs are added
-              automatically.
-            </p>
-          </Field>
-
-          <p aria-live="polite" className="min-h-4 text-xs text-muted">
-            {problem}
-          </p>
-
-          <div className="flex flex-wrap items-center gap-4">
-            <button type="submit" disabled={busy} className={btnSolidSm}>
-              {busy ? "Writing… this takes a minute or two" : "Write the batch"}
-            </button>
+            <div className="sm:col-span-2">
+              <Field id="gen-steer" label="Steer (optional)">
+                <textarea
+                  id="gen-steer"
+                  value={steer}
+                  onChange={(e) => setSteer(e.target.value)}
+                  maxLength={STEER_MAX}
+                  rows={3}
+                  placeholder="more indoor tasks, none involving strangers"
+                  aria-describedby="gen-steer-hint"
+                  className={textareaCls}
+                />
+                <p
+                  id="gen-steer-hint"
+                  className="text-[11px] leading-5 text-faint"
+                >
+                  {steer.length} / {STEER_MAX}. Direction for the creator, not a
+                  way round the Charter.
+                </p>
+              </Field>
+            </div>
+            <Field id="gen-avoid" label="Avoid slugs (optional)">
+              <input
+                id="gen-avoid"
+                value={avoid}
+                onChange={(e) => setAvoid(e.target.value)}
+                placeholder="hum-in-the-lift, mirror-compliment"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                aria-describedby="gen-avoid-hint"
+                className={inputCls}
+              />
+              <p
+                id="gen-avoid-hint"
+                className="text-[11px] leading-5 text-faint"
+              >
+                Comma-separated. The live pool&apos;s slugs are added
+                automatically.
+              </p>
+            </Field>
           </div>
-          <Note>{note}</Note>
-        </div>
-      </form>
+
+          <div className="flex flex-col gap-3 border-t border-line pt-4">
+            <div className="flex flex-wrap items-center justify-end gap-4">
+              <p
+                aria-live="polite"
+                className="mr-auto min-h-5 text-[12px] leading-5 text-danger"
+              >
+                {problem}
+              </p>
+              {busy && (
+                <span className="text-[12px] leading-5 text-muted">
+                  Writing and reviewing. This takes a minute or two.
+                </span>
+              )}
+              <button type="submit" disabled={busy} className={btnPrimary}>
+                {busy ? "Writing…" : "Write the batch"}
+              </button>
+            </div>
+            <Note>{note}</Note>
+          </div>
+        </form>
+      </Panel>
 
       {result && <GenerateResult result={result} />}
-    </section>
+    </>
   );
 }
 
 function GenerateResult({ result }: { result: GenerateTasksResult }) {
   return (
-    <div className="mt-6 space-y-6 border-t border-subtle pt-6 text-xs">
-      <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
+    <Panel eyebrow="Last batch" title="What the run produced" bleed>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-7 border-t border-line p-5 sm:grid-cols-4">
         <Stat label="Saved" value={result.saved.length} hint="filed as drafts" />
-        <Stat label="Refused" value={result.rejected.length} hint={`${result.rejectionsStored} kept on record`} />
+        <Stat
+          label="Refused"
+          value={result.rejected.length}
+          hint={`${result.rejectionsStored} kept on record`}
+        />
         <Stat label="Dropped" value={result.dropped} hint="slots never filled" />
-        <Stat label="Rounds" value={`${result.rounds} / ${result.maxRounds}`} hint="used / allowed" />
+        <Stat
+          label="Rounds"
+          value={`${result.rounds} / ${result.maxRounds}`}
+          hint="used / allowed"
+        />
       </div>
 
-      <Facts
-        rows={[
-          { label: "Charter", value: <span className="font-mono">{shortId(result.charterHash)}</span> },
-          { label: "Creator", value: result.models.creator ?? "—" },
-          { label: "Reviewer", value: result.models.reviewer ?? "—" },
-          {
-            label: "Tokens",
-            value: `${result.usage.inputTokens.toLocaleString("en-GB")} in · ${result.usage.outputTokens.toLocaleString("en-GB")} out · ${result.usage.cacheReadTokens.toLocaleString("en-GB")} cache read`,
-          },
-          {
-            label: "Skipped",
-            value:
-              result.skipped.length > 0 ? (
-                <span className="font-mono">{result.skipped.join(", ")}</span>
-              ) : (
-                "none"
+      <div className="border-t border-line p-5">
+        <Facts
+          rows={[
+            {
+              label: "Charter",
+              value: (
+                <span className="font-mono">{shortId(result.charterHash)}</span>
               ),
-          },
-        ]}
-      />
+            },
+            { label: "Creator", value: result.models.creator ?? "—" },
+            { label: "Reviewer", value: result.models.reviewer ?? "—" },
+            {
+              label: "Tokens",
+              value: (
+                <span className="tnum">
+                  {result.usage.inputTokens.toLocaleString("en-GB")} in ·{" "}
+                  {result.usage.outputTokens.toLocaleString("en-GB")} out ·{" "}
+                  {result.usage.cacheReadTokens.toLocaleString("en-GB")} cache
+                  read
+                </span>
+              ),
+            },
+            {
+              label: "Skipped",
+              value:
+                result.skipped.length > 0 ? (
+                  <span className="font-mono">{result.skipped.join(", ")}</span>
+                ) : (
+                  "none"
+                ),
+            },
+          ]}
+        />
+      </div>
 
       {result.saved.length > 0 && (
-        <div>
-          <p className={labelCls}>Saved as drafts</p>
-          <ul className="mt-2 border-t border-subtle">
+        <section className="border-t border-line pt-4">
+          <p className={`${eyebrow} px-5 pb-1`}>Saved as drafts</p>
+          <ul>
             {result.saved.map((t) => (
               <li
                 key={t.id}
-                className="flex flex-wrap items-baseline gap-2 border-b border-subtle py-2"
+                className="flex flex-wrap items-center gap-2 border-t border-line px-5 py-3"
               >
-                <span className="font-bold uppercase tracking-wide">
-                  {t.title}
+                <span className="text-[13px] font-bold">{t.title}</span>
+                <span className="font-mono text-[11px] text-faint">
+                  {t.slug}
                 </span>
-                <span className="font-mono text-muted">{t.slug}</span>
                 <Pill tone="outline">tier {t.tier}</Pill>
-                <span className="text-muted">{t.mode}</span>
+                <span className="text-[11px] text-faint">{t.mode}</span>
               </li>
             ))}
           </ul>
-        </div>
+        </section>
       )}
 
       {result.rejected.length > 0 && (
-        <div>
-          <p className={labelCls}>Refused along the way</p>
-          <ul className="mt-2 border-t border-subtle">
+        <section className="border-t border-line pt-4">
+          <p className={`${eyebrow} px-5 pb-1`}>Refused along the way</p>
+          <ul>
             {result.rejected.map((r, i) => {
               const violations = r.violations
                 .map((v) => [v.id, v.label].filter(Boolean).join(" — "))
                 .filter(Boolean);
               return (
-                <li key={`${r.task.slug}-${r.round}-${i}`} className="border-b border-subtle py-3">
-                  <p className="flex flex-wrap items-center gap-2">
-                    <span className="font-bold uppercase tracking-wide">
-                      {r.task.title}
+                <li
+                  key={`${r.task.slug}-${r.round}-${i}`}
+                  className="border-t border-line px-5 py-4"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[13px] font-bold">{r.task.title}</span>
+                    <span className="font-mono text-[11px] text-faint">
+                      {r.task.slug}
                     </span>
-                    <Pill tone={r.source === "screen" ? "outline" : "warn"}>
+                    <Pill tone={r.source === "screen" ? "neutral" : "danger"}>
                       {r.source}
                     </Pill>
-                    <span className="text-muted">round {r.round}</span>
-                  </p>
+                    <span className="tnum text-[11px] text-faint">
+                      round {r.round}
+                    </span>
+                  </div>
                   {violations.length > 0 && (
-                    <p className="mt-1 text-muted">
-                      violations: {violations.map(words).join("; ")}
+                    <p className="mt-2 text-[12px] leading-5 text-muted">
+                      Violations: {violations.map(words).join("; ")}
                     </p>
                   )}
                   {r.review && r.review.reasons.length > 0 && (
-                    <ul className="mt-1 list-disc pl-4 leading-5 text-muted">
+                    <ul className="mt-1 list-disc pl-4 text-[12px] leading-5 text-muted">
                       {r.review.reasons.map((reason, j) => (
                         <li key={j}>{reason}</li>
                       ))}
                     </ul>
                   )}
                   {r.feedback && (
-                    <p className="mt-1 max-w-2xl leading-5">{r.feedback}</p>
+                    <p className="mt-2 max-w-3xl rounded-[var(--radius-control)] border border-line bg-raised px-3.5 py-2.5 text-[12px] leading-5 text-ink">
+                      {r.feedback}
+                    </p>
                   )}
                 </li>
               );
             })}
           </ul>
-        </div>
+        </section>
       )}
 
-      <p className="max-w-2xl leading-6 text-muted">
+      <p className="max-w-2xl border-t border-line px-5 py-4 text-[12px] leading-6 text-muted">
         Nothing above is live. Each saved draft is in the pool list below
         with the reviewer&apos;s verdict on it; approve the ones that hold up.
       </p>
-    </div>
+    </Panel>
   );
 }

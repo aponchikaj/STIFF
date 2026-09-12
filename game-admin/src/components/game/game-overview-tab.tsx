@@ -4,29 +4,43 @@ import Link from "next/link";
 import { gameApi } from "@/lib/api";
 import type { GameEnrolment, SeasonStatus } from "@/lib/api";
 import { useAsync } from "@/lib/hooks";
-import { btnGhostSm, btnOutline, ErrorNote, Loading } from "../ui";
 import {
+  Badge,
+  btnPrimary,
+  btnSecondary,
+  Card,
+  cardCls,
   Empty,
+  ErrorNote,
+  eyebrow,
+  Loading,
   Note,
-  Pill,
-  SectionTitle,
+  Panel,
   Stat,
-  formatDateTime,
-  hearts,
-  useAction,
-} from "./game-ui";
+  type Tone,
+} from "../ui";
+import { formatDateTime, Hearts, n, timeAgo, useAction } from "./game-ui";
 
-const SEASON_TONE: Record<SeasonStatus, "neutral" | "solid" | "outline"> = {
+const SEASON_TONE: Record<SeasonStatus, Tone> = {
   draft: "neutral",
-  open: "outline",
+  open: "info",
   running: "solid",
   closed: "neutral",
 };
 
+const SEASON_NOTE: Record<SeasonStatus, string> = {
+  draft: "Not visible to anyone yet.",
+  open: "Enrolling. No clock is running.",
+  running: "Live. Clocks are running and hand-ins are arriving.",
+  closed: "Finished.",
+};
+
 /**
- * The season at a glance: where it is, who is in it, what is waiting, and
- * the two buttons an operator reaches for at midnight. Every number here is
- * a link to the screen that acts on it.
+ * The season at a glance: where it is, who is in it, what is waiting, and the
+ * two buttons an operator reaches for at midnight.
+ *
+ * Every number is a link to the screen that acts on it. A dashboard that only
+ * reports is a dashboard you check and then navigate away from anyway.
  */
 export function OverviewTab() {
   const season = useAsync(() => gameApi.getSeason(), []);
@@ -41,12 +55,11 @@ export function OverviewTab() {
   const board = useAsync(() => gameApi.getLeaderboard({ pageSize: 5 }), []);
   const rules = useAsync(() => gameApi.getRules(), []);
 
-  const reloadAll = () => {
+  const { note, busy, act } = useAction(() => {
     enrolments.reload();
     review.reload();
     board.reload();
-  };
-  const { note, busy, act } = useAction(reloadAll);
+  });
 
   if (season.loading) return <Loading label="Loading the season" />;
   if (season.error) return <ErrorNote message={season.error} />;
@@ -56,215 +69,276 @@ export function OverviewTab() {
   const counts = tally(people);
   const openReports =
     (reports.data?.byStatus.open ?? 0) + (reports.data?.byStatus.reviewing ?? 0);
+  const queue = review.data?.items ?? [];
 
   return (
-    <div className="space-y-12">
-      <div className="flex flex-wrap items-start justify-between gap-6">
-        <div>
-          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted">
-            Season
-          </p>
-          {live ? (
-            <>
-              <p className="mt-2 text-3xl uppercase tracking-tight">
-                {live.title}
-              </p>
-              <p className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
-                <Pill tone={SEASON_TONE[live.status]}>{live.status}</Pill>
-                <span>
-                  {live.status === "running" && live.startsAt
-                    ? `running since ${formatDateTime(live.startsAt)}`
-                    : live.status === "open"
-                      ? "enrolling — no clock yet"
-                      : live.slug}
-                </span>
-                {/* From the rules endpoint: the public season read does not
-                    carry it, and rendering `undefined` here read as a blank. */}
-                {rules.data && (
-                  <span>· {rules.data.startingHearts} hearts to start</span>
-                )}
-              </p>
-            </>
-          ) : (
-            <p className="mt-2 max-w-md text-sm leading-6 text-muted">
-              No season is open or running. Nobody can enrol and the board is
-              empty until one is.{" "}
-              <Link href="/game/seasons" className="underline">
-                Create or open one.
-              </Link>
-            </p>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            disabled={busy || !live}
-            onClick={() =>
-              act(
-                () => gameApi.runSweeps(),
-                (r) => {
-                  const s = r as Awaited<ReturnType<typeof gameApi.runSweeps>>;
-                  return `Sweeps ran: ${s.dailyMinimum.demoted.length} for the daily minimum, ${s.zeroBalance.demoted.length} on zero balance${s.dailyMinimum.skipped ? ` (daily minimum skipped: ${s.dailyMinimum.skipped.replace(/_/g, " ")})` : ""}.`;
-                },
-              )
-            }
-            className={btnOutline}
-          >
-            Run sweeps now
-          </button>
-          <button
-            type="button"
-            disabled={busy || !live}
-            onClick={() =>
-              act(
-                () => gameApi.resolveVotes(),
-                (r) => {
-                  const v = r as Awaited<ReturnType<typeof gameApi.resolveVotes>>;
-                  return `Votes: ${v.resolved} resolved, ${v.deferred} deferred to a person, ${v.skipped} skipped.`;
-                },
-              )
-            }
-            className={btnOutline}
-          >
-            Resolve due votes
-          </button>
-        </div>
-      </div>
-      <Note>{note}</Note>
+    <div className="flex flex-col gap-5">
+      {/* ------------------------------------------------------ the season */}
+      <Card className="p-5 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div className="min-w-0">
+            <p className={eyebrow}>Season</p>
+            {live ? (
+              <>
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <h2 className="font-display text-[24px] leading-none">
+                    {live.title}
+                  </h2>
+                  <Badge tone={SEASON_TONE[live.status]}>{live.status}</Badge>
+                </div>
+                <p className="mt-2.5 text-[12px] text-muted">
+                  {SEASON_NOTE[live.status]}
+                  {live.startsAt && live.status === "running" && (
+                    <> Started {formatDateTime(live.startsAt)}.</>
+                  )}
+                  {rules.data && (
+                    <> {rules.data.startingHearts} hearts to start.</>
+                  )}
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="mt-2 font-display text-[24px] leading-none">
+                  No season
+                </h2>
+                <p className="mt-2.5 max-w-md text-[12px] leading-6 text-muted">
+                  Nobody can enrol and the board is empty until one is open.{" "}
+                  <Link href="/seasons" className="text-ink underline underline-offset-4">
+                    Create or open one
+                  </Link>
+                  .
+                </p>
+              </>
+            )}
+          </div>
 
-      <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-6">
-        <Link href="/game/players?role=player">
-          <Stat label="Players" value={counts.players} hint="active on the board" />
-        </Link>
-        <Link href="/game/players?role=watcher">
-          <Stat label="Watchers" value={counts.watchers} hint={`${counts.demoted} demoted · ${counts.cheaters} flagged`} />
-        </Link>
-        <Link href="/game/review">
-          <Stat
-            label="To review"
-            value={review.data?.total ?? "…"}
-            hint={oldest(review.data?.items.map((i) => i.createdAt))}
-          />
-        </Link>
-        <Link href="/game/reports">
-          <Stat label="Open reports" value={reports.data ? openReports : "…"} hint={reports.data?.oldestOpenSeconds != null ? `oldest ${Math.round(reports.data.oldestOpenSeconds / 3600)} h` : "none waiting"} />
-        </Link>
-        <Link href="/game/tasks?status=approved">
-          <Stat label="Tasks live" value={approved.data?.templates.length ?? "…"} hint={`${drafts.data?.templates.length ?? "…"} drafts to approve`} />
-        </Link>
-        <Link href="/game/board">
-          <Stat
-            label="On the board"
-            value={board.data?.total ?? "…"}
-            hint="ranked, never cut"
-          />
-        </Link>
-      </div>
-
-      <div className="grid gap-12 lg:grid-cols-2">
-        <section>
-          <SectionTitle
-            aside={
-              <Link href="/game/board" className={btnGhostSm}>
-                Full board →
-              </Link>
-            }
-          >
-            Top of the board
-          </SectionTitle>
-          {board.data && board.data.rows.length === 0 && (
-            <Empty>Nobody has scored yet.</Empty>
-          )}
-          <ol className="border-t border-subtle">
-            {board.data?.rows.map((row) => (
-              <li
-                key={row.handle}
-                className="flex items-baseline justify-between gap-4 border-b border-subtle py-3 text-sm"
+          {/* The two things done by hand, kept together and out of the way of
+              everything that is only being read. */}
+          <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={busy || !live}
+                onClick={() =>
+                  act(
+                    () => gameApi.runSweeps(),
+                    (r) => {
+                      const s = r as Awaited<ReturnType<typeof gameApi.runSweeps>>;
+                      const skipped = s.dailyMinimum.skipped
+                        ? ` (daily minimum skipped: ${s.dailyMinimum.skipped.replace(/_/g, " ")})`
+                        : "";
+                      return `Sweeps ran. ${s.dailyMinimum.demoted.length} moved for the daily minimum, ${s.zeroBalance.demoted.length} on zero balance${skipped}.`;
+                    },
+                  )
+                }
+                className={btnSecondary}
               >
-                <span className="flex items-baseline gap-3">
-                  <span className="w-6 text-xs tabular-nums text-muted">
+                Run sweeps
+              </button>
+              <button
+                type="button"
+                disabled={busy || !live}
+                onClick={() =>
+                  act(
+                    () => gameApi.resolveVotes(),
+                    (r) => {
+                      const v = r as Awaited<
+                        ReturnType<typeof gameApi.resolveVotes>
+                      >;
+                      return `Votes: ${v.resolved} resolved, ${v.deferred} deferred to a person, ${v.skipped} skipped.`;
+                    },
+                  )
+                }
+                className={btnPrimary}
+              >
+                Resolve votes
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="mt-5 border-t border-line pt-3">
+          <Note>
+            {note ??
+              "The crons run both of these nightly, in Tbilisi time. These are the same buttons, for a test season or an instance that slept through one."}
+          </Note>
+        </div>
+      </Card>
+
+      {/* -------------------------------------------------------- the count */}
+      <div
+        className={`${cardCls} grid grid-cols-2 divide-line sm:grid-cols-3 sm:divide-x lg:grid-cols-6`}
+      >
+        <StatLink href="/players?role=player" label="Players" value={counts.players} hint="active on the board" />
+        <StatLink
+          href="/players?role=watcher"
+          label="Watchers"
+          value={counts.watchers}
+          hint={`${counts.demoted} demoted · ${counts.cheaters} flagged`}
+        />
+        <StatLink
+          href="/review"
+          label="To review"
+          value={review.data?.total ?? "—"}
+          hint={oldest(queue.map((i) => i.createdAt))}
+          tone={queue.length > 20 ? "caution" : undefined}
+        />
+        <StatLink
+          href="/reports"
+          label="Open reports"
+          value={reports.data ? openReports : "—"}
+          hint={
+            reports.data?.oldestOpenSeconds != null
+              ? `oldest ${Math.round(reports.data.oldestOpenSeconds / 3600)} h`
+              : "none waiting"
+          }
+          tone={(reports.data?.openByPriority["3"] ?? 0) > 0 ? "danger" : undefined}
+        />
+        <StatLink
+          href="/tasks?status=approved"
+          label="Tasks live"
+          value={approved.data?.templates.length ?? "—"}
+          hint={`${drafts.data?.templates.length ?? "—"} drafts to approve`}
+        />
+        <StatLink
+          href="/board"
+          label="On the board"
+          value={board.data?.total ?? "—"}
+          hint="ranked, never cut"
+        />
+      </div>
+
+      {/* --------------------------------------------------------- two lists */}
+      <div className="grid gap-5 xl:grid-cols-2">
+        <Panel
+          title="Top of the board"
+          aside={
+            <Link href="/board" className="text-[12px] font-semibold text-muted hover:text-ink">
+              Full board →
+            </Link>
+          }
+          bleed
+        >
+          {board.data && board.data.rows.length === 0 ? (
+            <Empty>Nobody has scored yet.</Empty>
+          ) : (
+            <ol>
+              {board.data?.rows.map((row) => (
+                <li
+                  key={row.handle}
+                  className="flex items-center gap-4 border-t border-line px-5 py-3 last:pb-4"
+                >
+                  <span className="tnum w-5 text-[12px] font-bold text-faint">
                     {row.rank}
                   </span>
-                  <span className="font-bold uppercase tracking-wide">
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-bold">
                     {row.handle}
                   </span>
-                  <span className="text-[10px] tracking-widest text-muted">
-                    {hearts(row.heartsRemaining, row.heartsTotal)}
+                  <Hearts remaining={row.heartsRemaining} total={row.heartsTotal} />
+                  <span className="tnum w-20 text-right text-[13px] font-bold">
+                    {n(row.nerve)}
                   </span>
-                </span>
-                <span className="tabular-nums">{row.nerve} Nerve</span>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        <section>
-          <SectionTitle
-            aside={
-              <Link href="/game/review" className={btnGhostSm}>
-                Open the queue →
-              </Link>
-            }
-          >
-            Waiting for a verdict
-          </SectionTitle>
-          {review.error && <ErrorNote message={review.error} />}
-          {review.data && review.data.items.length === 0 && (
-            <Empty>The queue is clear.</Empty>
+                </li>
+              ))}
+            </ol>
           )}
-          <ul className="border-t border-subtle">
-            {review.data?.items.slice(0, 6).map((item) => (
-              <li
-                key={item.id}
-                className="flex flex-wrap items-baseline justify-between gap-3 border-b border-subtle py-3 text-sm"
-              >
-                <span className="flex flex-wrap items-baseline gap-2">
-                  <span className="font-bold uppercase tracking-wide">
-                    {item.enrolment.handle}
-                  </span>
-                  <span className="text-xs text-muted">
-                    day {item.day} · {item.kind}
+        </Panel>
+
+        <Panel
+          title="Waiting for a verdict"
+          aside={
+            <Link href="/review" className="text-[12px] font-semibold text-muted hover:text-ink">
+              Open the queue →
+            </Link>
+          }
+          bleed
+        >
+          {review.error && <div className="px-5"><ErrorNote message={review.error} /></div>}
+          {review.data && queue.length === 0 ? (
+            <Empty>The queue is clear.</Empty>
+          ) : (
+            <ul>
+              {queue.slice(0, 5).map((item) => (
+                <li
+                  key={item.id}
+                  className="flex items-center gap-3 border-t border-line px-5 py-3"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-bold">
+                      {item.enrolment.handle}
+                    </span>
+                    <span className="block text-[11px] text-faint">
+                      day {item.day} · {item.kind} ·{" "}
+                      {timeAgo(item.submittedAt ?? item.createdAt)}
+                    </span>
                   </span>
                   {item.aiVerdict && (
-                    <Pill
+                    <Badge
                       tone={
                         item.aiVerdict.verdict === "cheating"
-                          ? "warn"
+                          ? "danger"
                           : item.aiVerdict.verdict === "suspicious"
-                            ? "outline"
+                            ? "caution"
                             : "neutral"
                       }
                     >
-                      model: {item.aiVerdict.verdict}
-                    </Pill>
+                      {item.aiVerdict.verdict}
+                    </Badge>
                   )}
-                </span>
-                <span className="text-xs text-muted">
-                  {formatDateTime(item.submittedAt ?? item.createdAt)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
       </div>
 
+      {/* ---------------------------------------------------------- the rules */}
       {rules.data && (
-        <section>
-          <SectionTitle>The rules the server is enforcing</SectionTitle>
-          <p className="max-w-3xl text-xs leading-6 text-muted">
-            {rules.data.minimumAge}+ only · {rules.data.dailyMinimumTasks} tasks
-            a day minimum · {rules.data.startingHearts} hearts, lost by{" "}
-            {rules.data.heartCosts.join(" or ")} · clans of{" "}
-            {rules.data.clanSize} · team penalty{" "}
-            {rules.data.teamPenaltyCoins.min}–{rules.data.teamPenaltyCoins.max}{" "}
-            coins · votes open {rules.data.voting.windowHours} h, pay{" "}
-            {rules.data.voting.rewardCoins.min}–{rules.data.voting.rewardCoins.max}{" "}
-            coins, {rules.data.voting.cooldownHours} h cooldown · enrolment
-            open every day · no elimination by rank · ties:{" "}
-            {rules.data.tieBreak}.
-          </p>
-        </section>
+        <Panel title="The rules the server is enforcing">
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-4">
+            <Rule term="Minimum age" detail={`${rules.data.minimumAge} and over, both sides`} />
+            <Rule term="Daily minimum" detail={`${rules.data.dailyMinimumTasks} hand-ins a day`} />
+            <Rule term="Hearts" detail={`${rules.data.startingHearts}, lost by ${rules.data.heartCosts.join(" or ")}`} />
+            <Rule term="Clans" detail={`${rules.data.clanSize} people · penalty ${rules.data.teamPenaltyCoins.min}–${rules.data.teamPenaltyCoins.max} coins`} />
+            <Rule term="Voting" detail={`open ${rules.data.voting.windowHours} h · pays ${rules.data.voting.rewardCoins.min}–${rules.data.voting.rewardCoins.max} coins · ${rules.data.voting.cooldownHours} h cooldown`} />
+            <Rule term="Enrolment" detail="open every day of the season" />
+            <Rule term="Elimination by rank" detail={rules.data.eliminationByRank ? "yes" : "none — the board ranks, it does not cut"} />
+            <Rule term="Ties" detail={rules.data.tieBreak} />
+          </dl>
+        </Panel>
       )}
+    </div>
+  );
+}
+
+/** A stat that goes somewhere. The whole cell is the target, not the number. */
+function StatLink({
+  href,
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  href: string;
+  label: string;
+  value: React.ReactNode;
+  hint?: string;
+  tone?: "danger" | "caution";
+}) {
+  return (
+    <Link
+      href={href as never}
+      className="p-5 transition-colors hover:bg-raised"
+    >
+      <Stat label={label} value={value} hint={hint} tone={tone} />
+    </Link>
+  );
+}
+
+function Rule({ term, detail }: { term: string; detail: string }) {
+  return (
+    <div>
+      <dt className={eyebrow}>{term}</dt>
+      <dd className="mt-1 text-[12px] leading-5 text-ink">{detail}</dd>
     </div>
   );
 }
@@ -283,9 +357,8 @@ function tally(people: GameEnrolment[]) {
   return { players, watchers, demoted, cheaters };
 }
 
-function oldest(dates: string[] | undefined): string | undefined {
-  if (!dates || dates.length === 0) return "nothing waiting";
+function oldest(dates: string[]): string {
+  if (dates.length === 0) return "nothing waiting";
   const first = dates.reduce((a, b) => (a < b ? a : b));
-  const hoursAgo = Math.round((Date.now() - new Date(first).getTime()) / 3.6e6);
-  return `oldest ${hoursAgo} h ago`;
+  return `oldest ${timeAgo(first)}`;
 }

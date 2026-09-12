@@ -5,12 +5,19 @@ import { gameApi } from "@/lib/api";
 import type { GameSeason, SeasonStatus } from "@/lib/api";
 import { useAsync } from "@/lib/hooks";
 import {
-  btnGhostSm,
-  btnSolidSm,
+  btnDanger,
+  btnPrimary,
+  btnPrimarySm,
+  btnSecondarySm,
+  Card,
   ErrorNote,
+  eyebrow,
   Field,
   inputCls,
   Loading,
+  Panel,
+  sectionTitle,
+  type Tone,
 } from "../ui";
 import {
   ConfirmButton,
@@ -18,15 +25,14 @@ import {
   Facts,
   Note,
   Pill,
-  SectionTitle,
   formatDateTime,
   timeAgo,
   useAction,
 } from "./game-ui";
 
-const SEASON_TONE: Record<SeasonStatus, "neutral" | "solid" | "outline"> = {
+const SEASON_TONE: Record<SeasonStatus, Tone> = {
   draft: "neutral",
-  open: "outline",
+  open: "info",
   running: "solid",
   closed: "neutral",
 };
@@ -36,7 +42,7 @@ const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/i;
 const DEFAULT_HEARTS = 3;
 
 /**
- * Seasons: make one, then walk it draft → open → running → closed. Each row
+ * Seasons: make one, then walk it draft → open → running → closed. Each card
  * shows only the next sensible step, because the server will take any status
  * you send and the ones that go backwards are the ones you regret.
  */
@@ -51,79 +57,88 @@ export function SeasonsTab() {
   const live = rows.find((s) => s.status === "open" || s.status === "running");
 
   return (
-    <div className="space-y-12">
-      <div className="grid gap-12 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <section>
-          <SectionTitle
-            aside={
-              live ? (
-                <span className="text-xs text-muted">
-                  live now: <span className="text-foreground">{live.title}</span>
+    <div className="flex flex-col gap-5">
+      {/* ------------------------------------------------ where things are */}
+      <Card className="p-5">
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div className="min-w-0 max-w-2xl">
+            <p className={eyebrow}>The pipeline</p>
+            <p className="mt-2 text-[13px] leading-6 text-muted">
+              Only one season can be open or running at a time. The server
+              refuses a second and names the one in the way. Starting the clock
+              stamps the start time; closing stamps the end. Neither is undone
+              by moving back.
+            </p>
+          </div>
+          <div className="min-w-0">
+            <p className={eyebrow}>Live now</p>
+            {live ? (
+              <div className="mt-2 flex flex-wrap items-center gap-2.5">
+                <span className="font-display text-[18px] leading-none">
+                  {live.title}
                 </span>
-              ) : (
-                <span className="text-xs text-muted">between seasons</span>
-              )
+                <Pill tone={SEASON_TONE[live.status]}>{live.status}</Pill>
+              </div>
+            ) : (
+              <p className="mt-2 text-[13px] text-faint">Between seasons</p>
+            )}
+          </div>
+        </div>
+        {/* The divider only earns its place when there is something under
+            it; an empty strip below a rule reads as a broken card. */}
+        {note && (
+          <div className="mt-5 border-t border-line pt-3">
+            <Note>{note}</Note>
+          </div>
+        )}
+      </Card>
+
+      {/* ------------------------------------------------------- the seasons */}
+      {rows.length === 0 ? (
+        <Card>
+          <Empty>
+            No seasons yet. Make one below; it lands as a draft until you open
+            it.
+          </Empty>
+        </Card>
+      ) : (
+        rows.map((season) => (
+          <SeasonCard
+            key={season.id}
+            season={season}
+            busy={busy}
+            onStatus={(status, done) =>
+              act(() => gameApi.setSeasonStatus(season.id, status), done)
             }
-          >
-            Seasons
-          </SectionTitle>
-          <p className="mb-4 max-w-2xl text-xs leading-6 text-muted">
-            Only one season can be open or running at a time. The server
-            refuses a second and names the one in the way. Starting the clock
-            stamps the start time; closing stamps the end. Neither is undone
-            by moving back.
-          </p>
-          <Note>{note}</Note>
+          />
+        ))
+      )}
 
-          {rows.length === 0 ? (
-            <Empty>
-              No seasons yet. Make one on the right; it lands as a draft
-              until you open it.
-            </Empty>
-          ) : (
-            <ul className="mt-4 border-t border-subtle">
-              {rows.map((season) => (
-                <SeasonRow
-                  key={season.id}
-                  season={season}
-                  busy={busy}
-                  onStatus={(status, done) =>
-                    act(
-                      () => gameApi.setSeasonStatus(season.id, status),
-                      done,
-                    )
-                  }
-                />
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <CreateSeasonForm
-          busy={busy}
-          onCreate={async (input) => {
-            // `act` swallows failures into the note; `done` only runs on
-            // success, so it is the signal the form uses to clear itself.
-            let created = false;
-            await act(
-              () => gameApi.createSeason(input),
-              (r) => {
-                created = true;
-                const s = r as GameSeason;
-                return `“${s.title}” created as a draft. Open enrolment when the tasks are ready.`;
-              },
-            );
-            return created;
-          }}
-        />
-      </div>
+      {/* ---------------------------------------------------------- the form */}
+      <CreateSeasonForm
+        busy={busy}
+        onCreate={async (input) => {
+          // `act` swallows failures into the note; `done` only runs on
+          // success, so it is the signal the form uses to clear itself.
+          let created = false;
+          await act(
+            () => gameApi.createSeason(input),
+            (r) => {
+              created = true;
+              const s = r as GameSeason;
+              return `“${s.title}” created as a draft. Open enrolment when the tasks are ready.`;
+            },
+          );
+          return created;
+        }}
+      />
     </div>
   );
 }
 
-// ------------------------------------------------------------------ row --
+// ----------------------------------------------------------------- card --
 
-function SeasonRow({
+function SeasonCard({
   season,
   busy,
   onStatus,
@@ -133,34 +148,46 @@ function SeasonRow({
   onStatus: (status: SeasonStatus, done: string) => void | Promise<void>;
 }) {
   return (
-    <li className="border-b border-subtle py-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <p className="flex flex-wrap items-baseline gap-2">
-          <span className="text-sm font-bold uppercase tracking-wide">
-            {season.title}
-          </span>
-          <span className="text-xs text-muted">{season.slug}</span>
+    <Card className="p-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h2 className={sectionTitle}>{season.title}</h2>
+            <Pill tone={SEASON_TONE[season.status]}>{season.status}</Pill>
+          </div>
+          <p className="mt-1 font-mono text-[11px] text-faint">{season.slug}</p>
+        </div>
+        <p className="text-[11px] text-faint">
+          created {timeAgo(season.createdAt)}
         </p>
-        <span className="flex flex-wrap items-center gap-2">
-          <Pill tone={SEASON_TONE[season.status]}>{season.status}</Pill>
-          <span className="text-[10px] font-medium uppercase tracking-[0.15em] text-muted">
-            created {timeAgo(season.createdAt)}
-          </span>
-        </span>
       </div>
 
-      <div className="mt-3">
+      <div className="mt-4">
         <Facts
           rows={[
-            { label: "Hearts to start", value: season.startingHearts },
-            { label: "Starts", value: formatDateTime(season.startsAt) },
-            { label: "Ends", value: formatDateTime(season.endsAt) },
-            { label: "Created", value: formatDateTime(season.createdAt) },
+            {
+              label: "Hearts to start",
+              value: <span className="tnum">{season.startingHearts}</span>,
+            },
+            {
+              label: "Starts",
+              value: <span className="tnum">{formatDateTime(season.startsAt)}</span>,
+            },
+            {
+              label: "Ends",
+              value: <span className="tnum">{formatDateTime(season.endsAt)}</span>,
+            },
+            {
+              label: "Created",
+              value: (
+                <span className="tnum">{formatDateTime(season.createdAt)}</span>
+              ),
+            },
           ]}
         />
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-4">
+      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-4">
         {season.status === "draft" && (
           <button
             type="button"
@@ -168,7 +195,7 @@ function SeasonRow({
             onClick={() =>
               onStatus("open", `“${season.title}” is open. Players can enrol.`)
             }
-            className={btnGhostSm}
+            className={btnPrimarySm}
           >
             Open enrolment
           </button>
@@ -177,7 +204,8 @@ function SeasonRow({
           <>
             <ConfirmButton
               label="Start the clock"
-              confirmLabel="Start it? This stamps the start time."
+              confirmLabel="Press again to start"
+              className={btnSecondarySm}
               disabled={busy}
               onConfirm={() =>
                 onStatus(
@@ -195,29 +223,34 @@ function SeasonRow({
                   `“${season.title}” is back in draft. Nobody can enrol.`,
                 )
               }
-              className={btnGhostSm}
+              className={btnSecondarySm}
             >
               Back to draft
             </button>
+            <p className="text-[11px] text-faint">
+              Starting stamps the start time.
+            </p>
           </>
         )}
         {season.status === "running" && (
-          <ConfirmButton
-            label="Close the season"
-            confirmLabel="Close it? This ends play for everyone."
-            disabled={busy}
-            onConfirm={() =>
-              onStatus("closed", `“${season.title}” is closed.`)
-            }
-          />
+          <>
+            <ConfirmButton
+              label="Close the season"
+              confirmLabel="Press again to close"
+              className={btnDanger}
+              disabled={busy}
+              onConfirm={() => onStatus("closed", `“${season.title}” is closed.`)}
+            />
+            <p className="text-[11px] text-faint">
+              Closing ends play for everyone.
+            </p>
+          </>
         )}
         {season.status === "closed" && (
-          <span className="text-[11px] uppercase tracking-[0.15em] text-muted">
-            Finished
-          </span>
+          <p className="text-[11px] text-faint">Finished. Nothing left to do.</p>
         )}
       </div>
-    </li>
+    </Card>
   );
 }
 
@@ -263,65 +296,75 @@ function CreateSeasonForm({
   }
 
   return (
-    <section>
-      <SectionTitle>New season</SectionTitle>
-      <form onSubmit={submit} noValidate className="flex flex-col gap-5">
-        <Field id="season-title" label="Title">
-          <input
-            id="season-title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Season one"
-            maxLength={120}
-            required
-            className={inputCls}
-          />
-        </Field>
-        <Field id="season-slug" label="Slug">
-          <input
-            id="season-slug"
-            value={slug}
-            onChange={(e) => setSlug(e.target.value.toLowerCase())}
-            placeholder="season-1"
-            maxLength={60}
-            required
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
-            aria-describedby="season-slug-hint"
-            className={inputCls}
-          />
-          <p id="season-slug-hint" className="text-xs text-muted">
-            Letters, numbers and hyphens. It&apos;s in the URL, so pick it once.
-          </p>
-        </Field>
-        <Field id="season-hearts" label="Hearts to start">
-          <input
-            id="season-hearts"
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={10}
-            step={1}
-            value={hearts}
-            onChange={(e) => setHearts(e.target.value)}
-            className={`${inputCls} max-w-32`}
-          />
-        </Field>
+    <Panel eyebrow="Create" title="New season">
+      <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field id="season-title" label="Title">
+            <input
+              id="season-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Season one"
+              maxLength={120}
+              required
+              className={inputCls}
+            />
+          </Field>
+          <Field id="season-slug" label="Slug">
+            <input
+              id="season-slug"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value.toLowerCase())}
+              placeholder="season-1"
+              maxLength={60}
+              required
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              aria-describedby="season-slug-hint"
+              className={inputCls}
+            />
+            <p
+              id="season-slug-hint"
+              className="text-[11px] leading-5 text-faint"
+            >
+              Letters, numbers and hyphens. It&apos;s in the URL, so pick it
+              once.
+            </p>
+          </Field>
+          <Field id="season-hearts" label="Hearts to start">
+            <input
+              id="season-hearts"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={10}
+              step={1}
+              value={hearts}
+              onChange={(e) => setHearts(e.target.value)}
+              className={`${inputCls} tnum`}
+            />
+          </Field>
+        </div>
 
-        <p aria-live="polite" className="min-h-4 text-xs text-muted">
+        <p
+          aria-live="polite"
+          className="min-h-5 text-[12px] leading-5 text-danger"
+        >
           {problem}
         </p>
 
-        <button type="submit" disabled={busy} className={btnSolidSm}>
-          Create as draft
-        </button>
-        <p className="text-xs leading-6 text-muted">
-          A new season always lands as a draft. Nobody can enrol until you
-          open it from the list.
-        </p>
+        <div className="flex flex-wrap items-center gap-4 border-t border-line pt-4">
+          <button type="submit" disabled={busy} className={btnPrimary}>
+            Create as draft
+          </button>
+          <p className="max-w-md text-[11px] leading-5 text-faint">
+            A new season always lands as a draft. Nobody can enrol until you
+            open it from the list above.
+          </p>
+        </div>
       </form>
-    </section>
+    </Panel>
   );
 }
 

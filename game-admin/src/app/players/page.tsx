@@ -4,9 +4,5 @@ import { PlayersTab } from "@/components/game/players-tab";
 export const metadata: Metadata = { title: "Players" };
 
 export default function Page() {
-  return (
-    <section className="py-10">
-      <PlayersTab />
-    </section>
-  );
+  return <PlayersTab />;
 }
