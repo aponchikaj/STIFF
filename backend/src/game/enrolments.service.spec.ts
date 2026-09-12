@@ -1,4 +1,9 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { User } from '../users/user.entity';
@@ -15,7 +20,21 @@ import { SeasonsService } from './seasons.service';
  * than in whatever the service happened to do.
  */
 
-const USER = { id: 'u1', username: 'asterisk' } as User;
+/** `YYYY-MM-DD`, `years` ago today. Relative so the tests never age out. */
+function bornYearsAgo(years: number): string {
+  const now = new Date();
+  return new Date(
+    Date.UTC(now.getUTCFullYear() - years, now.getUTCMonth(), now.getUTCDate()),
+  )
+    .toISOString()
+    .slice(0, 10);
+}
+
+const USER = {
+  id: 'u1',
+  username: 'asterisk',
+  birthDate: bornYearsAgo(20),
+} as User;
 
 function season(overrides: Partial<GameSeason> = {}): GameSeason {
   return {
@@ -37,8 +56,8 @@ describe('EnrolmentsService', () => {
     query: jest.Mock;
   };
   let seasons: { current: jest.Mock; requireCurrent: jest.Mock };
-  /** Only the settings column is touched, and only by raw jsonb merge. */
-  let userRepo: { query: jest.Mock };
+  /** Settings by raw jsonb merge; the date of birth by a plain update. */
+  let userRepo: { query: jest.Mock; update: jest.Mock };
 
   beforeEach(async () => {
     repo = {
@@ -70,7 +89,10 @@ describe('EnrolmentsService', () => {
       requireCurrent: jest.fn().mockResolvedValue(season()),
     };
 
-    userRepo = { query: jest.fn().mockResolvedValue([]) };
+    userRepo = {
+      query: jest.fn().mockResolvedValue([]),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -167,14 +189,32 @@ describe('EnrolmentsService', () => {
       );
     });
 
-    /** Enrolment closes when the ladder starts; the qualifier is the door. */
-    it('refuses a newcomer once the season is running', async () => {
+    /**
+     * The door stays open every day. Someone who hears about the game on day
+     * two joins on day two, at zero Nerve with a full set of hearts, rather
+     * than being told to wait for a season that may be weeks away.
+     */
+    it('takes a newcomer while the season is running', async () => {
       seasons.requireCurrent.mockResolvedValue(season({ status: 'running' }));
-      await expect(service.enrol(USER, 'player')).rejects.toThrow(
-        /already started/,
-      );
-      // A shut season is not written to at all, not written and rolled back.
-      expect(repo.query).not.toHaveBeenCalled();
+      repo.query.mockResolvedValue([
+        {
+          id: 'e9',
+          role: 'player',
+          handle: 'latecomer',
+          heartsRemaining: 3,
+          heartsTotal: 3,
+          nerve: 0,
+        },
+      ]);
+
+      await expect(service.enrol(USER, 'player')).resolves.toMatchObject({
+        role: 'player',
+        nerve: 0,
+      });
+      expect(repo.query).toHaveBeenCalled();
+      // They start with the season's hearts, like everyone before them.
+      const [, params] = repo.query.mock.calls[0] as [string, unknown[]];
+      expect(params[4]).toBe(3);
     });
 
     /** Someone already in keeps their place when the season starts. */
@@ -230,29 +270,43 @@ describe('EnrolmentsService', () => {
       );
     });
 
-    /** The qualifier was the door; the intent carries to the next season. */
-    it('remembers the side when the season has already started', async () => {
+    /** Picking a side mid-season joins it, rather than being kept for later. */
+    it('enrols a newcomer who picks a side after the season started', async () => {
       seasons.current.mockResolvedValue(season({ status: 'running' }));
-      repo.findOne.mockResolvedValue(null);
+      repo.query.mockResolvedValue([
+        {
+          id: 'e9',
+          role: 'watcher',
+          handle: 'latecomer',
+          heartsRemaining: 0,
+          heartsTotal: 0,
+          nerve: 0,
+        },
+      ]);
 
       const choice = await service.chooseRole(USER, 'watcher');
 
-      expect(choice.pending).toBe('enrolment_closed');
-      expect(choice.enrolment).toBeNull();
-      expect(userRepo.query).toHaveBeenCalled();
+      expect(choice.pending).toBeNull();
+      expect(choice.enrolment).toMatchObject({ role: 'watcher' });
     });
 
-    /** Already in and the season is running — answer with what they are. */
+    /**
+     * Already in, same side: `DO UPDATE ... WHERE role = EXCLUDED.role`
+     * touches the row and returns it, so asking again mid-season is free and
+     * answers with the Nerve they have actually earned.
+     */
     it('answers an existing enrolment after the season starts', async () => {
       seasons.current.mockResolvedValue(season({ status: 'running' }));
-      repo.findOne.mockResolvedValue({
-        id: 'e1',
-        role: 'player',
-        handle: 'asterisk',
-        heartsRemaining: 2,
-        heartsTotal: 3,
-        nerve: 40,
-      });
+      repo.query.mockResolvedValue([
+        {
+          id: 'e1',
+          role: 'player',
+          handle: 'asterisk',
+          heartsRemaining: 2,
+          heartsTotal: 3,
+          nerve: 40,
+        },
+      ]);
 
       const choice = await service.chooseRole(USER, 'player');
 
@@ -260,13 +314,40 @@ describe('EnrolmentsService', () => {
       expect(choice.enrolment).toMatchObject({ role: 'player', nerve: 40 });
     });
 
-    /** The irreversible half. A real enrolment still cannot be swapped. */
+    /**
+     * The irreversible half. A side cannot be swapped: the upsert's `WHERE`
+     * declines, returning nothing, and the read turns that silence into the
+     * real message.
+     */
     it('refuses to swap a side that a season already took', async () => {
       seasons.current.mockResolvedValue(season({ status: 'running' }));
+      repo.query.mockResolvedValue([]);
       repo.findOne.mockResolvedValue({ id: 'e1', role: 'player' });
 
       await expect(service.chooseRole(USER, 'watcher')).rejects.toThrow(
         ConflictException,
+      );
+    });
+
+    /**
+     * The other way round, once the game has done the moving. Someone the
+     * sweep made a watcher who asks to be a player again is told why they
+     * are not, rather than that they "chose" watcher.
+     */
+    it('tells a demoted player why they cannot come back', async () => {
+      seasons.current.mockResolvedValue(season({ status: 'running' }));
+      // The upsert declines — they are on the other side now — and the read
+      // is what carries the reason.
+      repo.query.mockResolvedValue([]);
+      repo.findOne.mockResolvedValue({
+        id: 'e1',
+        role: 'watcher',
+        status: 'demoted',
+        demotionReason: 'missed_daily_minimum',
+      });
+
+      await expect(service.chooseRole(USER, 'player')).rejects.toThrow(
+        /daily minimum.*cannot be undone/s,
       );
     });
 
@@ -304,6 +385,114 @@ describe('EnrolmentsService', () => {
       await expect(
         service.chooseRole(USER, 'referee' as never),
       ).rejects.toThrow(/player or watcher/);
+    });
+
+    it('carries the standing on the enrolment it returns', async () => {
+      const choice = await service.chooseRole(USER, 'player');
+      expect(choice.enrolment).toMatchObject({
+        status: 'active',
+        demotionReason: null,
+        demotedAt: null,
+      });
+    });
+
+    /** Coins are on the view; a row from before coins existed reads as none. */
+    it('carries the coins on the enrolment it returns', async () => {
+      repo.query.mockResolvedValueOnce([
+        {
+          id: 'e1',
+          seasonId: 's1',
+          userId: 'u1',
+          role: 'player',
+          handle: 'asterisk',
+          heartsRemaining: 3,
+          heartsTotal: 3,
+          nerve: 0,
+          coins: 12,
+        },
+      ]);
+      const choice = await service.chooseRole(USER, 'player');
+      expect(choice.enrolment?.coins).toBe(12);
+    });
+
+    it('reads no coins column as zero coins', async () => {
+      const choice = await service.chooseRole(USER, 'player');
+      expect(choice.enrolment?.coins).toBe(0);
+    });
+  });
+
+  /**
+   * The game is 16+ strictly, watching included. The date on the account is
+   * what counts; one sent with the request is only written when the account
+   * has none, and it is written *before* it is judged so a refused fifteen
+   * year old cannot come back with a different year.
+   */
+  describe('the age gate', () => {
+    const noDate = { id: 'u2', username: 'kid', birthDate: null } as User;
+
+    it('uses the date of birth already on the account', async () => {
+      await service.chooseRole(USER, 'player');
+      expect(userRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('ignores a supplied date when the account already has one', async () => {
+      await service.chooseRole(USER, 'player', bornYearsAgo(10));
+      expect(userRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('demands a date of birth when the account has none', async () => {
+      await expect(service.chooseRole(noDate, 'player')).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(
+        service.chooseRole({ ...noDate }, 'player', ''),
+      ).rejects.toThrow(/date of birth/i);
+      expect(repo.query).not.toHaveBeenCalled();
+    });
+
+    it('records the date before judging it', async () => {
+      const user = { ...noDate };
+      const born = bornYearsAgo(15);
+      await expect(service.chooseRole(user, 'player', born)).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(userRepo.update).toHaveBeenCalledWith(
+        { id: 'u2' },
+        { birthDate: born },
+      );
+      expect(user.birthDate).toBe(born);
+      // Refused before anything was joined or remembered.
+      expect(repo.query).not.toHaveBeenCalled();
+      expect(userRepo.query).not.toHaveBeenCalled();
+    });
+
+    it('lets someone of sixteen in', async () => {
+      const user = { ...noDate };
+      const choice = await service.chooseRole(user, 'player', bornYearsAgo(16));
+      expect(choice.enrolment).toMatchObject({ role: 'player' });
+    });
+
+    it('refuses an under-sixteen as a watcher too', async () => {
+      const user = { ...noDate };
+      await expect(
+        service.chooseRole(user, 'watcher', bornYearsAgo(15)),
+      ).rejects.toThrow(/16 or older/);
+    });
+
+    it('refuses a date that is not a date', async () => {
+      const user = { ...noDate };
+      await expect(
+        service.chooseRole(user, 'player', '2010-02-30'),
+      ).rejects.toThrow(BadRequestException);
+      expect(userRepo.update).not.toHaveBeenCalled();
+    });
+
+    /** The gate is on the account, not on a season existing. */
+    it('runs between seasons as well', async () => {
+      seasons.current.mockResolvedValue(null);
+      await expect(
+        service.chooseRole({ ...noDate }, 'watcher', bornYearsAgo(12)),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -355,6 +544,74 @@ describe('EnrolmentsService', () => {
       await expect(service.require(USER, 'player')).rejects.toThrow(
         /joined this season as a watcher/,
       );
+    });
+
+    /** A cheater is a watcher with a reason, and the reason is the answer. */
+    it('tells a cheater they were flagged', async () => {
+      repo.findOne.mockResolvedValue({
+        id: 'e1',
+        role: 'watcher',
+        status: 'cheater',
+        demotionReason: 'cheating',
+      });
+      await expect(service.require(USER, 'player')).rejects.toThrow(
+        ForbiddenException,
+      );
+      await expect(service.require(USER, 'player')).rejects.toThrow(
+        /flagged for cheating/,
+      );
+    });
+
+    it('tells a player who missed the minimum why they are out', async () => {
+      repo.findOne.mockResolvedValue({
+        id: 'e1',
+        role: 'watcher',
+        status: 'demoted',
+        demotionReason: 'missed_daily_minimum',
+      });
+      await expect(service.require(USER, 'player')).rejects.toThrow(
+        /daily minimum/,
+      );
+    });
+
+    it('tells a player on zero why they are out', async () => {
+      repo.findOne.mockResolvedValue({
+        id: 'e1',
+        role: 'watcher',
+        status: 'demoted',
+        demotionReason: 'zero_balance',
+      });
+      await expect(service.require(USER, 'player')).rejects.toThrow(
+        /zero Nerve, zero coins/,
+      );
+    });
+
+    it('tells a player who lost their last heart why they are out', async () => {
+      repo.findOne.mockResolvedValue({
+        id: 'e1',
+        role: 'watcher',
+        status: 'demoted',
+        demotionReason: 'out_of_hearts',
+      });
+      await expect(service.require(USER, 'player')).rejects.toThrow(
+        ForbiddenException,
+      );
+      await expect(service.require(USER, 'player')).rejects.toThrow(
+        /last heart/,
+      );
+    });
+
+    /** A demoted watcher is still a watcher for watcher routes. */
+    it('still lets a demoted watcher through a watcher route', async () => {
+      repo.findOne.mockResolvedValue({
+        id: 'e1',
+        role: 'watcher',
+        status: 'cheater',
+        demotionReason: 'cheating',
+      });
+      await expect(service.require(USER, 'watcher')).resolves.toMatchObject({
+        id: 'e1',
+      });
     });
 
     it('refuses a player on a watcher route', async () => {

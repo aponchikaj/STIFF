@@ -10,12 +10,35 @@ import { In, Repository } from 'typeorm';
 import { rowsAffected } from '../common/utils/returned-rows';
 import { User } from '../users/user.entity';
 import { screen } from './ai/exclusions';
-import type { GenerationOutcome } from './ai/task-generator.service';
+import { clampPenalty } from './rules';
+import type { PipelineOutcome } from './ai/task-pipeline.service';
+import type { ReviewVerdict } from './ai/task-reviewer.service';
 import { GameGenerationRejection } from './entities/game-generation-rejection.entity';
 import {
   GameTaskTemplate,
+  type TaskMode,
+  type TaskProof,
+  type TaskReview,
+  type TemplateCriterion,
   type TemplateStatus,
 } from './entities/game-task-template.entity';
+
+/** A task as a player sees it. */
+export interface PlayableTask {
+  id: string;
+  slug: string;
+  tier: number;
+  title: string;
+  brief: string;
+  proof: TaskProof;
+  mode: TaskMode;
+  rewardNerve: number;
+  rewardCoins: number;
+  penaltyCoins: number;
+  clockMinutes: number;
+  guards: string[];
+  criteria: TemplateCriterion[];
+}
 
 export interface PoolStats {
   charterHash: string;
@@ -61,12 +84,12 @@ export class TaskTemplatesService {
    * occasionally land on a name already taken; losing the other nineteen over
    * it would be a worse outcome than quietly keeping what is new.
    */
-  async fileBatch(outcome: GenerationOutcome): Promise<{
+  async fileBatch(outcome: PipelineOutcome): Promise<{
     saved: GameTaskTemplate[];
     skipped: string[];
     rejectionsStored: number;
   }> {
-    const slugs = outcome.accepted.map((t) => normaliseSlug(t.slug));
+    const slugs = outcome.accepted.map((t) => normaliseSlug(t.task.slug));
     const taken = new Set(
       slugs.length === 0
         ? []
@@ -84,7 +107,7 @@ export class TaskTemplatesService {
     // which the database would only catch as a failed insert.
     const seen = new Set<string>();
 
-    for (const task of outcome.accepted) {
+    for (const { task, review } of outcome.accepted) {
       const slug = normaliseSlug(task.slug);
       if (taken.has(slug) || seen.has(slug)) {
         skipped.push(slug);
@@ -98,16 +121,22 @@ export class TaskTemplatesService {
             tier: task.tier,
             title: task.title,
             brief: task.brief,
+            proof: task.proof ?? 'either',
+            mode: task.mode ?? 'solo',
+            rewardNerve: Math.max(0, Math.round(task.rewardNerve ?? 0)),
+            rewardCoins: Math.max(0, Math.round(task.rewardCoins ?? 0)),
+            penaltyCoins: clampPenalty(task.penaltyCoins),
             clockMinutes: task.clockMinutes,
             guards: task.guards ?? [],
             criteria: task.criteria ?? [],
             rationale: task.rationale ?? null,
-            // Draft, always. Nothing a model wrote reaches a player until
-            // somebody has read it.
+            review,
+            // Draft, always. Two agents have said yes; a person still reads
+            // it before a player does.
             status: 'draft',
             origin: 'generated',
             charterHash: outcome.charterHash,
-            model: outcome.model,
+            model: outcome.models.creator,
           }),
         ),
       );
@@ -118,12 +147,24 @@ export class TaskTemplatesService {
       await this.rejectionRepo.save(
         this.rejectionRepo.create({
           charterHash: outcome.charterHash,
-          model: outcome.model,
+          model:
+            (entry.source === 'reviewer'
+              ? outcome.models.reviewer
+              : outcome.models.creator) ?? 'unknown',
           tier: entry.task.tier,
           slug: normaliseSlug(entry.task.slug),
           brief: entry.task.brief,
-          categories: entry.violations.map((v) => v.category),
-          violations: entry.violations,
+          categories:
+            entry.source === 'reviewer'
+              ? (entry.review?.blockedTypes ?? [])
+              : entry.violations.map((v) => v.category),
+          violations:
+            entry.source === 'reviewer'
+              ? [entry.review ?? {}]
+              : entry.violations,
+          source: entry.source,
+          feedback: entry.feedback,
+          round: entry.round,
         }),
       );
       rejectionsStored++;
@@ -136,6 +177,45 @@ export class TaskTemplatesService {
     }
 
     return { saved, skipped, rejectionsStored };
+  }
+
+  /**
+   * The tasks a player can pick from: approved only, and only the fields a
+   * player needs. `rationale`, `charterHash` and who approved it are the
+   * operator's business.
+   */
+  async playable(
+    options: { tier?: number; mode?: TaskMode } = {},
+  ): Promise<PlayableTask[]> {
+    const where: Record<string, unknown> = { status: 'approved' };
+    if (options.tier !== undefined) where.tier = options.tier;
+    if (options.mode !== undefined) where.mode = options.mode;
+    const rows = await this.templateRepo.find({
+      where,
+      order: { tier: 'ASC', title: 'ASC' },
+      take: 200,
+    });
+    return rows.map((t) => ({
+      id: t.id,
+      slug: t.slug,
+      tier: t.tier,
+      title: t.title,
+      brief: t.brief,
+      proof: t.proof ?? 'either',
+      mode: t.mode ?? 'solo',
+      rewardNerve: t.rewardNerve ?? 0,
+      rewardCoins: t.rewardCoins ?? 0,
+      penaltyCoins: clampPenalty(t.penaltyCoins),
+      clockMinutes: t.clockMinutes,
+      guards: t.guards,
+      criteria: t.criteria,
+    }));
+  }
+
+  async get(id: string): Promise<GameTaskTemplate> {
+    const template = await this.templateRepo.findOne({ where: { id } });
+    if (!template) throw new NotFoundException('Template not found');
+    return template;
   }
 
   list(options: { status?: TemplateStatus; tier?: number } = {}) {
@@ -180,6 +260,14 @@ export class TaskTemplatesService {
           .join('; ')}`,
       );
     }
+    // The reviewer's no stands until the task is edited and reviewed again.
+    if (template.review?.verdict === 'reject') {
+      throw new BadRequestException(
+        `The reviewer rejected this task (${template.review.blockedTypes.join(', ') || template.review.severity}): ${
+          template.review.feedback ?? template.review.reasons.join(' ')
+        }. Edit it and run the review again before approving.`,
+      );
+    }
 
     const claimed = rowsAffected(
       await this.templateRepo.query<unknown[]>(
@@ -196,6 +284,27 @@ export class TaskTemplatesService {
 
     const fresh = await this.templateRepo.findOne({ where: { id } });
     return fresh ?? template;
+  }
+
+  /** Stores a reviewer verdict on a template, from a fresh review. */
+  async recordReview(
+    id: string,
+    verdict: ReviewVerdict,
+  ): Promise<GameTaskTemplate> {
+    const template = await this.templateRepo.findOne({ where: { id } });
+    if (!template) throw new NotFoundException('Template not found');
+    const review: TaskReview = {
+      verdict: verdict.verdict,
+      severity: verdict.severity,
+      blockedTypes: verdict.blockedTypes,
+      reasons: verdict.reasons,
+      feedback: verdict.feedback,
+      model: verdict.model,
+      reviewedAt: verdict.reviewedAt,
+      round: 0,
+    };
+    template.review = review;
+    return this.templateRepo.save(template);
   }
 
   /**

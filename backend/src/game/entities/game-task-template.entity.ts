@@ -13,6 +13,29 @@ export type TemplateStatus = 'draft' | 'approved' | 'retired';
 /** Where the brief came from. Generated ones carry the Charter that wrote them. */
 export type TemplateOrigin = 'human' | 'generated';
 
+export const TASK_MODES = ['solo', 'team'] as const;
+/** Who a task is for: one player, or a clan of two. */
+export type TaskMode = (typeof TASK_MODES)[number];
+
+export const TASK_PROOFS = ['photo', 'video', 'either'] as const;
+/** How a task is proved: a still, a clip, or the player's choice. */
+export type TaskProof = (typeof TASK_PROOFS)[number];
+
+/** What the reviewer agent concluded about this task, kept on the row. */
+export interface TaskReview {
+  verdict: 'approve' | 'reject';
+  severity: 'ok' | 'bad' | 'illegal';
+  /** Ids from `BLOCKED_TASK_TYPES`. */
+  blockedTypes: string[];
+  reasons: string[];
+  /** What the creator was told to change, when rejected. */
+  feedback: string | null;
+  model: string | null;
+  reviewedAt: string;
+  /** Which round of the creator/reviewer loop produced this verdict. */
+  round: number;
+}
+
 export interface TemplateCriterion {
   id: string;
   modality: string;
@@ -54,6 +77,33 @@ export class GameTaskTemplate {
 
   @Column({ type: 'int' })
   clockMinutes: number;
+
+  /** Stated in the brief too; enforced when the player opens an upload. */
+  @Column({ type: 'varchar', length: 8, default: 'either' })
+  proof: TaskProof;
+
+  /** `solo` is drawn by a player; `team` only by a clan's leader. */
+  @Index()
+  @Column({ type: 'varchar', length: 8, default: 'solo' })
+  mode: TaskMode;
+
+  /** What finishing it pays, to each person who did it. */
+  @Column({ type: 'int', default: 0 })
+  rewardNerve: number;
+
+  @Column({ type: 'int', default: 0 })
+  rewardCoins: number;
+
+  /** What failing a team task costs each member: 1 to 3 coins. */
+  @Column({ type: 'smallint', default: 1 })
+  penaltyCoins: number;
+
+  /**
+   * The reviewer agent's verdict. Null for a task nobody has run it on.
+   * A rejected task cannot be approved until it is edited and re-reviewed.
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  review: TaskReview | null;
 
   /** Enforced in the brief's wording *and* by the safety screen. */
   @Column({ type: 'jsonb', default: () => "'[]'" })
