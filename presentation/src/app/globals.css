@@ -1,0 +1,1287 @@
+@import "tailwindcss";
+
+/* ===========================================================================
+   STIFF — investor deck
+
+   Two visual worlds, deliberately. The shop's chapters are white paper, pure
+   black type, Archivo (brand.md: no accent, ever). The game's chapter is
+   the game's own world from its design spec: near-black void, bone type, Chakra
+   Petch display, IBM Plex Mono labels, and colour that is structural rather
+   than decorative — magenta is the player's side, cyan the watcher's, amber
+   means held.
+
+   Every measurement on a slide is in `--u`, one percent of the slide's own
+   width. The stage is always 16:9, so one set of sizes holds from a laptop to
+   a projector: 1u is 19.2px on a 1920-wide slide, and the body size of 2.1u is
+   40px there — Keynote's 30pt, the floor for a presented deck.
+   =========================================================================== */
+
+:root {
+  /* STIFF */
+  --white: #ffffff;
+  --black: #000000;
+  --grey-1: #3f3f46;
+  --grey-2: #d4d4d8;
+  --grey-3: #f4f4f4;
+
+  /* The game — spec §02 */
+  --void: #07060c;
+  --deep: #0f0a1c;
+  --haze: #17102c;
+  --raise: #1f1640;
+  --line: #2e2352;
+  --line-hi: #453473;
+  --hot: #ff2d8f;
+  --cold: #22e4ff;
+  --pulse: #8b45ff;
+  --amber: #ffb43d;
+  --bone: #f1ecff;
+  --ash: #9c90c4;
+  --ash-dim: #6b6091;
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --hud-h: 3.5rem;
+}
+
+@theme inline {
+  --font-sans: var(--font-archivo);
+  --font-display: var(--font-archivo-black);
+  --font-game: var(--font-chakra);
+  --font-mono: var(--font-plex-mono);
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--white);
+  color: var(--black);
+  font-family: var(--font-archivo), Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Themes. Set on the slide, and mirrored on the deck so the letterbox around a
+   16:9 stage takes the slide's colour instead of showing as bars.
+   ------------------------------------------------------------------------- */
+
+[data-theme="light"] {
+  --bg: var(--white);
+  --fg: var(--black);
+  --mute: var(--grey-1);
+  --rule: var(--grey-2);
+  --surf: var(--grey-3);
+  --bar: var(--black);
+  --bar-soft: var(--grey-2);
+  --accent: var(--black);
+  --display: var(--font-archivo-black), var(--font-archivo), sans-serif;
+  --label: var(--font-archivo), Arial, sans-serif;
+  --title-case: none;
+  --title-track: -0.02em;
+  --title-lead: 1.02;
+  --title-size: 4.1;
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --bg: var(--void);
+  --fg: var(--bone);
+  --mute: var(--ash);
+  --rule: var(--line);
+  --surf: var(--haze);
+  --bar: var(--hot);
+  --bar-soft: var(--line-hi);
+  --accent: var(--hot);
+  --display: var(--font-chakra), var(--font-archivo-black), sans-serif;
+  --label: var(--font-plex-mono), ui-monospace, monospace;
+  --title-case: uppercase;
+  --title-track: 0.005em;
+  --title-lead: 0.96;
+  --title-size: 3.6;
+  color-scheme: dark;
+}
+
+/* ---------------------------------------------------------------------------
+   The deck
+   ------------------------------------------------------------------------- */
+
+.deck {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  background: var(--bg);
+  color: var(--fg);
+  transition: background-color 600ms var(--ease);
+  overflow: hidden;
+}
+
+.deck-viewport {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Always 16:9, as large as the viewport allows. */
+.stage {
+  position: relative;
+  width: min(100%, calc(100dvh * 16 / 9));
+  aspect-ratio: 16 / 9;
+}
+
+.deck.has-notes .stage {
+  width: min(100%, calc((100dvh - 30dvh) * 16 / 9));
+}
+
+/* The container. Separate from `.stage` so `aspect-ratio` and
+   `container-type` never argue about who owns the height. */
+.stage-inner {
+  position: absolute;
+  inset: 0;
+  container-type: inline-size;
+  --u: 1cqi;
+  overflow: hidden;
+}
+
+.slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--fg);
+  padding: calc(5.4 * var(--u)) calc(6.5 * var(--u)) calc(5 * var(--u));
+}
+
+.slide-head {
+  flex: 0 0 auto;
+}
+
+.slide-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.slide-foot {
+  flex: 0 0 auto;
+}
+
+/* Bottom hairline that fills as the deck advances. Part of the stage, so it
+   is on every slide at the same place. */
+.progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(0.35 * var(--u));
+  background: var(--rule);
+}
+
+.progress > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 500ms var(--ease);
+}
+
+/* Running head and folio: the same corner on every slide. */
+.running {
+  position: absolute;
+  top: calc(2.4 * var(--u));
+  left: calc(6.5 * var(--u));
+  right: calc(6.5 * var(--u));
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Type roles. All in --u.
+   ------------------------------------------------------------------------- */
+
+.t-eyebrow {
+  font-family: var(--label);
+  font-size: calc(1.25 * var(--u));
+  line-height: 1.2;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--mute);
+}
+
+.t-title {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: calc(var(--title-size) * var(--u));
+  line-height: var(--title-lead);
+  letter-spacing: var(--title-track);
+  text-transform: var(--title-case);
+  text-wrap: balance;
+  color: var(--fg);
+  max-width: 94%;
+}
+
+.t-title--xl {
+  font-size: calc((var(--title-size) + 1.5) * var(--u));
+}
+
+.slide-body--end {
+  justify-content: flex-end;
+}
+
+.t-lead {
+  font-size: calc(2.7 * var(--u));
+  line-height: 1.3;
+  color: var(--fg);
+  text-wrap: pretty;
+}
+
+.t-body {
+  font-size: calc(2.1 * var(--u));
+  line-height: 1.42;
+  color: var(--mute);
+  text-wrap: pretty;
+}
+
+.t-body strong,
+.t-lead strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.t-small {
+  font-size: calc(1.6 * var(--u));
+  line-height: 1.4;
+  color: var(--mute);
+  text-wrap: pretty;
+}
+
+.t-big {
+  font-family: var(--display);
+  font-size: calc(11 * var(--u));
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+
+.plate-title {
+  font-family: var(--display);
+  font-size: calc(9 * var(--u));
+  line-height: 0.9;
+  letter-spacing: var(--title-track);
+  text-transform: var(--title-case);
+}
+
+.t-mid {
+  font-family: var(--display);
+  font-size: calc(3.2 * var(--u));
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.hair {
+  border-color: var(--rule);
+}
+
+.ink {
+  border-color: var(--fg);
+}
+
+/* Structural colour, the game only. */
+.tone-hot {
+  --tone: var(--hot);
+}
+.tone-cold {
+  --tone: var(--cold);
+}
+.tone-amber {
+  --tone: var(--amber);
+}
+[data-theme="light"] .tone-hot,
+[data-theme="light"] .tone-cold,
+[data-theme="light"] .tone-amber {
+  --tone: var(--fg);
+}
+
+/* A blank the founder has to fill. Visible on purpose. */
+.blank {
+  display: inline-block;
+  min-width: 8ch;
+  border-bottom: calc(0.25 * var(--u)) dashed var(--mute);
+  color: var(--mute);
+  vertical-align: baseline;
+}
+
+/* ---------------------------------------------------------------------------
+   Reading mode — the send-ahead version. Every slide, in order, with its
+   notes beneath. Same components, same unit; the container is now the page.
+   ------------------------------------------------------------------------- */
+
+.deck.read {
+  position: static;
+  display: block;
+  height: auto;
+  overflow: visible;
+}
+
+.deck.read .deck-viewport {
+  display: block;
+  overflow: visible;
+}
+
+.sheet {
+  container-type: inline-size;
+  /* Explicit, because an inline-size container with an auto width collapses
+     to its padding in Chrome when it also has a max-width. */
+  width: 100%;
+  /* The floor keeps a phone from setting body type at eight pixels. */
+  --u: max(1cqi, 0.5rem);
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: calc(2 * var(--u)) calc(2 * var(--u)) 0;
+}
+
+.sheet .slide {
+  position: relative;
+  inset: auto;
+  aspect-ratio: 16 / 9;
+  box-shadow: 0 0 0 1px var(--rule);
+}
+
+.sheet .progress {
+  display: none;
+}
+
+.sheet .notes {
+  padding: calc(1.6 * var(--u)) calc(0.5 * var(--u)) calc(3 * var(--u));
+  max-width: 78ch;
+}
+
+.sheet .notes p {
+  font-size: max(1rem, calc(1.15 * var(--u)));
+  line-height: 1.55;
+  color: var(--mute);
+  margin: 0 0 0.8em;
+}
+
+/* Narrow: let the slide grow tall instead of squeezing type. */
+@container (max-width: 700px) {
+  .sheet .slide {
+    aspect-ratio: auto;
+    padding: calc(5 * var(--u)) calc(4.5 * var(--u));
+  }
+  .sheet .slide-body {
+    justify-content: flex-start;
+    gap: calc(2 * var(--u));
+  }
+  .sheet .running {
+    left: calc(4.5 * var(--u));
+    right: calc(4.5 * var(--u));
+  }
+  .cols-2,
+  .cols-3,
+  .cols-4 {
+    grid-template-columns: 1fr !important;
+  }
+  .cover-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .cover-plate {
+    aspect-ratio: 4 / 3;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   HUD — presenter controls. Fades after a few seconds of stillness.
+   ------------------------------------------------------------------------- */
+
+.hud {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--hud-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0 1rem;
+  transition: opacity 400ms var(--ease);
+  z-index: 5;
+}
+
+.hud.hidden-hud {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ctl {
+  font-family: var(--font-archivo), Arial, sans-serif;
+  font-size: 0.72rem;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  height: 2.25rem;
+  min-width: 2.25rem;
+  padding: 0 0.8rem;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  color: var(--fg);
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+  transition:
+    border-color 240ms var(--ease),
+    color 240ms var(--ease);
+}
+
+.ctl:hover:not(:disabled) {
+  border-color: var(--fg);
+}
+
+.ctl[aria-pressed="true"] {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: var(--fg);
+}
+
+.ctl:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.ctl:focus-visible,
+.stage-inner:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 3px;
+}
+
+.hud-counter {
+  font-family: var(--font-archivo), Arial, sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mute);
+  min-width: 6ch;
+  text-align: center;
+}
+
+/* Notes drawer under the stage in present mode. */
+.notes-drawer {
+  height: 30dvh;
+  border-top: 1px solid var(--rule);
+  padding: 1.25rem clamp(1rem, 4vw, 3rem) 1rem;
+  overflow: auto;
+  columns: 2;
+  column-gap: 3rem;
+  font-size: clamp(0.95rem, 1.3vw, 1.2rem);
+  line-height: 1.5;
+  color: var(--mute);
+}
+
+.notes-drawer p {
+  margin: 0 0 0.75em;
+  break-inside: avoid;
+}
+
+.notes-drawer .t-eyebrow {
+  column-span: all;
+  margin-bottom: 0.75rem;
+}
+
+/* Keyboard help. */
+.help {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.help-card {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--rule);
+  padding: 2rem 2.25rem;
+  width: min(92vw, 34rem);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.help-card table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.help-card td {
+  padding: 0.45rem 0;
+  border-top: 1px solid var(--rule);
+  vertical-align: top;
+}
+
+.help-card td:first-child {
+  width: 11rem;
+  color: var(--mute);
+}
+
+kbd {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-size: 0.8em;
+  border: 1px solid var(--rule);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  padding: 0.05em 0.45em;
+}
+
+/* Grids used by slides; collapsed under a narrow container above. */
+.cols-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.cols-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+.cols-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+.cover-grid {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+}
+
+@media print {
+  .deck {
+    position: static;
+    overflow: visible;
+  }
+  .hud,
+  .help,
+  .notes-drawer {
+    display: none !important;
+  }
+  .sheet {
+    break-after: page;
+    max-width: none;
+    padding: 0;
+  }
+}
+
+/* ===========================================================================
+   The journal
+   ===========================================================================
+
+   A book of tall pages standing in the viewport. Each leaf is a plane that
+   rotates -180° about the spine; its front is a recto, its back a verso.
+   Everything that moves per frame is `transform` or `opacity`, driven by one
+   registered custom property, `--p` (0 flat, 1 turned), which the drag writes
+   directly and the stylesheet transitions on a key press. The shading on the
+   face and the shadow it casts on the page beneath are both functions of
+   `--p`, so they cannot drift from the angle.
+   ------------------------------------------------------------------------- */
+
+@property --p {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+:root {
+  --table: #e8e8ea;
+  --turn-ms: 900ms;
+  /* A page gathers speed off the pile and settles as it lands. */
+  --turn-ease: cubic-bezier(0.45, 0.05, 0.22, 1);
+  --gutter: clamp(0.75rem, 2vw, 1.5rem);
+}
+
+.journal {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
+  background: var(--table);
+  color: var(--black);
+  overflow: hidden;
+}
+
+.journal-main {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  padding: var(--gutter);
+}
+
+/* --- The stage ------------------------------------------------------------
+   As tall as the room allows. A spread is two 5:7 pages side by side; a
+   single page fills the height and takes whatever width that leaves. */
+
+.book-stage {
+  --chrome: calc(var(--hud-h) + 2 * var(--gutter));
+  position: relative;
+  container-type: inline-size;
+  opacity: 0;
+  transition:
+    transform 700ms var(--ease),
+    opacity 500ms var(--ease);
+}
+
+.book-stage.is-ready {
+  opacity: 1;
+}
+
+.book-stage.is-spread {
+  height: min(
+    calc(100dvh - var(--chrome)),
+    calc((100vw - 2 * var(--gutter)) * 0.7)
+  );
+  aspect-ratio: 10 / 7;
+}
+
+.book-stage.is-single {
+  height: calc(100dvh - var(--chrome));
+  width: min(
+    calc(100vw - 2 * var(--gutter)),
+    calc((100dvh - var(--chrome)) * 0.78)
+  );
+}
+
+.book-surface {
+  position: absolute;
+  inset: 0;
+  perspective: 230cqi;
+  touch-action: pan-y pinch-zoom;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+  outline: none;
+}
+
+.book-surface.is-dragging {
+  cursor: grabbing;
+}
+
+.book-surface:focus-visible {
+  outline: 2px solid var(--black);
+  outline-offset: 6px;
+}
+
+/* Shadow on the table, one half per pile so a closed book casts one page. */
+.book-shadow {
+  position: absolute;
+  top: 1.5%;
+  bottom: -1.5%;
+  width: 50%;
+  background: rgb(0 0 0 / 0.22);
+  filter: blur(22px);
+  transition: opacity 500ms var(--ease);
+  pointer-events: none;
+}
+
+.book-shadow-l {
+  left: 0.5%;
+}
+
+.book-shadow-r {
+  right: 0.5%;
+}
+
+.is-single .book-shadow {
+  width: 100%;
+}
+
+.is-single .book-shadow-l {
+  display: none;
+}
+
+/* The block of pages, seen edge-on. Grows on the left as leaves turn. */
+.book-edge {
+  position: absolute;
+  top: 0.4%;
+  bottom: 0.4%;
+  background: repeating-linear-gradient(
+    to right,
+    #fff 0 1px,
+    var(--grey-2) 1px 1.4px
+  );
+  transition: width 200ms var(--ease);
+  pointer-events: none;
+}
+
+.book-edge-l {
+  right: 100%;
+}
+
+.book-edge-r {
+  left: 100%;
+}
+
+.is-single .book-edge-l {
+  display: none;
+}
+
+/* --- Leaves ---------------------------------------------------------------- */
+
+.leaf {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 50%;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  transition:
+    transform var(--turn-ms) var(--turn-ease),
+    --p var(--turn-ms) var(--turn-ease),
+    visibility 0s 0s;
+}
+
+.is-single .leaf {
+  left: 0;
+  width: 100%;
+}
+
+/* One page on screen: a turned leaf has rotated out of the stage, so hide it
+   once the turn is over. The delay is on the destination rule, so going
+   back shows the leaf the instant it starts to come round. */
+.is-single .leaf.is-turned {
+  visibility: hidden;
+  transition:
+    transform var(--turn-ms) var(--turn-ease),
+    --p var(--turn-ms) var(--turn-ease),
+    visibility 0s var(--turn-ms);
+}
+
+.is-single .leaf.is-lifted {
+  visibility: visible;
+}
+
+.book-surface.is-frozen .leaf {
+  transition: none !important;
+}
+
+.leaf-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+  container: page / inline-size;
+  background: var(--white);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.06);
+}
+
+.leaf-back {
+  transform: rotateY(180deg);
+}
+
+/* Light comes from above and in front. A face darkens toward the spine as it
+   lifts away from the reader, most at ninety degrees, and the same gradient
+   serves both faces because the back is mirrored. */
+.leaf-face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  background: linear-gradient(
+    to right,
+    rgb(0 0 0 / 0.34),
+    rgb(0 0 0 / 0.08) 32%,
+    transparent 62%
+  );
+  opacity: calc(var(--p) * (1 - var(--p)) * 4);
+}
+
+/* Cast shadows. Each is a flat rectangle hinged at the spine, counter-rotated
+   so it stays in the plane of the pile, and scaled to the lifted leaf's
+   projection — cos of the angle — plus a margin, because the light is in
+   front of the reader and a shadow that matched the projection exactly would
+   sit entirely under the leaf. Strongest halfway through the turn. */
+.leaf-cast {
+  position: absolute;
+  top: -1%;
+  bottom: -1.5%;
+  width: 100%;
+  pointer-events: none;
+  opacity: calc(var(--p) * (1 - var(--p)) * 3.2);
+}
+
+.leaf-cast-r {
+  left: 0;
+  transform-origin: left center;
+  transform: rotateY(calc(var(--p) * 180deg))
+    scaleX(clamp(0, cos(calc(var(--p) * 180deg)) + 0.48, 1));
+  background: linear-gradient(
+    to right,
+    rgb(0 0 0 / 0.5) 0%,
+    rgb(0 0 0 / 0.34) 65%,
+    rgb(0 0 0 / 0.08) 100%
+  );
+}
+
+.leaf-cast-l {
+  right: 100%;
+  transform-origin: right center;
+  transform: rotateY(calc(var(--p) * 180deg))
+    scaleX(clamp(0, -1 * cos(calc(var(--p) * 180deg)) + 0.48, 1));
+  background: linear-gradient(
+    to left,
+    rgb(0 0 0 / 0.5) 0%,
+    rgb(0 0 0 / 0.34) 65%,
+    rgb(0 0 0 / 0.08) 100%
+  );
+}
+
+.is-single .leaf-cast-l {
+  display: none;
+}
+
+/* --- Pages ------------------------------------------------------------------
+   `--u` is one percent of the page's width, floored so a phone still sets
+   readable type; a page that then runs long scrolls inside its face. */
+
+.page {
+  position: absolute;
+  inset: 0;
+  --u: max(1cqi, 0.38rem);
+  --pad-y: calc(5.2 * var(--u));
+  --pad-out: calc(6.5 * var(--u));
+  --pad-in: calc(8 * var(--u));
+  --gutter-ink: rgb(0 0 0 / 0.1);
+  background: var(--bg);
+  color: var(--fg);
+  backface-visibility: hidden;
+}
+
+.page[data-theme="dark"] {
+  --gutter-ink: rgb(0 0 0 / 0.45);
+}
+
+/* The binding. */
+.page::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 7%;
+  pointer-events: none;
+  z-index: 2;
+  background: linear-gradient(to right, var(--gutter-ink), transparent);
+}
+
+.page[data-side="verso"]::after {
+  left: auto;
+  right: 0;
+  background: linear-gradient(to left, var(--gutter-ink), transparent);
+}
+
+.page-scroll {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule) transparent;
+  padding: var(--pad-y) var(--pad-out) var(--pad-y) var(--pad-in);
+}
+
+.page[data-side="verso"] .page-scroll {
+  padding-left: var(--pad-out);
+  padding-right: var(--pad-in);
+}
+
+.page-run {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex: 0 0 auto;
+  margin-bottom: calc(3.4 * var(--u));
+}
+
+.page[data-side="verso"] .page-run {
+  flex-direction: row-reverse;
+}
+
+.page-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
+}
+
+/* A page that is only a sentence sets it low, like a chapter's last line. */
+.page-main--bare {
+  justify-content: flex-end;
+  padding-bottom: calc(4 * var(--u));
+}
+
+.page-body {
+  margin-top: calc(3 * var(--u));
+}
+
+.page-main--bare .page-body:empty {
+  display: none;
+}
+
+.page-foot {
+  margin-top: calc(2.6 * var(--u));
+  padding-top: calc(1.2 * var(--u));
+  border-top: 1px solid;
+}
+
+.page-notes {
+  margin-top: calc(3 * var(--u));
+  padding-top: calc(1.8 * var(--u));
+  border-top: 1px solid var(--rule);
+}
+
+.page-notes p {
+  font-size: calc(2.15 * var(--u));
+  line-height: 1.48;
+  color: var(--mute);
+  margin: 0 0 0.9em;
+  text-wrap: pretty;
+}
+
+.page-notes p:first-child {
+  color: var(--fg);
+}
+
+.page-notes p:last-child {
+  margin-bottom: 0;
+}
+
+.page-close .page-main {
+  justify-content: center;
+}
+
+.page-more {
+  display: none;
+}
+
+@supports (animation-timeline: scroll()) {
+  .page {
+    timeline-scope: --page-scroll;
+  }
+  .page-scroll {
+    scroll-timeline: --page-scroll block;
+  }
+  .page-more {
+    display: block;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    height: calc(10 * var(--u));
+    pointer-events: none;
+    background: linear-gradient(to bottom, transparent, var(--bg) 75%);
+    opacity: 0;
+    animation: page-more-fade linear both;
+    animation-timeline: --page-scroll;
+  }
+  @keyframes page-more-fade {
+    0%,
+    80% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+}
+
+.colophon {
+  display: flex;
+  align-items: center;
+  gap: calc(1.4 * var(--u));
+  flex: 0 0 auto;
+  margin-top: calc(4 * var(--u));
+  padding-top: calc(1.6 * var(--u));
+  border-top: 1px solid;
+}
+
+.wordmark {
+  font-family: var(--font-archivo-black), var(--font-archivo), sans-serif;
+  font-size: calc(2.6 * var(--u));
+  letter-spacing: 0.35em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--fg);
+}
+
+/* Type scale on a page. Same roles as a slide, a portrait measure. */
+.page .t-eyebrow {
+  font-size: calc(1.5 * var(--u));
+}
+.page .t-title {
+  font-size: calc((var(--title-size) + 1.6) * var(--u));
+  max-width: 100%;
+}
+.page .t-title--xl {
+  font-size: calc((var(--title-size) + 4.2) * var(--u));
+}
+.page .t-lead {
+  font-size: calc(3 * var(--u));
+}
+.page .t-body {
+  font-size: calc(2.4 * var(--u));
+}
+.page .t-small {
+  font-size: calc(1.9 * var(--u));
+}
+.page .t-mid {
+  font-size: calc(3 * var(--u));
+}
+.page .t-big {
+  font-size: calc(9.5 * var(--u));
+}
+.page .t-big--long {
+  font-size: calc(6.6 * var(--u));
+}
+.page .plate-title {
+  font-size: calc(10 * var(--u));
+}
+.page .blank {
+  border-bottom-width: calc(0.3 * var(--u));
+}
+
+/* Boards and plates. */
+.board {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--pad-y) var(--pad-out) var(--pad-y) var(--pad-in);
+}
+
+.board-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+}
+
+.board-plate {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: calc(4 * var(--u)) 0;
+  background: var(--surf);
+  overflow: hidden;
+}
+
+.board-foot {
+  flex: 0 0 auto;
+}
+
+.page-plate .plate-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  background: var(--fg);
+  color: var(--bg);
+  padding: calc(3.2 * var(--u)) var(--pad-out) calc(3.6 * var(--u)) var(--pad-in);
+}
+
+.page-plate[data-side="verso"] .plate-band {
+  padding-left: var(--pad-out);
+  padding-right: var(--pad-in);
+}
+
+/* Page grids. All collapse to one column on a narrow page. */
+.pg-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: calc(3 * var(--u)) calc(3 * var(--u));
+  padding-top: calc(2.4 * var(--u));
+}
+
+.pg-stats[data-count="3"] {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.pg-points {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: calc(2.4 * var(--u)) calc(3.2 * var(--u));
+}
+
+.pg-points[data-count="4"] {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.pg-point {
+  display: flex;
+  flex-direction: column;
+  gap: calc(1 * var(--u));
+  border-top: calc(0.3 * var(--u)) solid;
+  padding-top: calc(1.4 * var(--u));
+}
+
+.pg-two,
+.pg-grid-2,
+.pg-steps,
+.pg-list-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.pg-two {
+  gap: calc(5 * var(--u));
+}
+
+.pg-grid-2 {
+  gap: calc(1.6 * var(--u));
+}
+
+.pg-steps {
+  gap: calc(2.6 * var(--u)) calc(3.6 * var(--u));
+}
+
+.pg-list-grid {
+  grid-template-columns: repeat(3, 1fr);
+  column-gap: calc(3 * var(--u));
+}
+
+.pg-dares {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: calc(1.6 * var(--u));
+}
+
+.pg-dare {
+  display: flex;
+  flex-direction: column;
+  gap: calc(1.1 * var(--u));
+  background: var(--surf);
+  padding: calc(1.8 * var(--u)) calc(2 * var(--u)) calc(2 * var(--u));
+}
+
+.pg-dare .t-body {
+  flex: 1 1 auto;
+}
+
+.pg-level {
+  display: grid;
+  grid-template-columns: calc(3 * var(--u)) 1fr auto;
+  column-gap: calc(1.8 * var(--u));
+  row-gap: calc(0.3 * var(--u));
+  align-items: baseline;
+  padding: calc(0.9 * var(--u)) 0;
+}
+
+.pg-level-name {
+  font-size: calc(2.5 * var(--u));
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.pg-level-status {
+  border: 1px solid;
+  padding: calc(0.4 * var(--u)) calc(0.9 * var(--u));
+  font-size: calc(1.15 * var(--u));
+  white-space: nowrap;
+}
+
+.pg-level-meta {
+  grid-column: 2 / -1;
+  text-wrap: pretty;
+}
+
+.pg-level-meta em {
+  font-style: normal;
+  color: var(--mute);
+}
+
+.page-blank {
+  background: var(--white);
+}
+
+@container page (max-width: 520px) {
+  .page {
+    --pad-out: calc(5.5 * var(--u));
+    --pad-in: calc(6.5 * var(--u));
+    --pad-y: calc(5 * var(--u));
+  }
+  .pg-stats,
+  .pg-stats[data-count="3"],
+  .pg-points[data-count="4"],
+  .pg-two,
+  .pg-grid-2,
+  .pg-steps,
+  .pg-list-grid,
+  .pg-dares {
+    grid-template-columns: 1fr;
+  }
+  .pg-two {
+    gap: calc(3 * var(--u));
+  }
+}
+
+/* --- HUD -------------------------------------------------------------------- */
+
+.journal-hud {
+  height: var(--hud-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0 1rem;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.journal .ctl {
+  background: color-mix(in srgb, var(--white) 70%, transparent);
+  text-decoration: none;
+}
+
+@media (max-width: 420px) {
+  .journal-hud {
+    gap: 0.35rem;
+  }
+  .journal-hud .ctl-wide {
+    display: none;
+  }
+}
