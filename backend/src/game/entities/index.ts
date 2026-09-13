@@ -65,3 +65,13 @@ export {
   SCORE_REASONS,
   type ScoreReason,
 } from './game-score-ledger.entity';
+export {
+  GameClanWar,
+  GameWarBet,
+  WAR_STATUSES,
+  WAR_OUTCOMES,
+  WAR_SETTLEMENT_REASONS,
+  type WarStatus,
+  type WarOutcome,
+  type WarSettlementReason,
+} from './game-clan-war.entity';

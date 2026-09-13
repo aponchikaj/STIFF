@@ -566,3 +566,43 @@ export class AttemptIdParam {
   @IsUUID()
   id: string;
 }
+
+// ------------------------------------------------------------ clan wars --
+
+export class ProposeWarDto {
+  @IsUUID()
+  opponentClanId: string;
+
+  /**
+   * ISO timestamp. At least 30 minutes and at most 7 days from now; an hour
+   * from now when omitted. Checked again in the service against the clock.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  startsAt?: string;
+}
+
+export class PlaceBetDto {
+  @IsIn(['challenger', 'opponent'])
+  side: 'challenger' | 'opponent';
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100_000)
+  coins: number;
+}
+
+export class ListWarsQueryDto {
+  @IsOptional()
+  @IsIn(['open', 'live', 'finished', 'mine', 'all'])
+  filter?: 'open' | 'live' | 'finished' | 'mine' | 'all';
+}
+
+export class VoidWarDto {
+  @IsString()
+  @MinLength(3)
+  @MaxLength(200)
+  reason: string;
+}
