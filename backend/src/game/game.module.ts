@@ -51,6 +51,8 @@ import { ShopService } from './shop.service';
 import { VerdictsService } from './verdicts.service';
 import { VotingController } from './voting.controller';
 import { VotingService } from './voting.service';
+import { OperationsController } from './operations.controller';
+import { OperationsService } from './operations.service';
 import { WarsAdminController, WarsController } from './wars.controller';
 import { WarsService } from './wars.service';
 
@@ -104,6 +106,7 @@ import { WarsService } from './wars.service';
     ReportsAdminController,
     WarsController,
     WarsAdminController,
+    OperationsController,
     GameAdminController,
   ],
   providers: [
@@ -129,6 +132,7 @@ import { WarsService } from './wars.service';
     CheatDetectorService,
     ReportsService,
     WarsService,
+    OperationsService,
   ],
   exports: [SeasonsService, EnrolmentsService],
 })
