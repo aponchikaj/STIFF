@@ -518,6 +518,100 @@ of the caller, numbered — or, for a player moved to watcher, `onBoard: false`
 with the Nerve they finished with and `demotionReason`. Nobody is asked to
 guess why they vanished from the board.
 
+## Clan wars and the book
+
+Two full clans, four hours, and whoever's hand-ins earned more Nerve. Other
+people bet **coins** on the result. Code in `wars.service.ts`; the payout
+arithmetic is the pure `settleWarBook` in `rules.ts`.
+
+### Coins, never money
+
+There is no path from a bet to cash, and there should not be one. A book on
+real money is a licensed gambling operation in Georgia; the game admits
+sixteen-year-olds; and the TBC and BOG merchant agreements the shop takes card
+payments through do not cover gambling, so running bets over them risks the
+clothing shop's card payments too. Coins can be bought, which is exactly why
+**nothing may ever convert them back** — buy-in plus wager plus cash-out is
+the shape a regulator looks for.
+
+### The lifecycle
+
+| status | what it means | how it moves on |
+|---|---|---|
+| `proposed` | a leader challenged another clan | the challenged leader accepts or declines; unanswered by `startsAt` → `void` |
+| `accepted` | both agreed; **the book is open** | at `startsAt` → `live` |
+| `live` | the four hours are running; no bets | at `endsAt` → `judging` |
+| `judging` | waiting for the window's hand-ins to be judged | nothing pending, or 48 h past `endsAt` → `settled` |
+| `settled` | scored and paid | — |
+| `void` | called off; every stake refunded | — |
+
+A war is scheduled 30 minutes to 7 days ahead (an hour by default), so there
+is time to bet. Only full clans fight, and a clan is in at most one war that
+is not over.
+
+### How it is scored
+
+The sum of `task_reward` and `clawback` rows in `game_score_ledger` against
+attempts **submitted** inside the window, by members of each clan. Submitted,
+not approved: a clan must not lose because its best clip is at the back of the
+review queue. That is why `judging` exists — the war waits until nothing from
+the window is still `submitted`. A verdict overturned before settlement counts
+for what it was finally worth; the board's ledger is the only source.
+
+### The book: parimutuel
+
+Bettors bet against each other, not against the house. The winning side
+splits the losing side's stake in proportion to what each put in, and the
+house takes `rakePercent` of the losing pool (`GAME_WAR_RAKE_PERCENT`, 10 by
+default, 0–50). The house cannot lose, and nobody has to set odds.
+
+    rake          = floor(losingPool × rake% / 100)
+    distributable = losingPool − rake
+    each winner   = stake + their share of distributable
+
+Shares are integers by largest remainder, so `sum(payouts) + rake` equals the
+coins staked **exactly** — a property test runs 400 random books to hold it.
+The rake is frozen when the war is accepted, so a config change mid-war cannot
+move a bet already placed.
+
+**Refunded instead of paid:** a draw, a voided war, and a *one-sided* book —
+if everyone backed the same clan there was no bet, only the house collecting.
+
+### Integrity rules
+
+- **Nobody in either clan can bet on the war.** A member who can back the
+  other side can be paid to lose.
+- A flagged cheater cannot bet.
+- **The book closes at `startsAt`.** Nobody bets knowing how it is going.
+- One bet per person per war (`UQ_game_war_bets_war_enrolment`); a top-up
+  raises it on the same side only. Two rows on opposite sides is laundering.
+- At most `GAME_WAR_MAX_STAKE` coins per person per war (500 by default).
+- The stake is charged when the bet is placed, refusing a short balance —
+  the bet row *is* the escrow, and an unfunded bet cannot exist.
+
+Every transition locks its rows: proposing and accepting lock both clans in id
+order, a bet locks the war, settling locks the war and its bets. A cron and an
+admin pressing settle at once cannot both pay.
+
+Coin ledger reasons: `war_stake` (out), `war_payout` (back with winnings),
+`war_refund` (back, nothing won). The rake is recorded on the war row as
+`rakeCoins`, not against any person.
+
+### Endpoints
+
+| route | what |
+|---|---|
+| `GET /wars?filter=open\|live\|finished\|mine\|all` | public; pools, bettor count and return per coin — never who bet |
+| `GET /wars/:id` | public; with `myBet` and `canBet` for a signed-in reader |
+| `POST /wars` | `{ opponentClanId, startsAt? }` — a leader challenges |
+| `POST /wars/:id/accept` · `/decline` | the challenged leader |
+| `POST /wars/:id/withdraw` | the challenger, before it starts; refunds the book |
+| `POST /wars/:id/bets` | `{ side, coins }` — throttled to 20 a minute |
+| `GET /admin/wars` | every war, with the rules |
+| `POST /admin/wars/:id/settle` | settle now on what has been judged |
+| `POST /admin/wars/:id/void` | `{ reason }` — refund everyone, and they are told why |
+| `POST /admin/wars/tick` | run the clock now |
+
 ## Reports
 
 Anyone with an account can say something is wrong, about almost anything

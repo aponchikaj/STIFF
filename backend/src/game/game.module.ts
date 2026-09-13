@@ -13,6 +13,8 @@ import { EconomyService } from './economy.service';
 import {
   GameAttempt,
   GameAttemptComment,
+  GameClanWar,
+  GameWarBet,
   GameAttemptReaction,
   GameAttemptVote,
   GameClan,
@@ -49,6 +51,8 @@ import { ShopService } from './shop.service';
 import { VerdictsService } from './verdicts.service';
 import { VotingController } from './voting.controller';
 import { VotingService } from './voting.service';
+import { WarsAdminController, WarsController } from './wars.controller';
+import { WarsService } from './wars.service';
 
 /**
  * The game's own slice of the API, under `/api/game/*`.
@@ -77,6 +81,8 @@ import { VotingService } from './voting.service';
       GameClanMember,
       GameCoinLedger,
       GameScoreLedger,
+      GameClanWar,
+      GameWarBet,
       GameAttemptVote,
       GameShopItem,
       GamePurchase,
@@ -96,6 +102,8 @@ import { VotingService } from './voting.service';
     VotingController,
     ReportsController,
     ReportsAdminController,
+    WarsController,
+    WarsAdminController,
     GameAdminController,
   ],
   providers: [
@@ -120,6 +128,7 @@ import { VotingService } from './voting.service';
     VotingService,
     CheatDetectorService,
     ReportsService,
+    WarsService,
   ],
   exports: [SeasonsService, EnrolmentsService],
 })
