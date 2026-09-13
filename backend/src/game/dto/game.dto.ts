@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
@@ -605,4 +605,122 @@ export class VoidWarDto {
   @MinLength(3)
   @MaxLength(200)
   reason: string;
+}
+
+// ------------------------------------------------------------- operations --
+
+/**
+ * A correction to one player's coins, on the record.
+ *
+ * Coins can be bought with real money, so this is the most sensitive lever
+ * in the panel after flagging a cheater. Bounded, a reason is required, and
+ * the request lands in the audit log like every other admin write.
+ */
+export class AdjustCoinsDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(-100_000)
+  @Max(100_000)
+  @NotEquals(0)
+  delta: number;
+
+  @IsString()
+  @MinLength(3)
+  @MaxLength(200)
+  reason: string;
+}
+
+export class CoinLedgerQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  limit?: number;
+}
+
+export class ListAttemptsQueryDto {
+  @IsOptional()
+  @IsIn(['awaiting_upload', 'submitted', 'published', 'rejected'])
+  status?: 'awaiting_upload' | 'submitted' | 'published' | 'rejected';
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(3)
+  day?: number;
+
+  @IsOptional()
+  @IsUUID()
+  enrolmentId?: string;
+
+  /** `true` for hidden only, `false` for visible only; omit for both. */
+  @IsOptional()
+  // Undefined stays undefined: without the guard an omitted `hidden` would
+  // arrive as `false` and quietly filter to visible hand-ins only.
+  @Transform(({ value }: { value: unknown }) =>
+    value === undefined ? undefined : value === 'true' || value === true,
+  )
+  @IsBoolean()
+  hidden?: boolean;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  limit?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100_000)
+  offset?: number;
+}
+
+export class ListVotesQueryDto {
+  @IsOptional()
+  @IsIn(['open', 'deferred', 'resolving', 'all'])
+  status?: 'open' | 'deferred' | 'resolving' | 'all';
+}
+
+export class ListClocksQueryDto {
+  @IsOptional()
+  @IsIn([
+    'running',
+    'all',
+    'offered',
+    'accepted',
+    'declined',
+    'submitted',
+    'expired',
+  ])
+  status?:
+    | 'running'
+    | 'all'
+    | 'offered'
+    | 'accepted'
+    | 'declined'
+    | 'submitted'
+    | 'expired';
+}
+
+export class SetHiddenDto {
+  @IsBoolean()
+  hidden: boolean;
+}
+
+export class OrganizeWarDto {
+  @IsUUID()
+  challengerClanId: string;
+
+  @IsUUID()
+  opponentClanId: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  startsAt?: string;
 }

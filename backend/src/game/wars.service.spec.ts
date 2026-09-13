@@ -695,4 +695,92 @@ describe('WarsService', () => {
       expect(endSql).toContain('"status" = \'live\' AND "endsAt" <= $1');
     });
   });
+
+  // =============================================================== organize
+
+  describe('organize', () => {
+    const inTwoHours = () => new Date(Date.now() + 2 * HOUR).toISOString();
+
+    beforeEach(() => {
+      fake.answers.clans = [
+        { id: 'c-red', status: 'full', seasonId: 's1' },
+        { id: 'c-blue', status: 'full', seasonId: 's1' },
+      ];
+      fake.findOne.mockImplementation((entity: unknown) =>
+        Promise.resolve(
+          entity === GameClanMember
+            ? { enrolmentId: 'e-red-lead', role: 'leader' }
+            : null,
+        ),
+      );
+    });
+
+    it('refuses a clan against itself', async () => {
+      await expect(
+        service.organize({
+          challengerClanId: 'c-red',
+          opponentClanId: 'c-red',
+          startsAt: inTwoHours(),
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('only happens while the season is running', async () => {
+      seasons.requireCurrent.mockResolvedValue({ id: 's1', status: 'open' });
+      await expect(
+        service.organize({
+          challengerClanId: 'c-red',
+          opponentClanId: 'c-blue',
+          startsAt: inTwoHours(),
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('refuses a clan without a full roster', async () => {
+      fake.answers.clans = [
+        { id: 'c-red', status: 'full', seasonId: 's1' },
+        { id: 'c-blue', status: 'forming', seasonId: 's1' },
+      ];
+      await expect(
+        service.organize({
+          challengerClanId: 'c-red',
+          opponentClanId: 'c-blue',
+          startsAt: inTwoHours(),
+        }),
+      ).rejects.toThrow(/full roster/);
+    });
+
+    /** The operator cannot put a clan into two wars either. */
+    it('refuses when either clan is already at war', async () => {
+      fake.answers.atWar = 1;
+      await expect(
+        service.organize({
+          challengerClanId: 'c-red',
+          opponentClanId: 'c-blue',
+          startsAt: inTwoHours(),
+        }),
+      ).rejects.toThrow(/already in a war/);
+    });
+
+    /**
+     * Skips the challenge, so it lands exactly where an accepted challenge
+     * would: book open, rake frozen now.
+     */
+    it('files the war as accepted with the rake frozen', async () => {
+      config.get.mockImplementation((k: string) =>
+        k === 'GAME_WAR_RAKE_PERCENT' ? '12' : undefined,
+      );
+      await service.organize({
+        challengerClanId: 'c-red',
+        opponentClanId: 'c-blue',
+        startsAt: inTwoHours(),
+      });
+      const insert = fake.query.mock.calls.find(([sql]) =>
+        sql.includes('INSERT INTO "game_clan_wars"'),
+      ) as unknown as [string, unknown[]];
+      expect(insert[0]).toContain("'accepted'");
+      expect(insert[1][3]).toBe('e-red-lead');
+      expect(insert[1][6]).toBe(12);
+    });
+  });
 });
