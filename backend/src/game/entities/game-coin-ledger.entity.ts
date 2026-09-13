@@ -16,7 +16,13 @@ export type CoinReason =
   | 'purchase'
   | 'cheating'
   | 'reinstated'
-  | 'admin';
+  | 'admin'
+  /** Coins put on a clan war. Negative, and the row is the escrow. */
+  | 'war_stake'
+  /** Stake plus winnings, coming back after a war settled. */
+  | 'war_payout'
+  /** A stake returned because the book never really existed. */
+  | 'war_refund';
 
 /**
  * Every coin that moved, and why.
