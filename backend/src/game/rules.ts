@@ -125,3 +125,176 @@ export function defaultVoteReward(tier: number): number {
  * being dropped.
  */
 export const BOARD_NEIGHBOURS = 3;
+
+// ------------------------------------------------------------ clan wars --
+
+/**
+ * A clan war runs for four hours. Long enough that a clan has to actually
+ * play through it rather than sprint one task, short enough to be watchable
+ * in an evening.
+ */
+export const WAR_DURATION_HOURS = 4;
+
+/**
+ * The book closes when the war starts, so a war has to be scheduled far
+ * enough ahead for anyone to bet on it. Half an hour is the floor.
+ */
+export const WAR_MIN_LEAD_MINUTES = 30;
+
+/** And nobody schedules a grudge match for next month. */
+export const WAR_MAX_LEAD_DAYS = 7;
+
+/**
+ * How long a finished war waits for its hand-ins to be judged before it is
+ * settled on whatever has been decided. Two days is generous; without a
+ * deadline an unreviewed clip freezes everyone's stake indefinitely.
+ */
+export const WAR_JUDGING_DEADLINE_HOURS = 48;
+
+/** Stake bounds, in coins. A bet nobody can feel is not a bet. */
+export const WAR_MIN_STAKE_COINS = 1;
+export const DEFAULT_WAR_MAX_STAKE_COINS = 500;
+
+/** The house's cut of the losing pool, as a percentage. */
+export const DEFAULT_WAR_RAKE_PERCENT = 10;
+
+/** `GAME_WAR_RAKE_PERCENT`, 0–50. Anything unreadable is the default. */
+export function warRakePercent(env?: EnvReader): number {
+  const raw = env?.get<string>('GAME_WAR_RAKE_PERCENT');
+  const parsed = raw === undefined ? NaN : Number.parseInt(String(raw), 10);
+  return Number.isInteger(parsed) && parsed >= 0 && parsed <= 50
+    ? parsed
+    : DEFAULT_WAR_RAKE_PERCENT;
+}
+
+/** `GAME_WAR_MAX_STAKE`, at least the minimum. Otherwise the default. */
+export function warMaxStake(env?: EnvReader): number {
+  const raw = env?.get<string>('GAME_WAR_MAX_STAKE');
+  const parsed = raw === undefined ? NaN : Number.parseInt(String(raw), 10);
+  return Number.isInteger(parsed) && parsed >= WAR_MIN_STAKE_COINS
+    ? parsed
+    : DEFAULT_WAR_MAX_STAKE_COINS;
+}
+
+export type WarSide = 'challenger' | 'opponent';
+
+/** One person's stake going in. */
+export interface WarStake {
+  betId: string;
+  side: WarSide;
+  coins: number;
+}
+
+/** What that person gets back. `payout` includes their own stake returned. */
+export interface WarPayout {
+  betId: string;
+  /** Coins credited back. Zero for a losing bet. */
+  payout: number;
+  /** Payout minus the stake: what they actually won or lost. */
+  profit: number;
+}
+
+export interface WarSettlement {
+  payouts: WarPayout[];
+  /** Total staked on each side, before anything moves. */
+  pools: Record<WarSide, number>;
+  /** The house's cut, in coins. Zero on a refund. */
+  rake: number;
+  /** True when every stake came straight back. */
+  refunded: boolean;
+  /** Why, when it was refunded. */
+  reason: 'paid' | 'draw' | 'one_sided' | 'no_bets' | 'void';
+}
+
+/**
+ * Who gets what when a war ends.
+ *
+ * **Parimutuel, not fixed odds**, and that is the whole design. With fixed
+ * odds the house takes the other side of every bet and can lose; pricing it
+ * needs a bookmaker. Here the bettors are betting against each other: the
+ * winning side splits the losing side's stake in proportion to what each of
+ * them put in, and the house takes a fixed percentage of the losing pool.
+ * The house therefore cannot lose, and nobody has to price anything.
+ *
+ * **Coins are integers and none may be invented.** The proportional split
+ * almost never divides evenly, so it is done by largest remainder: floor
+ * every share, then hand the leftover coins out one each to the bets with
+ * the largest fractional part, ties broken by stake and then by id so the
+ * result is deterministic. What cannot be handed out that way — nothing,
+ * after the remainder pass — would go to the rake. The guarantee this
+ * function keeps is exact:
+ *
+ *     sum(payouts) + rake === sum(stakes)
+ *
+ * **A one-sided book is refunded, not swept.** If everyone backed the same
+ * clan there was no bet, only the house collecting. Same for a draw and for
+ * a war with no bets at all. Refunding is the honest answer and it is what
+ * `reason` records.
+ */
+export function settleWarBook(
+  stakes: WarStake[],
+  outcome: WarSide | 'draw' | 'void',
+  rakePercent: number,
+): WarSettlement {
+  const pools: Record<WarSide, number> = { challenger: 0, opponent: 0 };
+  for (const s of stakes) pools[s.side] += s.coins;
+
+  const refundAll = (reason: WarSettlement['reason']): WarSettlement => ({
+    payouts: stakes.map((s) => ({
+      betId: s.betId,
+      payout: s.coins,
+      profit: 0,
+    })),
+    pools,
+    rake: 0,
+    refunded: true,
+    reason,
+  });
+
+  if (stakes.length === 0) {
+    return { payouts: [], pools, rake: 0, refunded: true, reason: 'no_bets' };
+  }
+  if (outcome === 'void') return refundAll('void');
+  if (outcome === 'draw') return refundAll('draw');
+
+  const winPool = pools[outcome];
+  const losePool = pools[outcome === 'challenger' ? 'opponent' : 'challenger'];
+  // Nobody to pay, or nobody to pay from: there was no book here.
+  if (winPool === 0 || losePool === 0) return refundAll('one_sided');
+
+  const clampedRake = Math.min(Math.max(Math.round(rakePercent), 0), 50);
+  const rake = Math.floor((losePool * clampedRake) / 100);
+  const distributable = losePool - rake;
+
+  // Floor each winner's share, then hand out the remainder one coin at a
+  // time. Sorting by fractional part, then stake, then id keeps it
+  // deterministic — two settlements of the same book agree exactly.
+  const winners = stakes.filter((s) => s.side === outcome);
+  const shares = winners.map((s) => {
+    const exact = (s.coins * distributable) / winPool;
+    const whole = Math.floor(exact);
+    return { stake: s, whole, remainder: exact - whole };
+  });
+  let handedOut = shares.reduce((sum, s) => sum + s.whole, 0);
+  const leftover = distributable - handedOut;
+  const byRemainder = [...shares].sort(
+    (a, b) =>
+      b.remainder - a.remainder ||
+      b.stake.coins - a.stake.coins ||
+      (a.stake.betId < b.stake.betId ? -1 : 1),
+  );
+  for (let i = 0; i < leftover; i += 1) {
+    byRemainder[i % byRemainder.length].whole += 1;
+    handedOut += 1;
+  }
+
+  const wonBy = new Map(shares.map((s) => [s.stake.betId, s.whole]));
+  const payouts: WarPayout[] = stakes.map((s) => {
+    if (s.side !== outcome)
+      return { betId: s.betId, payout: 0, profit: -s.coins };
+    const won = wonBy.get(s.betId) ?? 0;
+    return { betId: s.betId, payout: s.coins + won, profit: won };
+  });
+
+  return { payouts, pools, rake, refunded: false, reason: 'paid' };
+}
