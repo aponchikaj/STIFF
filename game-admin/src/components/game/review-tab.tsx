@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { ApiError, gameApi } from "@/lib/api";
 import type {
@@ -485,7 +486,14 @@ function Unpublish({
       <p className="max-w-2xl text-[12px] leading-6 text-muted">
         Removes a published attempt from the feed and claws back the Nerve it
         paid through the score ledger, so the board corrects itself. Coins are
-        not touched, and the attempt is not deleted.
+        not touched, and the attempt is not deleted.{" "}
+        {/* The id box stays for someone holding an id from a report or a log,
+            but browsing is how most take-downs should start. */}
+        Easier from{" "}
+        <Link href="/hand-ins?status=published" className="text-ink underline underline-offset-4">
+          Hand-ins
+        </Link>
+        , where you can find the clip instead of pasting its id.
       </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,24rem)_auto] sm:items-end">
         <Field id="unpublish-attempt-id" label="Attempt id">

@@ -42,8 +42,14 @@ export function ConfirmButton({
   tone?: "danger" | "neutral";
 }) {
   const [armed, setArmed] = useState(false);
+  // A ring rather than a text colour. The button this wraps might be a ghost
+  // link, an outlined button or a solid dark one, and recolouring the text
+  // turns the solid one's label dark-on-dark at the exact moment it matters
+  // most. A ring outside the button reads on every background.
   const armedCls =
-    tone === "danger" ? "text-danger underline" : "text-ink underline";
+    tone === "danger"
+      ? "ring-2 ring-danger ring-offset-2 ring-offset-card"
+      : "ring-2 ring-ink ring-offset-2 ring-offset-card";
   return (
     <button
       type="button"

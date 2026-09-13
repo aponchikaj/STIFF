@@ -54,6 +54,9 @@ export function OverviewTab() {
   );
   const board = useAsync(() => gameApi.getLeaderboard({ pageSize: 5 }), []);
   const rules = useAsync(() => gameApi.getRules(), []);
+  const deferred = useAsync(() => gameApi.listVotes("deferred"), []);
+  const clocks = useAsync(() => gameApi.listClocks("running"), []);
+  const wars = useAsync(() => gameApi.listWars("live"), []);
 
   const { note, busy, act } = useAction(() => {
     enrolments.reload();
@@ -207,6 +210,31 @@ export function OverviewTab() {
         />
       </div>
 
+      {/* ---------------------------------------------------- needs a person */}
+      <NeedsAPerson
+        waiting={queue.length}
+        deferredVotes={deferred.data?.votes.length ?? null}
+        p3Reports={reports.data?.openByPriority["3"] ?? null}
+        overdueClocks={
+          clocks.data
+            ? // `secondsLeft` is worked out by the database at query time.
+              // The server's clock is the one that decides a heart, so it is
+              // the one to trust here — not the browser's.
+              clocks.data.clocks.filter(
+                (c) =>
+                  c.status === "accepted" &&
+                  c.secondsLeft !== null &&
+                  c.secondsLeft < 0,
+              ).length
+            : null
+        }
+        stuckWars={
+          wars.data
+            ? wars.data.wars.filter((w) => w.status === "judging").length
+            : null
+        }
+      />
+
       {/* --------------------------------------------------------- two lists */}
       <div className="grid gap-5 xl:grid-cols-2">
         <Panel
@@ -307,6 +335,113 @@ export function OverviewTab() {
         </Panel>
       )}
     </div>
+  );
+}
+
+/**
+ * What is waiting on a human, in the order it goes bad.
+ *
+ * Every other number on this screen is a count to read. These are the ones
+ * that get worse while nobody looks: a P3 report may be a person at risk, a
+ * deferred vote is a player waiting to be paid, a war stuck in judging is
+ * everyone's stake frozen. When all of them are zero, the panel says so in one
+ * line instead of showing five zeroes.
+ */
+function NeedsAPerson({
+  waiting,
+  deferredVotes,
+  p3Reports,
+  overdueClocks,
+  stuckWars,
+}: {
+  waiting: number;
+  deferredVotes: number | null;
+  p3Reports: number | null;
+  overdueClocks: number | null;
+  stuckWars: number | null;
+}) {
+  const items: {
+    href: string;
+    label: string;
+    count: number | null;
+    detail: string;
+    tone: "danger" | "caution";
+  }[] = [
+    {
+      href: "/reports",
+      label: "Priority 3 reports",
+      count: p3Reports,
+      detail: "someone may be at risk",
+      tone: "danger",
+    },
+    {
+      href: "/votes?status=deferred",
+      label: "Votes waiting on a person",
+      count: deferredVotes,
+      detail: "the watchers split or the model was unsure",
+      tone: "caution",
+    },
+    {
+      href: "/review",
+      label: "Hand-ins to judge",
+      count: waiting,
+      detail: "oldest first",
+      tone: "caution",
+    },
+    {
+      href: "/wars?filter=live",
+      label: "Wars stuck in judging",
+      count: stuckWars,
+      detail: "every stake on them is frozen",
+      tone: "caution",
+    },
+    {
+      href: "/clocks",
+      label: "Clocks past zero",
+      count: overdueClocks,
+      detail: "normal for up to a minute",
+      tone: "caution",
+    },
+  ];
+  const known = items.filter((i) => i.count !== null);
+  const pending = known.filter((i) => (i.count ?? 0) > 0);
+
+  return (
+    <Panel title="Needs a person" bleed>
+      {known.length === 0 ? (
+        <div className="px-5 pb-5">
+          <Loading label="Checking the queues" />
+        </div>
+      ) : pending.length === 0 ? (
+        <p className="border-t border-line px-5 py-4 text-[13px] text-muted">
+          Nothing is waiting on anyone right now.
+        </p>
+      ) : (
+        <ul>
+          {pending.map((item) => (
+            <li key={item.href} className="border-t border-line">
+              <Link
+                href={item.href as never}
+                className="flex items-center gap-4 px-5 py-3 transition-colors hover:bg-raised"
+              >
+                <span
+                  className={`font-display tnum w-10 text-[20px] leading-none ${
+                    item.tone === "danger" ? "text-danger" : "text-caution"
+                  }`}
+                >
+                  {item.count}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13px] font-bold">{item.label}</span>
+                  <span className="block text-[11px] text-faint">{item.detail}</span>
+                </span>
+                <span className="text-[12px] font-semibold text-muted">Open →</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
   );
 }
 

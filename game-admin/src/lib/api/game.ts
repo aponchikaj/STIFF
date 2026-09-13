@@ -1,6 +1,15 @@
 import { apiFetch } from "./client";
 import type {
+  AdjustCoinsResult,
   AdjustScoreInput,
+  AttemptRow,
+  ClanRow,
+  ClockRow,
+  ClockStatus,
+  CoinLedgerRow,
+  CommentRow,
+  ListAttemptsParams,
+  VoteRow,
   AdjustScoreResult,
   AdminReportView,
   Board,
@@ -384,4 +393,86 @@ export function voidWar(
 /** Runs the war clock now: starts, ends and settles whatever is due. */
 export function tickWars(): Promise<WarTickReport> {
   return apiFetch(`${ADMIN}/wars/tick`, { method: "POST" });
+}
+
+// ------------------------------------------------------------ operations --
+
+/** Every clan in the live season, both seats, and the war each is in. */
+export function listClans(): Promise<{ clans: ClanRow[] }> {
+  return apiFetch(`${ADMIN}/clans`);
+}
+
+/**
+ * Sets two clans a war, skipping the challenge. Lands with the book open and
+ * the rake frozen, exactly as an accepted challenge would.
+ */
+export function organizeWar(input: {
+  challengerClanId: string;
+  opponentClanId: string;
+  startsAt?: string;
+}): Promise<{ war: WarView }> {
+  return apiFetch(`${ADMIN}/wars`, { method: "POST", body: input });
+}
+
+/** Every hand-in in the season. The review queue is the `submitted` subset. */
+export function listAttempts(
+  params?: ListAttemptsParams,
+): Promise<{ items: AttemptRow[]; total: number }> {
+  return apiFetch(`${ADMIN}/attempts`, { query: { ...params } });
+}
+
+/** All comments on one hand-in, hidden ones included. */
+export function listComments(
+  attemptId: string,
+): Promise<{ comments: CommentRow[] }> {
+  return apiFetch(`${ADMIN}/attempts/${id(attemptId)}/comments`);
+}
+
+/** Hides or restores a comment. Reversible, unlike deleting. */
+export function setCommentHidden(
+  commentId: string,
+  hidden: boolean,
+): Promise<{ comment: CommentRow }> {
+  return apiFetch(`${ADMIN}/comments/${id(commentId)}`, {
+    method: "PATCH",
+    body: { hidden },
+  });
+}
+
+/** Unresolved votes, with their yes and no tallies. */
+export function listVotes(
+  status?: "open" | "deferred" | "resolving" | "all",
+): Promise<{ votes: VoteRow[] }> {
+  return apiFetch(`${ADMIN}/votes`, { query: { status } });
+}
+
+/** Held tasks and running clocks. `running` is offered plus accepted. */
+export function listClocks(
+  status?: ClockStatus | "running" | "all",
+): Promise<{ clocks: ClockRow[] }> {
+  return apiFetch(`${ADMIN}/clocks`, { query: { status } });
+}
+
+/** Every coin this enrolment gained or lost, newest first. */
+export function getCoinLedger(
+  enrolmentId: string,
+  limit?: number,
+): Promise<{ ledger: CoinLedgerRow[] }> {
+  return apiFetch(`${ADMIN}/enrolments/${id(enrolmentId)}/coin-ledger`, {
+    query: { limit },
+  });
+}
+
+/**
+ * A correction to a player's coins. Floors at zero; the result carries what
+ * actually moved, which can be less than asked.
+ */
+export function adjustCoins(
+  enrolmentId: string,
+  input: { delta: number; reason: string },
+): Promise<AdjustCoinsResult> {
+  return apiFetch(`${ADMIN}/enrolments/${id(enrolmentId)}/coins`, {
+    method: "POST",
+    body: input,
+  });
 }

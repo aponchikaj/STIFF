@@ -18,6 +18,42 @@ npm run lint
 npm run typecheck
 ```
 
+## The screens
+
+Grouped by what the operator is doing.
+
+| Group | Screen | For |
+|---|---|---|
+| | Overview | the season, the counts, and **Needs a person** — what gets worse while nobody looks |
+| **Queues** | Review | hand-ins waiting on a verdict, with what the model thought |
+| | Votes | watchers' votes still open, and the deferred ones waiting on a person |
+| | Reports | what players reported, claimed, prioritised and closed |
+| | Clocks | tasks people hold and the timers on them, counting down live |
+| **The season** | Hand-ins | every photo and clip, not only the queue; take one down, hide a comment |
+| | Players | everyone enrolled: score and coin ledgers, corrections, flag, reinstate |
+| | Clans | both seats, combined Nerve, record, and organising a war |
+| | Clan wars | every war and its book; settle a stuck one, void and refund |
+| | Board | the ranking, and player search |
+| **Setup** | Seasons | draft, open, running, closed |
+| | Tasks | the pool, the two-agent generator, the Charter's refusal rates |
+| | Coin shop | items and purchases |
+
+**Three levers deserve care**, and all three go through the path that already
+exists for them rather than a second one:
+
+- **Coin corrections** — coins are bought with real money. Through the ledger,
+  floored at zero, a reason required, the admin named on the row.
+- **Organising a war** — skips the challenge and opens the book at once. Until
+  the player app exists it is the only way a war starts.
+- **Hiding a comment** — never deleting. A hidden comment can be put back.
+
+Nothing in the panel lets an admin bet. Someone who can see every pool and
+settle every war has no business holding a stake in one.
+
+Links between screens carry their filter in the URL — `/votes?status=deferred`,
+`/hand-ins?status=published`, `/wars?filter=live` — so a number on the overview
+opens the list it counted.
+
 ## One backend, one admin identity
 
 There is no separate sign-in here. An admin is an ordinary shop account with

@@ -700,3 +700,141 @@ export interface WarTickReport {
   settled: number;
   voided: number;
 }
+
+// ------------------------------------------------------------ operations --
+
+export interface ClanMemberRow {
+  enrolmentId: string;
+  handle: string;
+  role: "leader" | "member";
+  status: EnrolmentStatus;
+  nerve: number;
+  coins: number;
+  heartsRemaining: number;
+  heartsTotal: number;
+}
+
+export interface ClanRow {
+  id: string;
+  name: string;
+  status: "forming" | "full" | "disbanded";
+  inviteCode: string;
+  createdAt: string;
+  members: ClanMemberRow[];
+  /** Combined Nerve of both members. */
+  nerve: number;
+  /** The war this clan is in that is not over, if any. */
+  war: { id: string; status: WarStatus; opponent: string; startsAt: string } | null;
+  warsFought: number;
+  warsWon: number;
+}
+
+export interface AttemptRow {
+  id: string;
+  enrolmentId: string;
+  handle: string;
+  playerStatus: EnrolmentStatus;
+  task: string | null;
+  day: SeasonDay;
+  kind: AttemptKind;
+  status: AttemptStatus;
+  mediaUrl: string | null;
+  caption: string | null;
+  submittedAt: string | null;
+  publishedAt: string | null;
+  hiddenAt: string | null;
+  rejectionReason: string | null;
+  verdict: CheatVerdictKind | null;
+  confidence: number | null;
+  votingStatus: VotingStatus;
+  likeCount: number;
+  commentCount: number;
+  createdAt: string;
+}
+
+export interface ListAttemptsParams {
+  status?: AttemptStatus;
+  day?: SeasonDay;
+  enrolmentId?: string;
+  /** `true` hidden only, `false` visible only, omit for both. */
+  hidden?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export interface VoteRow {
+  attemptId: string;
+  handle: string;
+  task: string | null;
+  day: SeasonDay;
+  kind: AttemptKind;
+  mediaUrl: string | null;
+  votingStatus: "open" | "deferred" | "resolving";
+  votingEndsAt: string | null;
+  yes: number;
+  no: number;
+  verdict: CheatVerdictKind | null;
+}
+
+export type ClockStatus =
+  | "offered"
+  | "accepted"
+  | "declined"
+  | "submitted"
+  | "expired";
+
+export interface ClockRow {
+  id: string;
+  enrolmentId: string;
+  handle: string;
+  clan: string | null;
+  task: string;
+  day: SeasonDay;
+  status: ClockStatus;
+  clockMinutes: number;
+  acceptedAt: string | null;
+  expiresAt: string | null;
+  /** Negative once past zero and the sweep has not caught it yet. */
+  secondsLeft: number | null;
+  heartBurned: boolean;
+  createdAt: string;
+}
+
+export interface CommentRow {
+  id: string;
+  authorHandle: string;
+  userId: string;
+  body: string;
+  hiddenAt: string | null;
+  createdAt: string;
+}
+
+export type CoinReason =
+  | "task_reward"
+  | "task_penalty"
+  | "vote_reward"
+  | "purchase"
+  | "cheating"
+  | "reinstated"
+  | "admin"
+  | "war_stake"
+  | "war_payout"
+  | "war_refund";
+
+export interface CoinLedgerRow {
+  id: string;
+  enrolmentId: string;
+  delta: number;
+  balanceAfter: number;
+  reason: CoinReason;
+  refType: string | null;
+  refId: string | null;
+  createdAt: string;
+}
+
+export interface AdjustCoinsResult {
+  enrolmentId: string;
+  coinsDelta: number;
+  coins: number;
+  reason: string;
+}

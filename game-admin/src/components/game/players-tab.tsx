@@ -4,6 +4,8 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { gameApi } from "@/lib/api";
 import type {
+  CoinLedgerRow,
+  CoinReason,
   EnrolmentRole,
   EnrolmentStatus,
   GameEnrolment,
@@ -73,6 +75,13 @@ const UUID_RE =
 function signed(n: number): string {
   return n < 0 ? `−${Math.abs(n)}` : `+${n}`;
 }
+
+/** The war reasons in plainer words; everything else reads fine as is. */
+const COIN_REASON_WORD: Partial<Record<CoinReason, string>> = {
+  war_stake: "bet placed",
+  war_payout: "bet won",
+  war_refund: "bet refunded",
+};
 
 function isRole(value: string | null): value is EnrolmentRole {
   return value === "player" || value === "watcher";
@@ -342,8 +351,10 @@ function EnrolmentDetails({
   reloadList: () => void;
 }) {
   const ledger = useAsync(() => gameApi.getScoreLedger(p.id, 100), [p.id]);
+  const coinLedger = useAsync(() => gameApi.getCoinLedger(p.id, 100), [p.id]);
   const { note, busy, act } = useAction(() => {
     ledger.reload();
+    coinLedger.reload();
     reloadList();
   });
 
@@ -398,6 +409,34 @@ function EnrolmentDetails({
             <LedgerTable rows={ledger.data.ledger} />
           )}
         </Panel>
+
+        <Panel
+          title="Coin ledger"
+          bleed
+          aside={
+            <span className="text-[11px] text-faint">
+              coins can be bought with real money, so every change is on this
+              record and none is ever deleted
+            </span>
+          }
+        >
+          {coinLedger.loading && (
+            <div className="px-5">
+              <Loading label="Loading the coin ledger" />
+            </div>
+          )}
+          {coinLedger.error && (
+            <div className="px-5">
+              <ErrorNote message={coinLedger.error} />
+            </div>
+          )}
+          {coinLedger.data && coinLedger.data.ledger.length === 0 && (
+            <Empty>No coins have moved yet.</Empty>
+          )}
+          {coinLedger.data && coinLedger.data.ledger.length > 0 && (
+            <CoinLedgerTable rows={coinLedger.data.ledger} />
+          )}
+        </Panel>
       </div>
 
       <div className="min-w-0">
@@ -417,6 +456,25 @@ function EnrolmentDetails({
                     // than what was asked; say what actually happened.
                     const floored = res.nerveDelta !== delta;
                     return `Moved ${signed(res.nerveDelta)} Nerve; now ${res.nerve}.${floored ? ` (Asked ${signed(delta)}; Nerve floors at zero.)` : ""}`;
+                  },
+                )
+              }
+            />
+
+            <AdjustCoins
+              enrolmentId={p.id}
+              busy={busy}
+              onSubmit={(delta, reason) =>
+                act(
+                  () => gameApi.adjustCoins(p.id, { delta, reason }),
+                  (r) => {
+                    const res = r as Awaited<
+                      ReturnType<typeof gameApi.adjustCoins>
+                    >;
+                    // Coins floor at zero too, so what moved can be less than
+                    // what was asked; say what actually happened.
+                    const floored = res.coinsDelta !== delta;
+                    return `Moved ${signed(res.coinsDelta)} coins; now ${res.coins}.${floored ? ` (Asked ${signed(delta)}; floored at zero.)` : ""}`;
                   },
                 )
               }
@@ -491,6 +549,47 @@ function LedgerTable({ rows }: { rows: ScoreLedgerRow[] }) {
               <td className={`${tdCls} whitespace-nowrap text-muted`}>
                 {/* `by` is an admin id or a word like `ai`; only ids get cut. */}
                 {row.by ? (UUID_RE.test(row.by) ? shortId(row.by) : row.by) : "—"}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </TableScroll>
+  );
+}
+
+function CoinLedgerTable({ rows }: { rows: CoinLedgerRow[] }) {
+  return (
+    <TableScroll>
+      <table className={tableCls}>
+        <thead>
+          <tr className={theadCls}>
+            <th className={thCls}>When</th>
+            <th className={`${thCls} text-right`}>Delta</th>
+            <th className={`${thCls} text-right`}>After</th>
+            <th className={thCls}>Reason</th>
+            <th className={thCls}>Ref</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id} className={trCls}>
+              <td className={`${tdCls} whitespace-nowrap text-[11px] text-faint`}>
+                {formatDateTime(row.createdAt)}
+              </td>
+              <td
+                className={`${tdCls} tnum text-right font-bold ${
+                  row.delta < 0 ? "text-danger" : "text-positive"
+                }`}
+              >
+                {signed(row.delta)}
+              </td>
+              <td className={`${tdCls} tnum text-right`}>{row.balanceAfter}</td>
+              <td className={tdCls}>
+                {COIN_REASON_WORD[row.reason] ?? words(row.reason)}
+              </td>
+              <td className={`${tdCls} whitespace-nowrap text-muted`}>
+                {row.refType ? `${row.refType} ${shortId(row.refId)}` : "—"}
               </td>
             </tr>
           ))}
@@ -578,6 +677,102 @@ function AdjustScore({
           <button type="submit" disabled={busy} className={btnPrimarySm}>
             Apply
           </button>
+          {problem && (
+            <span role="alert" className="text-[11px] leading-5 text-danger">
+              {problem}
+            </span>
+          )}
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function AdjustCoins({
+  enrolmentId,
+  busy,
+  onSubmit,
+}: {
+  enrolmentId: string;
+  busy: boolean;
+  onSubmit: (delta: number, reason: string) => Promise<void>;
+}) {
+  const [delta, setDelta] = useState("");
+  const [reason, setReason] = useState("");
+  const [problem, setProblem] = useState<string | null>(null);
+  const deltaId = `adjust-coins-delta-${enrolmentId}`;
+  const reasonId = `adjust-coins-reason-${enrolmentId}`;
+
+  // Coins are bought with real money, so this goes through a second press
+  // rather than a plain submit; Enter in a field does nothing on its own.
+  function apply() {
+    const n = Number(delta);
+    const trimmed = reason.trim();
+    if (delta.trim() === "" || !Number.isInteger(n) || n === 0 || Math.abs(n) > 100000) {
+      setProblem("Delta must be a whole number other than zero, within ±100,000.");
+      return;
+    }
+    if (trimmed.length < 3 || trimmed.length > 200) {
+      setProblem("Reason must be 3 to 200 characters.");
+      return;
+    }
+    setProblem(null);
+    void onSubmit(n, trimmed).then(() => {
+      setDelta("");
+      setReason("");
+    });
+  }
+
+  return (
+    <section className="border-t border-line pt-5">
+      <p className={eyebrow}>Adjust coins</p>
+      <p className="mt-1.5 text-[12px] leading-5 text-faint">
+        A correction on the record: one coin ledger row, reason attached. Coins
+        floor at zero, and they are bought with real money, so it asks twice.
+      </p>
+      <form
+        onSubmit={(e) => e.preventDefault()}
+        className="mt-3 flex flex-col gap-3"
+      >
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,8rem)_minmax(0,1fr)]">
+          <Field id={deltaId} label="Delta">
+            <input
+              id={deltaId}
+              type="number"
+              inputMode="numeric"
+              step={1}
+              min={-100000}
+              max={100000}
+              required
+              value={delta}
+              onChange={(e) => setDelta(e.target.value)}
+              placeholder="−50 or 100"
+              className={`${inputCls} tnum`}
+            />
+          </Field>
+          <Field id={reasonId} label="Reason">
+            <input
+              id={reasonId}
+              type="text"
+              required
+              minLength={3}
+              maxLength={200}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Why these coins move"
+              className={inputCls}
+            />
+          </Field>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <ConfirmButton
+            label="Apply"
+            confirmLabel="Move these coins?"
+            disabled={busy}
+            className={btnSecondarySm}
+            tone="neutral"
+            onConfirm={apply}
+          />
           {problem && (
             <span role="alert" className="text-[11px] leading-5 text-danger">
               {problem}

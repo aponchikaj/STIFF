@@ -113,3 +113,37 @@ export const IconWars = (p: Props) => (
     <path d="m6 14-2.5 2.5M14 14l2.5 2.5M8.5 11.5 6 14M11.5 11.5 14 14" />
   </Svg>
 );
+
+/** Clans — two figures side by side: a clan is exactly two people. */
+export const IconClans = (p: Props) => (
+  <Svg {...p}>
+    <circle cx="7" cy="6.5" r="2.5" />
+    <circle cx="13.5" cy="6.5" r="2.5" />
+    <path d="M2.5 16.5c.4-2.6 2.2-4 4.5-4s4.1 1.4 4.5 4" />
+    <path d="M11.3 12.7c.7-.2 1.4-.2 2.2-.2 2.3 0 4.1 1.4 4.5 4" />
+  </Svg>
+);
+
+/** Hand-ins — a frame with a play mark: every photo and clip. */
+export const IconHandIns = (p: Props) => (
+  <Svg {...p}>
+    <rect x="2.5" y="3.5" width="15" height="13" rx="2" />
+    <path d="m8.5 7.5 4 2.5-4 2.5v-5Z" />
+  </Svg>
+);
+
+/** Votes — a tick in a box: yes or no. */
+export const IconVotes = (p: Props) => (
+  <Svg {...p}>
+    <rect x="3" y="3" width="14" height="14" rx="2" />
+    <path d="m6.5 10 2.5 2.5L14 7.5" />
+  </Svg>
+);
+
+/** Clocks — an hourglass, because a task clock only ever runs down. */
+export const IconClocks = (p: Props) => (
+  <Svg {...p}>
+    <path d="M5.5 2.5h9M5.5 17.5h9" />
+    <path d="M6.5 2.5c0 3.5 3.5 4.5 3.5 7.5s-3.5 4-3.5 7.5M13.5 2.5c0 3.5-3.5 4.5-3.5 7.5s3.5 4 3.5 7.5" />
+  </Svg>
+);

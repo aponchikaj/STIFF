@@ -8,6 +8,10 @@ import { GAME_URL } from "@/lib/game-site";
 import { AsteriskMark } from "./asterisk-mark";
 import {
   IconBoard,
+  IconClans,
+  IconClocks,
+  IconHandIns,
+  IconVotes,
   IconExternal,
   IconLogout,
   IconOverview,
@@ -29,9 +33,11 @@ import { btnSecondary, Loading, pageTitle } from "./ui";
  * people, the board, then what was set up in advance — the task pool and the
  * coin shop — and finally what players have reported.
  *
- * Grouped, because eight flat items is a list you read every time and three
- * groups of two or three is a shape you learn once. `Today` is what changes
- * hour to hour; `Setup` is what you prepare between seasons.
+ * Grouped by what the operator is doing. `Queues` is everything waiting on a
+ * person, most urgent first — work to clear. `The season` is what the game is
+ * made of — somewhere to look things up. `Setup` is what gets prepared between
+ * seasons. Thirteen flat items is a list you re-read every time; three groups
+ * is a shape you learn once.
  *
  * Sections live in the URL rather than component state, so a view can be
  * bookmarked, sent to whoever is handling it, and survives a refresh.
@@ -53,12 +59,23 @@ const GROUPS: NavGroup[] = [
     items: [{ href: "/", label: "Overview", icon: IconOverview }],
   },
   {
-    label: "Today",
+    // What needs a person today, most urgent first.
+    label: "Queues",
     items: [
       { href: "/review", label: "Review", icon: IconReview },
+      { href: "/votes", label: "Votes", icon: IconVotes },
       { href: "/reports", label: "Reports", icon: IconReports },
-      { href: "/wars", label: "Clan wars", icon: IconWars },
+      { href: "/clocks", label: "Clocks", icon: IconClocks },
+    ],
+  },
+  {
+    // What the season is made of, for looking things up.
+    label: "The season",
+    items: [
+      { href: "/hand-ins", label: "Hand-ins", icon: IconHandIns },
       { href: "/players", label: "Players", icon: IconPlayers },
+      { href: "/clans", label: "Clans", icon: IconClans },
+      { href: "/wars", label: "Clan wars", icon: IconWars },
       { href: "/board", label: "Board", icon: IconBoard },
     ],
   },

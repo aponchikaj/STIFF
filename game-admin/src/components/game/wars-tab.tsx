@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { gameApi } from "@/lib/api";
 import type { WarFilter, WarStatus, WarView } from "@/lib/api";
 import { useAsync } from "@/lib/hooks";
@@ -68,7 +69,14 @@ const REFUND_WHY: Record<string, string> = {
  * here converts one into the other.
  */
 export function WarsTab() {
-  const [filter, setFilter] = useState<WarFilter>("all");
+  // Linked as `?filter=live` from the overview's "stuck in judging" line.
+  const params = useSearchParams();
+  const [filter, setFilter] = useState<WarFilter>(() => {
+    const wanted = params.get("filter");
+    return wanted === "open" || wanted === "live" || wanted === "finished"
+      ? wanted
+      : "all";
+  });
   const data = useAsync(() => gameApi.listWars(filter), [filter]);
   const { note, busy, act } = useAction(data.reload);
 
