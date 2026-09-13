@@ -650,3 +650,53 @@ export interface ResolveReportResult {
   siblingsClosed: number;
   actionResult: Record<string, unknown> | null;
 }
+
+// ------------------------------------------------------------- clan wars --
+
+export type WarStatus =
+  | "proposed"
+  | "accepted"
+  | "live"
+  | "judging"
+  | "settled"
+  | "void";
+export type WarSide = "challenger" | "opponent";
+export type WarOutcome = "challenger" | "opponent" | "draw" | "void";
+export type WarFilter = "open" | "live" | "finished" | "mine" | "all";
+
+/** A war as the API returns it. Pools are totals; no bettor is ever named. */
+export interface WarView {
+  id: string;
+  status: WarStatus;
+  challenger: { clanId: string; name: string; score: number };
+  opponent: { clanId: string; name: string; score: number };
+  startsAt: string;
+  endsAt: string;
+  bookOpen: boolean;
+  pools: Record<WarSide, number>;
+  bettors: number;
+  /** What one coin returns if it ended now. Null for a side nobody backed. */
+  returnPerCoin: Record<WarSide, number | null>;
+  rakePercent: number;
+  outcome: WarOutcome | null;
+  winnerClanId: string | null;
+  /** `paid`, or why it was refunded: `draw`, `one_sided`, `no_bets`, `void`. */
+  settlementReason: string | null;
+  voidReason: string | null;
+  settledAt: string | null;
+  myBet: { side: WarSide; stake: number; payout: number; settled: boolean } | null;
+  canBet: { allowed: boolean; reason: string | null };
+}
+
+export interface WarRules {
+  durationHours: number;
+  minLeadMinutes: number;
+  minStake: number;
+}
+
+export interface WarTickReport {
+  started: number;
+  ended: number;
+  settled: number;
+  voided: number;
+}

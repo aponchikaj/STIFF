@@ -17,6 +17,7 @@ import {
   IconSeason,
   IconShop,
   IconTasks,
+  IconWars,
 } from "./nav-icons";
 import { useSession } from "./providers";
 import { ThemeToggle } from "./theme-toggle";
@@ -56,6 +57,7 @@ const GROUPS: NavGroup[] = [
     items: [
       { href: "/review", label: "Review", icon: IconReview },
       { href: "/reports", label: "Reports", icon: IconReports },
+      { href: "/wars", label: "Clan wars", icon: IconWars },
       { href: "/players", label: "Players", icon: IconPlayers },
       { href: "/board", label: "Board", icon: IconBoard },
     ],

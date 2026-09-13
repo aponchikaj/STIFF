@@ -37,6 +37,10 @@ import type {
   SettleInput,
   SweepsResult,
   UpdateShopItemInput,
+  WarFilter,
+  WarRules,
+  WarTickReport,
+  WarView,
 } from "./game-types";
 
 /**
@@ -347,4 +351,37 @@ export function reopenReport(
   reportId: string,
 ): Promise<{ report: AdminReportView }> {
   return apiFetch(`${REPORTS}/${id(reportId)}/reopen`, { method: "POST" });
+}
+
+// ------------------------------------------------------------- clan wars --
+
+/** Every war in the live season, with the rules they run under. */
+export function listWars(
+  filter?: WarFilter,
+): Promise<{ wars: WarView[]; rules: WarRules }> {
+  return apiFetch(`${ADMIN}/wars`, { query: { filter } });
+}
+
+/**
+ * Settles now, on whatever has been judged. For a war stuck in `judging` on
+ * a hand-in nobody is going to review. Pays the book.
+ */
+export function settleWar(warId: string): Promise<{ war: WarView }> {
+  return apiFetch(`${ADMIN}/wars/${id(warId)}/settle`, { method: "POST" });
+}
+
+/** Calls it off and refunds every stake. The bettors are told the reason. */
+export function voidWar(
+  warId: string,
+  reason: string,
+): Promise<{ war: WarView }> {
+  return apiFetch(`${ADMIN}/wars/${id(warId)}/void`, {
+    method: "POST",
+    body: { reason },
+  });
+}
+
+/** Runs the war clock now: starts, ends and settles whatever is due. */
+export function tickWars(): Promise<WarTickReport> {
+  return apiFetch(`${ADMIN}/wars/tick`, { method: "POST" });
 }

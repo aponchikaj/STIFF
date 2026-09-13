@@ -104,3 +104,12 @@ export const IconExternal = (p: Props) => (
     <path d="M11 3.5h5.5V9M16 3.5 9 10.5" />
   </Svg>
 );
+
+/** Clan wars — two crossed blades. */
+export const IconWars = (p: Props) => (
+  <Svg {...p}>
+    <path d="m3 3 8.5 8.5M3 3h3.5M3 3v3.5" />
+    <path d="m17 3-8.5 8.5M17 3h-3.5M17 3v3.5" />
+    <path d="m6 14-2.5 2.5M14 14l2.5 2.5M8.5 11.5 6 14M11.5 11.5 14 14" />
+  </Svg>
+);
