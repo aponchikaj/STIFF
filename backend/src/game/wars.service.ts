@@ -295,6 +295,97 @@ export class WarsService {
     return this.view(await this.load(warId), me);
   }
 
+  /**
+   * The game organises a war itself.
+   *
+   * For events, and — until the player app exists — the only way a war
+   * starts at all. It skips the challenge-and-accept step, so it lands
+   * straight in `accepted` with the book open and the rake frozen, exactly
+   * as an accepted player challenge would. The clans are told; nothing is
+   * staked on their behalf, and they are not obliged to play.
+   *
+   * Recorded as proposed by the challenger's leader, because the column
+   * names an enrolment and an admin is not one. The audit log carries who
+   * actually pressed the button.
+   */
+  async organize(input: {
+    challengerClanId: string;
+    opponentClanId: string;
+    startsAt?: string;
+  }): Promise<WarView> {
+    if (input.challengerClanId === input.opponentClanId) {
+      throw new BadRequestException('A clan cannot go to war with itself.');
+    }
+    const season = await this.seasons.requireCurrent();
+    if (season.status !== 'running') {
+      throw new ConflictException(
+        'Wars can only be fought while the season is running.',
+      );
+    }
+    const startsAt = this.parseStart(input.startsAt);
+    const endsAt = new Date(startsAt.getTime() + WAR_DURATION_HOURS * HOUR);
+
+    const warId = await this.dataSource.transaction(async (m) => {
+      const clans = await this.lockClans(m, [
+        input.challengerClanId,
+        input.opponentClanId,
+      ]);
+      const challenger = clans.find((c) => c.id === input.challengerClanId);
+      const opponent = clans.find((c) => c.id === input.opponentClanId);
+      if (!challenger || !opponent) {
+        throw new NotFoundException('One of those clans does not exist.');
+      }
+      if (
+        challenger.seasonId !== season.id ||
+        opponent.seasonId !== season.id
+      ) {
+        throw new ConflictException('Both clans must be in the live season.');
+      }
+      if (challenger.status !== 'full' || opponent.status !== 'full') {
+        throw new ConflictException('Both clans need a full roster to fight.');
+      }
+      await this.assertNotAtWar(m, [challenger.id, opponent.id]);
+
+      const leader = await m.findOne(GameClanMember, {
+        where: { clanId: challenger.id, role: 'leader' },
+      });
+      if (!leader) throw new NotFoundException('That clan has no leader.');
+
+      const [row] = returnedRows(
+        await m.query(
+          `INSERT INTO "game_clan_wars"
+             ("seasonId", "challengerClanId", "opponentClanId", "proposedById",
+              "status", "startsAt", "endsAt", "acceptedAt", "rakePercent")
+           VALUES ($1, $2, $3, $4, 'accepted', $5, $6, now(), $7)
+           RETURNING "id"`,
+          [
+            season.id,
+            challenger.id,
+            opponent.id,
+            leader.enrolmentId,
+            startsAt,
+            endsAt,
+            warRakePercent(this.config),
+          ],
+        ),
+      ) as { id: string }[];
+      return row.id;
+    });
+
+    const war = await this.load(warId);
+    for (const [clanId, other] of [
+      [war.challengerClanId, war.opponentClan.name],
+      [war.opponentClanId, war.challengerClan.name],
+    ] as const) {
+      await this.tellClan(
+        clanId,
+        'The game has set you a war',
+        `You face ${other} starting ${this.when(war.startsAt)}, for four hours. Betting is open now.`,
+      );
+    }
+    return this.view(war, null);
+  }
+
   // ===================================================================== book
 
   /**
