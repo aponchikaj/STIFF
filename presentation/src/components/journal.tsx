@@ -18,11 +18,8 @@ import { useBook } from "./use-book";
  * A stack of leaves standing in a stage that is as tall as the viewport
  * allows. Wide screens get a two-page spread; anything narrower than a small
  * laptop, or in portrait, gets one tall page. The URL is the page state —
- * `#/7` is page seven, the same scheme the slide deck at /deck uses.
- *
- * The journal is the whole book: every slide plus the rulebook pages marked
- * `journalOnly`, which the presented deck leaves out. Page numbers therefore
- * run ahead of slide numbers once the first rulebook page is passed.
+ * `#/7` is page seven, the same scheme the slide deck at /deck uses, so a
+ * link works in both.
  */
 
 const TOTAL = SLIDES.length;
@@ -187,10 +184,13 @@ export function Journal() {
 
   const closed = turned === 0;
   const finished = spread && turned === maxTurned;
+  // Only an even book ends on a lone verso. An odd one's last spread is a
+  // full pair, and sliding it would push the final page off the screen.
+  const lastAlone = finished && TOTAL % 2 === 0;
   // Closed, the cover sits in the middle of the screen rather than in the
   // right half of an invisible spread, so the whole book slides half a page
   // across and slides back as it opens. Mirrored at the far end.
-  const shift = spread ? (closed ? "-25%" : finished ? "25%" : "0%") : "0%";
+  const shift = spread ? (closed ? "-25%" : lastAlone ? "25%" : "0%") : "0%";
 
   const counter = closed
     ? "Cover"
@@ -210,7 +210,7 @@ export function Journal() {
           style={{ transform: `translateX(${shift})` }}
         >
           <div className="book-shadow book-shadow-l" style={{ opacity: closed ? 0 : 1 }} aria-hidden />
-          <div className="book-shadow book-shadow-r" style={{ opacity: finished ? 0 : 1 }} aria-hidden />
+          <div className="book-shadow book-shadow-r" style={{ opacity: lastAlone ? 0 : 1 }} aria-hidden />
           <span
             className="book-edge book-edge-l"
             style={{ width: `${turned * EDGE_PX}px` }}
@@ -361,7 +361,7 @@ export function Journal() {
                   <td>
                     <kbd>?</kbd>
                   </td>
-                  <td>This card. The URL always carries the page number. /deck is the presented cut as 16:9 slides, without the rulebook pages.</td>
+                  <td>This card. The URL always carries the page number. /deck is the same fifteen pages as 16:9 slides.</td>
                 </tr>
               </tbody>
             </table>

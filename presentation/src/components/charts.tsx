@@ -1,15 +1,15 @@
-import type { ChartId } from "@/content/deck";
+import { MODEL, seasonBook, type ChartId } from "@/content/deck";
 
 /**
- * Three charts, drawn in HTML.
+ * Four charts, drawn in HTML.
  *
  * A bar is a rectangle, which a div does natively, and this way every label is
  * real text in the slide's own type scale. House style: no gridlines, no
  * legend boxes, one hairline, the value set large beside its bar, and the
  * solid colour used once per chart to mark the thing the slide is about.
  *
- * Figures are quoted from docs/game/hosting.md. The revenue split is the one
- * projection in the deck and carries a PROJECTED stamp. The war book is a
+ * Figures are quoted from docs/game/hosting.md. The season projection is
+ * computed from `MODEL` and carries a PROJECTED stamp. The war book is a
  * worked example of `settleWarBook` in backend/src/game/rules.ts, computed
  * here by the same arithmetic rather than typed in.
  */
@@ -174,58 +174,41 @@ function R2VsAws() {
   );
 }
 
-function RevenueSplit() {
-  const parts = [
-    { label: "Coin bundles", pct: 40, note: "by card, via TBC and BOG" },
-    { label: "Season pass", pct: 30, note: "sold before the season opens" },
-    { label: "Sponsorship", pct: 20, note: "not before season two" },
-    { label: "Shop", pct: 10, note: "the number that matters" },
-  ];
+/**
+ * Revenue against cost, season by season.
+ *
+ * Nothing here is typed in: every figure is `seasonBook()` over `MODEL`, the
+ * same source the unit-economics page quotes, so a changed assumption moves
+ * the chart and the headline together.
+ */
+function RevenueSeasons() {
+  const books = MODEL.seasons.map((s) => ({ season: s, book: seasonBook(s) }));
+  const MAX = Math.max(...books.map((b) => b.book.revenueUsd));
+  const k = (n: number) => `$${(n / 1000).toFixed(1)}k`;
   return (
-    <Frame caption="Planning assumptions, not measurements — season one has not run. Sponsorship is last because it is the only source that needs an audience you already have.">
-      <div className="flex items-center" style={{ gap: u(1.5) }}>
-        <span
-          className="t-eyebrow border"
-          style={{
-            borderColor: "var(--fg)",
-            color: "var(--fg)",
-            padding: `${u(0.55)} ${u(1.2)}`,
-          }}
-        >
-          Projected
-        </span>
-        <span className="h-px flex-1" style={{ background: "var(--rule)" }} />
-      </div>
-      <div className="flex w-full overflow-hidden" style={{ height: u(6) }}>
-        {parts.map((p, i) => (
-          <div
-            key={p.label}
-            style={{
-              width: `${p.pct}%`,
-              background: i === 3 ? "var(--bar)" : "var(--bar-soft)",
-              opacity: i === 3 ? 1 : 1 - i * 0.24,
-            }}
-          />
-        ))}
-      </div>
-      <div className="flex flex-col" style={{ gap: u(0.9) }}>
-        {parts.map((p, i) => (
-          <div
-            key={p.label}
-            className="hair flex items-baseline border-b"
-            style={{ gap: u(2.4), paddingBottom: u(0.9) }}
-          >
-            <span className="t-mid num w-[12%] shrink-0">{p.pct}%</span>
-            <span
-              className="t-body flex-1"
-              style={{ color: "var(--fg)", fontWeight: i === 3 ? 600 : 400 }}
-            >
-              {p.label}
-            </span>
-            <span className="t-small">{p.note}</span>
-          </div>
-        ))}
-      </div>
+    <Frame
+      caption={`Projected revenue per three-day season, in US dollars at ₾${MODEL.fx} to $1, drawn to scale: coins, pass, shop orders and sponsored dares. Cost is hosting, media and AI — not the team, prizes or garments.`}
+    >
+      <span
+        className="t-eyebrow self-start border"
+        style={{
+          borderColor: "var(--fg)",
+          color: "var(--fg)",
+          padding: `${u(0.55)} ${u(1.2)}`,
+        }}
+      >
+        Projected
+      </span>
+      {books.map(({ season, book }) => (
+        <Bar
+          key={season.name}
+          label={season.name}
+          sub={`${season.participants.toLocaleString("en-US")} people · cost ${k(book.costUsd)} · net ${k(book.contributionUsd)}`}
+          value={k(book.revenueUsd)}
+          pct={(book.revenueUsd / MAX) * 100}
+          solid={book === books[books.length - 1].book}
+        />
+      ))}
     </Frame>
   );
 }
@@ -292,7 +275,7 @@ const CHARTS: Record<ChartId, () => React.ReactElement> = {
   "war-book": WarBook,
   "monthly-bill": MonthlyBill,
   "r2-vs-aws": R2VsAws,
-  "revenue-split": RevenueSplit,
+  "revenue-seasons": RevenueSeasons,
 };
 
 export function Chart({ id }: { id: ChartId }) {
