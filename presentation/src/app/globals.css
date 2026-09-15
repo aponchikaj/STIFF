@@ -1235,6 +1235,55 @@ kbd {
   color: var(--mute);
 }
 
+/* Rulebook tables. The first column is the rule, set in ink; the values
+   share what is left. */
+.pg-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.pg-table-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+  column-gap: calc(2.2 * var(--u));
+  row-gap: calc(0.3 * var(--u));
+  align-items: baseline;
+  padding: calc(0.9 * var(--u)) 0;
+}
+
+.pg-table[data-cols="3"] .pg-table-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 1.3fr);
+}
+
+.pg-table[data-cols="4"] .pg-table-row {
+  grid-template-columns: minmax(0, 1fr) repeat(3, minmax(0, 0.8fr));
+}
+
+.pg-table-head {
+  padding-top: 0;
+}
+
+.pg-table-key {
+  font-size: calc(2.05 * var(--u));
+  line-height: 1.3;
+  font-weight: 600;
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
+
+.pg-table-val {
+  font-size: calc(1.9 * var(--u));
+  line-height: 1.35;
+  color: var(--mute);
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+.pg-table-row.is-strong .pg-table-val {
+  color: var(--fg);
+  font-weight: 600;
+}
+
 .page-blank {
   background: var(--white);
 }
@@ -1257,6 +1306,26 @@ kbd {
   }
   .pg-two {
     gap: calc(3 * var(--u));
+  }
+  /* A row becomes a small block: the rule, then its values beneath. */
+  .pg-table .pg-table-row,
+  .pg-table[data-cols] .pg-table-row {
+    grid-template-columns: 1fr;
+  }
+  .pg-table-head {
+    display: none;
+  }
+  .pg-table-val[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-top: calc(0.5 * var(--u));
+    font-family: var(--label);
+    font-size: calc(1.4 * var(--u));
+    font-weight: 400;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--mute);
+    opacity: 0.75;
   }
 }
 

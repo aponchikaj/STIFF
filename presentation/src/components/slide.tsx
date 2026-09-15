@@ -10,6 +10,7 @@ import {
   type Slide,
   type Stat,
   type Step,
+  type TableRow,
 } from "@/content/deck";
 import { Asterisk } from "./asterisk";
 import { Chart } from "./charts";
@@ -174,6 +175,9 @@ function Body({ slide }: { slide: Slide }) {
 
     case "roadmap":
       return <Roadmap levels={slide.levels} />;
+
+    case "table":
+      return <Table columns={slide.columns} rows={slide.rows} />;
 
     case "ask":
       return <Ask />;
@@ -471,8 +475,15 @@ function Ladder({ days }: { days: LadderDay[] }) {
               {d.cap} · {d.clock} clock
             </span>
           </span>
-          <span className="t-big num" style={{ fontSize: u(6.2) }}>
-            {d.count}
+          <span className="flex flex-col items-end">
+            <span className="t-big num" style={{ fontSize: u(6.2) }}>
+              {d.count}
+            </span>
+            {d.unit ? (
+              <span className="t-eyebrow" style={{ marginTop: u(0.4) }}>
+                {d.unit}
+              </span>
+            ) : null}
           </span>
         </div>
       ))}
@@ -626,14 +637,62 @@ function Roadmap({ levels }: { levels: Level[] }) {
   );
 }
 
+/* ---------------------------------------------------------------- table -- */
+
+function Table({ columns, rows }: { columns: string[]; rows: TableRow[] }) {
+  // The first column names the rule; the value columns share what is left.
+  const template =
+    columns.length === 2
+      ? "minmax(0, 0.9fr) minmax(0, 1.6fr)"
+      : `minmax(0, 0.9fr) repeat(${columns.length - 1}, minmax(0, 1fr))`;
+  const row: React.CSSProperties = {
+    gridTemplateColumns: template,
+    gap: u(2.2),
+    padding: `${u(0.55)} 0`,
+  };
+  return (
+    <div className="flex flex-col">
+      <div className="ink grid items-baseline border-b" style={{ ...row, paddingTop: 0 }}>
+        {columns.map((c) => (
+          <span key={c} className="t-eyebrow" style={{ fontSize: u(1.05) }}>
+            {c}
+          </span>
+        ))}
+      </div>
+      {rows.map((r) => (
+        <div
+          key={r.cells[0]}
+          className={`grid items-baseline border-b ${r.strong ? "ink" : "hair"}`}
+          style={row}
+        >
+          {r.cells.map((c, i) => (
+            <span
+              key={i}
+              style={{
+                fontSize: i === 0 ? u(1.5) : u(1.4),
+                lineHeight: 1.3,
+                fontWeight: i === 0 || r.strong ? 600 : 400,
+                color: i === 0 || r.strong ? "var(--fg)" : "var(--mute)",
+              }}
+            >
+              {c}
+            </span>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ----------------------------------------------------------------- arch -- */
 
 function Arch() {
   const sites = [
     { host: "stiff.ge", role: "the shop", state: "live · holding page until launch" },
     { host: "staff.stiff.ge", role: "staff workspace", state: "live" },
-    { host: "admin.stiff.ge", role: "admin panel", state: "live" },
-    { host: "stiff.co", role: "the game", state: "API built · app next", dashed: true },
+    { host: "admin.stiff.ge", role: "shop admin panel", state: "live" },
+    { host: "admin.stiff.co", role: "game control room", state: "built · 13 screens" },
+    { host: "stiff.co", role: "the game", state: "API built · player app next", dashed: true },
   ];
   const services = [
     { name: "Supabase", role: "Postgres, Frankfurt" },
@@ -647,10 +706,10 @@ function Arch() {
   });
   return (
     <div className="flex h-full flex-col justify-center" style={{ gap: u(1.6) }}>
-      <div className="cols-4" style={{ gap: u(1.6) }}>
+      <div className="grid" style={{ gap: u(1.6), gridTemplateColumns: "repeat(5, minmax(0, 1fr))" }}>
         {sites.map((s) => (
           <div key={s.host} style={box(s.dashed)}>
-            <div className="t-body num" style={{ color: "var(--fg)", fontWeight: 600, fontSize: u(1.9) }}>
+            <div className="t-body num" style={{ color: "var(--fg)", fontWeight: 600, fontSize: u(1.65) }}>
               {s.host}
             </div>
             <div className="t-small">{s.role}</div>

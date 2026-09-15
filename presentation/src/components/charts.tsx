@@ -9,7 +9,9 @@ import type { ChartId } from "@/content/deck";
  * solid colour used once per chart to mark the thing the slide is about.
  *
  * Figures are quoted from docs/game/hosting.md. The revenue split is the one
- * projection in the deck and carries a PROJECTED stamp.
+ * projection in the deck and carries a PROJECTED stamp. The war book is a
+ * worked example of `settleWarBook` in backend/src/game/rules.ts, computed
+ * here by the same arithmetic rather than typed in.
  */
 
 const u = (n: number) => `calc(${n} * var(--u))`;
@@ -228,7 +230,66 @@ function RevenueSplit() {
   );
 }
 
+/**
+ * The book on one clan war, settled.
+ *
+ * Parimutuel: the winners split the losers' pool in proportion to their
+ * stakes, after the house takes `RAKE`% of the losing pool. The shares here
+ * divide evenly, so the largest-remainder pass in the real function has
+ * nothing to hand out; the identity it guarantees is shown on the chart.
+ */
+function WarBook() {
+  const RAKE = 10;
+  const bets = [
+    { who: "Bettor A", side: "Wolves", won: true, stake: 200 },
+    { who: "Bettor B", side: "Wolves", won: true, stake: 100 },
+    { who: "Bettor C", side: "Crows", won: false, stake: 60 },
+    { who: "Bettor D", side: "Crows", won: false, stake: 40 },
+  ];
+  const winPool = bets.filter((b) => b.won).reduce((n, b) => n + b.stake, 0);
+  const losePool = bets.filter((b) => !b.won).reduce((n, b) => n + b.stake, 0);
+  const rake = Math.floor((losePool * RAKE) / 100);
+  const distributable = losePool - rake;
+  const rows = bets.map((b) => ({
+    ...b,
+    payout: b.won
+      ? b.stake + Math.floor((b.stake * distributable) / winPool)
+      : 0,
+  }));
+  const paid = rows.reduce((n, r) => n + r.payout, 0);
+  const MAX = Math.max(...rows.map((r) => Math.max(r.stake, r.payout)));
+
+  return (
+    <Frame
+      caption={`Wolves beat Crows. Crows' ${losePool} coins are the losing pool; the house keeps ${rake} (${RAKE}%), and ${distributable} is split ${bets[0].stake}:${bets[1].stake} between the Wolves' backers. Paid ${paid} + rake ${rake} = staked ${winPool + losePool}, exactly — the property the server's test holds over 400 random books.`}
+    >
+      {rows.map((r) => (
+        <div key={r.who} className="flex flex-col" style={{ gap: u(0.4) }}>
+          <Bar
+            label={r.who}
+            sub={`backed ${r.side} · staked ${r.stake}`}
+            value={r.won ? `${r.payout}` : "0"}
+            pct={(r.payout / MAX) * 100}
+            solid={r.won}
+          />
+        </div>
+      ))}
+      <div className="flex" style={{ gap: u(4), marginTop: u(0.6) }}>
+        <span className="t-eyebrow flex items-center" style={{ gap: u(1), color: "var(--fg)" }}>
+          <span
+            className="inline-block"
+            style={{ width: u(3), height: u(1.3), background: "var(--bar)" }}
+          />
+          Coins back: stake plus share
+        </span>
+        <span className="t-eyebrow">House rake: {rake} coins, never money</span>
+      </div>
+    </Frame>
+  );
+}
+
 const CHARTS: Record<ChartId, () => React.ReactElement> = {
+  "war-book": WarBook,
   "monthly-bill": MonthlyBill,
   "r2-vs-aws": R2VsAws,
   "revenue-split": RevenueSplit,

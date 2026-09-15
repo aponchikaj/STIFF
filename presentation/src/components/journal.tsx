@@ -18,8 +18,11 @@ import { useBook } from "./use-book";
  * A stack of leaves standing in a stage that is as tall as the viewport
  * allows. Wide screens get a two-page spread; anything narrower than a small
  * laptop, or in portrait, gets one tall page. The URL is the page state —
- * `#/7` is page seven, the same scheme the slide deck at /deck uses, so a
- * link works in both.
+ * `#/7` is page seven, the same scheme the slide deck at /deck uses.
+ *
+ * The journal is the whole book: every slide plus the rulebook pages marked
+ * `journalOnly`, which the presented deck leaves out. Page numbers therefore
+ * run ahead of slide numbers once the first rulebook page is passed.
  */
 
 const TOTAL = SLIDES.length;
@@ -358,7 +361,7 @@ export function Journal() {
                   <td>
                     <kbd>?</kbd>
                   </td>
-                  <td>This card. The URL always carries the page number; /deck is the same content as 16:9 slides.</td>
+                  <td>This card. The URL always carries the page number. /deck is the presented cut as 16:9 slides, without the rulebook pages.</td>
                 </tr>
               </tbody>
             </table>

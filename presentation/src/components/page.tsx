@@ -11,6 +11,7 @@ import {
   type Slide,
   type Stat,
   type Step,
+  type TableRow,
 } from "@/content/deck";
 import { Asterisk } from "./asterisk";
 import { Chart } from "./charts";
@@ -226,6 +227,8 @@ function Body({ slide }: { slide: Slide }) {
       return <Dares dares={slide.dares} />;
     case "roadmap":
       return <Roadmap levels={slide.levels} />;
+    case "table":
+      return <Table columns={slide.columns} rows={slide.rows} />;
     case "ask":
       return <Ask />;
     default:
@@ -416,8 +419,15 @@ function Ladder({ days }: { days: LadderDay[] }) {
               {d.cap} · {d.clock} clock
             </span>
           </span>
-          <span className="t-big num" style={{ fontSize: u(6.4) }}>
-            {d.count}
+          <span className="flex flex-col items-end">
+            <span className="t-big num" style={{ fontSize: u(6.4) }}>
+              {d.count}
+            </span>
+            {d.unit ? (
+              <span className="t-eyebrow" style={{ marginTop: u(0.4) }}>
+                {d.unit}
+              </span>
+            ) : null}
           </span>
         </div>
       ))}
@@ -533,14 +543,54 @@ function Roadmap({ levels }: { levels: Level[] }) {
   );
 }
 
+/* ---------------------------------------------------------------- table -- */
+
+/**
+ * A rulebook table. The first column names the rule and is set in ink; the
+ * rest are the values. A narrow page stacks each row rather than squeezing
+ * three columns into a phone, and labels each value with its column.
+ */
+function Table({ columns, rows }: { columns: string[]; rows: TableRow[] }) {
+  return (
+    <div className="pg-table" data-cols={columns.length}>
+      <div className="pg-table-row pg-table-head ink border-b">
+        {columns.map((c) => (
+          <span key={c} className="t-eyebrow">
+            {c}
+          </span>
+        ))}
+      </div>
+      {rows.map((r) => (
+        <div
+          key={r.cells[0]}
+          className={`pg-table-row hair border-b ${r.strong ? "is-strong" : ""}`}
+        >
+          {r.cells.map((c, i) => (
+            <span
+              key={i}
+              className={i === 0 ? "pg-table-key" : "pg-table-val"}
+              // Read by the narrow-page CSS, where the header row is hidden
+              // and each value has to say which column it came from.
+              data-label={i === 0 ? undefined : columns[i]}
+            >
+              {c}
+            </span>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ----------------------------------------------------------------- arch -- */
 
 function Arch() {
   const sites = [
     { host: "stiff.ge", role: "the shop", state: "live · holding page until launch" },
     { host: "staff.stiff.ge", role: "staff workspace", state: "live" },
-    { host: "admin.stiff.ge", role: "admin panel", state: "live" },
-    { host: "stiff.co", role: "the game", state: "API built · app next", dashed: true },
+    { host: "admin.stiff.ge", role: "shop admin panel", state: "live" },
+    { host: "admin.stiff.co", role: "game control room", state: "built · 13 screens" },
+    { host: "stiff.co", role: "the game", state: "API built · player app next", dashed: true },
   ];
   const services = [
     { name: "Supabase", role: "Postgres, Frankfurt" },
@@ -557,6 +607,9 @@ function Arch() {
             style={{
               border: `1px ${s.dashed ? "dashed" : "solid"} var(--fg)`,
               padding: `${u(1.2)} ${u(1.5)}`,
+              // Five sites on a two-column page: the one not built yet takes
+              // the whole last row rather than leaving a hole beside it.
+              gridColumn: s.dashed ? "1 / -1" : undefined,
             }}
           >
             <div className="t-body num" style={{ color: "var(--fg)", fontWeight: 600 }}>
