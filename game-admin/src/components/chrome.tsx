@@ -20,6 +20,7 @@ import {
   IconReview,
   IconSeason,
   IconShop,
+  IconOpals,
   IconTasks,
   IconWars,
 } from "./nav-icons";
@@ -85,6 +86,7 @@ const GROUPS: NavGroup[] = [
       { href: "/seasons", label: "Seasons", icon: IconSeason },
       { href: "/tasks", label: "Tasks", icon: IconTasks },
       { href: "/shop", label: "Coin shop", icon: IconShop },
+      { href: "/opals", label: "Opal packs", icon: IconOpals },
     ],
   },
 ];

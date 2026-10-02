@@ -838,3 +838,63 @@ export interface AdjustCoinsResult {
   coins: number;
   reason: string;
 }
+
+// ---------------------------------------------------------------- opals --
+
+export type OpalPackStatus = "draft" | "live" | "archived";
+export type OpalOrderStatus = "pending" | "paid" | "failed";
+export type OpalPaymentMethod = "card_tbc" | "card_bog";
+
+/** A bundle of opals sold for lari. `priceCents` is tetri: 500 = 5.00 GEL. */
+export interface GameOpalPack {
+  id: string;
+  name: string;
+  opals: number;
+  priceCents: number;
+  badge: string | null;
+  status: OpalPackStatus;
+  sortOrder: number;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateOpalPackInput {
+  name: string;
+  opals: number;
+  priceCents: number;
+  badge?: string;
+  status?: OpalPackStatus;
+  sortOrder?: number;
+}
+
+export type UpdateOpalPackInput = Partial<{
+  name: string;
+  opals: number;
+  priceCents: number;
+  /** Null or "" removes it. */
+  badge: string | null;
+  status: OpalPackStatus;
+  sortOrder: number;
+}>;
+
+/**
+ * One attempt to buy a pack. Name, opals and price are snapshots of the
+ * pack at checkout; `testMode` orders moved no money.
+ */
+export interface GameOpalOrder {
+  id: string;
+  userId: string;
+  enrolmentId: string | null;
+  packId: string | null;
+  packName: string;
+  opals: number;
+  priceCents: number;
+  paymentMethod: OpalPaymentMethod;
+  status: OpalOrderStatus;
+  reference: string | null;
+  testMode: boolean;
+  paidAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

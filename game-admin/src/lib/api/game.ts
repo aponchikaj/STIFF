@@ -1,5 +1,11 @@
 import { apiFetch } from "./client";
 import type {
+  CreateOpalPackInput,
+  GameOpalOrder,
+  GameOpalPack,
+  OpalOrderStatus,
+  OpalPackStatus,
+  UpdateOpalPackInput,
   AdjustCoinsResult,
   AdjustScoreInput,
   AttemptRow,
@@ -475,4 +481,35 @@ export function adjustCoins(
     method: "POST",
     body: input,
   });
+}
+
+// ---------------------------------------------------------------- opals --
+
+/** The opal price list, every status. Live packs are what players can buy. */
+export function listOpalPacks(params?: {
+  status?: OpalPackStatus;
+}): Promise<{ packs: GameOpalPack[] }> {
+  return apiFetch(`${ADMIN}/opals/packs`, { query: { ...params } });
+}
+
+export function createOpalPack(input: CreateOpalPackInput): Promise<GameOpalPack> {
+  return apiFetch(`${ADMIN}/opals/packs`, { method: "POST", body: input });
+}
+
+/** Reprice, rename, publish, archive. Past orders keep what they paid. */
+export function updateOpalPack(
+  packId: string,
+  input: UpdateOpalPackInput,
+): Promise<GameOpalPack> {
+  return apiFetch(`${ADMIN}/opals/packs/${id(packId)}`, {
+    method: "PATCH",
+    body: input,
+  });
+}
+
+export function listOpalOrders(params?: {
+  status?: OpalOrderStatus;
+  limit?: number;
+}): Promise<{ orders: GameOpalOrder[] }> {
+  return apiFetch(`${ADMIN}/opals/orders`, { query: { ...params } });
 }

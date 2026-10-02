@@ -83,6 +83,14 @@ export const IconShop = (p: Props) => (
   </Svg>
 );
 
+/** Opals — a cut gem. What players buy with lari. */
+export const IconOpals = (p: Props) => (
+  <Svg {...p}>
+    <path d="M6 3.5h8l3 4.2-7 9-7-9z" />
+    <path d="M3 7.7h14M8 3.5 7 7.7l3 9M12 3.5l1 4.2-3 9" />
+  </Svg>
+);
+
 /** Reports — a flag. Someone raised it; someone has to lower it. */
 export const IconReports = (p: Props) => (
   <Svg {...p}>
