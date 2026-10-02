@@ -10,6 +10,7 @@ import { rowsAffected } from '../common/utils/returned-rows';
 import { User } from '../users/user.entity';
 import { GameAttemptComment } from './entities/game-attempt-comment.entity';
 import { GameAttemptReaction } from './entities/game-attempt-reaction.entity';
+import { GameTaskTemplate } from './entities/game-task-template.entity';
 import { GameAttempt } from './entities/game-attempt.entity';
 import {
   GameEnrolment,
@@ -41,6 +42,24 @@ export interface FeedItem {
   publishedAt: string;
   /** What the share sheet turns into a story card. */
   shareUrl: string;
+  /**
+   * The task this is proof of, so a viewer knows what they are watching —
+   * and, voting, what they are judging it against. Null for an attempt
+   * handed in against no task, or whose task has since been deleted.
+   * Everything here is already public in the task pool.
+   */
+  task: FeedTask | null;
+}
+
+export interface FeedTask {
+  title: string;
+  brief: string;
+  mode: 'solo' | 'team';
+  proof: 'photo' | 'video' | 'either';
+  rewardNerve: number;
+  rewardCoins: number;
+  /** What the watchers check, as the sentences they judge. */
+  criteria: string[];
 }
 
 export interface FeedPage {
@@ -102,6 +121,7 @@ export class FeedService {
       .createQueryBuilder('attempt')
       .innerJoin('attempt.enrolment', 'enrolment')
       .addSelect(['enrolment.handle', 'enrolment.nerve', 'enrolment.status'])
+      .leftJoinAndSelect('attempt.taskTemplate', 'task')
       .where('attempt.seasonId = :seasonId', { seasonId: season.id })
       .andWhere('attempt.status = :status', { status: 'published' })
       .andWhere('attempt.publishedAt IS NOT NULL')
@@ -143,7 +163,7 @@ export class FeedService {
   async getOne(user: User | null, id: string): Promise<FeedItem> {
     const attempt = await this.attemptRepo.findOne({
       where: { id, status: 'published', hiddenAt: IsNull() },
-      relations: { enrolment: true },
+      relations: { enrolment: true, taskTemplate: true },
     });
     if (!attempt) throw new NotFoundException('Not found');
     const liked = await this.likedAmong(user, [attempt]);
@@ -365,8 +385,33 @@ export class FeedService {
       likedByMe: user ? liked.has(attempt.id) : null,
       publishedAt: (attempt.publishedAt ?? attempt.createdAt).toISOString(),
       shareUrl: shareUrlFor(attempt.id),
+      task: toFeedTask(attempt.taskTemplate),
     };
   }
+}
+
+/** The public face of a task, as the feed shows it. */
+function toFeedTask(
+  template: GameTaskTemplate | null | undefined,
+): FeedTask | null {
+  if (!template) return null;
+  const criteria = (template.criteria ?? [])
+    .map((c) => {
+      const record = c as { assert?: unknown; label?: unknown };
+      const text =
+        typeof record.assert === 'string' ? record.assert : record.label;
+      return typeof text === 'string' ? text.trim() : '';
+    })
+    .filter((text) => text.length > 0);
+  return {
+    title: template.title,
+    brief: template.brief,
+    mode: template.mode,
+    proof: template.proof,
+    rewardNerve: template.rewardNerve,
+    rewardCoins: template.rewardCoins,
+    criteria,
+  };
 }
 
 /** Where the share card points. The game origin, never the shop's. */
