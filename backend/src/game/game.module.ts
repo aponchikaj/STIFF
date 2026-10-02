@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { PaymentsModule } from '../payments/payments.module';
 import { User } from '../users/user.entity';
 import { AssignmentsService } from './assignments.service';
 import { AttemptsService } from './attempts.service';
@@ -22,6 +23,8 @@ import {
   GameCoinLedger,
   GameEnrolment,
   GameGenerationRejection,
+  GameOpalOrder,
+  GameOpalPack,
   GamePurchase,
   GameReport,
   GameShopItem,
@@ -37,6 +40,9 @@ import { FeedService } from './feed.service';
 import { GameController } from './game.controller';
 import { LeaderboardService } from './leaderboard.service';
 import { MediaStorageService } from './media-storage.service';
+import { OpalCarryService } from './opal-carry.service';
+import { OpalsController } from './opals.controller';
+import { OpalsService } from './opals.service';
 import { ReportsAdminController } from './reports/reports-admin.controller';
 import { ReportsController } from './reports/reports.controller';
 import { ReportsService } from './reports/reports.service';
@@ -88,6 +94,8 @@ import { WarsService } from './wars.service';
       GameAttemptVote,
       GameShopItem,
       GamePurchase,
+      GameOpalPack,
+      GameOpalOrder,
       GameReport,
       // Not a game table. `EnrolmentsService` keeps the side someone picked
       // before there was a season to join and the date of birth the age gate
@@ -96,11 +104,15 @@ import { WarsService } from './wars.service';
     ]),
     AuthModule,
     NotificationsModule,
+    // Opals are sold through the shop's own card providers, so turning an
+    // acquirer on is one config change for both.
+    PaymentsModule,
   ],
   controllers: [
     GameController,
     ClansController,
     ShopController,
+    OpalsController,
     VotingController,
     ReportsController,
     ReportsAdminController,
@@ -127,6 +139,8 @@ import { WarsService } from './wars.service';
     ClansService,
     VerdictsService,
     ShopService,
+    OpalsService,
+    OpalCarryService,
     VoteResolverService,
     VotingService,
     CheatDetectorService,

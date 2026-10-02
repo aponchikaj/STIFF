@@ -38,6 +38,13 @@ import { User } from '../users/user.entity';
 import { CHARTER_HASH } from './ai/charter';
 import { DisciplineService } from './discipline.service';
 import { EconomyService } from './economy.service';
+import {
+  CreateOpalPackDto,
+  ListOpalOrdersQueryDto,
+  ListOpalPacksQueryDto,
+  UpdateOpalPackDto,
+} from './dto/opals.dto';
+import { OpalsService } from './opals.service';
 import { ShopService } from './shop.service';
 import { VotingService } from './voting.service';
 
@@ -66,6 +73,7 @@ export class GameAdminController {
     private readonly economy: EconomyService,
     private readonly shop: ShopService,
     private readonly voting: VotingService,
+    private readonly opals: OpalsService,
   ) {}
 
   @Get('seasons')
@@ -248,6 +256,38 @@ export class GameAdminController {
     @Body() dto: SetPurchaseStatusDto,
   ) {
     return this.shop.setPurchaseStatus(id, dto.status, dto.note);
+  }
+
+  // --------------------------------------------------------------- opals --
+
+  /**
+   * The opal price list. Packs are created as drafts and published by
+   * setting `status: 'live'`; `archived` takes one off sale without losing
+   * the orders that point at it. Edits never touch past orders — those
+   * snapshot the name, opals and price they were bought at.
+   */
+  @Get('opals/packs')
+  async opalPacks(@Query() query: ListOpalPacksQueryDto) {
+    return { packs: await this.opals.listAllPacks(query) };
+  }
+
+  @Post('opals/packs')
+  createOpalPack(@Body() dto: CreateOpalPackDto, @CurrentUser() admin: User) {
+    return this.opals.createPack(dto, admin);
+  }
+
+  @Patch('opals/packs/:id')
+  updateOpalPack(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateOpalPackDto,
+  ) {
+    return this.opals.updatePack(id, dto);
+  }
+
+  /** Who bought what, newest first. `testMode` rows moved no money. */
+  @Get('opals/orders')
+  async opalOrders(@Query() query: ListOpalOrdersQueryDto) {
+    return { orders: await this.opals.orders(query) };
   }
 
   // --------------------------------------------------------------- tasks --

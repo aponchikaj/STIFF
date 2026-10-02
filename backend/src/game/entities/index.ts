@@ -75,3 +75,13 @@ export {
   type WarOutcome,
   type WarSettlementReason,
 } from './game-clan-war.entity';
+export {
+  GameOpalPack,
+  GameOpalOrder,
+  OPAL_PACK_STATUSES,
+  OPAL_ORDER_STATUSES,
+  OPAL_PAYMENT_METHODS,
+  type OpalPackStatus,
+  type OpalOrderStatus,
+  type OpalPaymentMethod,
+} from './game-opal.entity';

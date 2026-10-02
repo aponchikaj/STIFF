@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { Order } from '../../orders/order.entity';
 import type {
+  Payable,
   PaymentMethod,
   PaymentProvider,
   PaymentStart,
@@ -43,7 +43,7 @@ export class BankTransferProvider implements PaymentProvider {
     return Boolean(this.accountName && this.iban);
   }
 
-  start(order: Order): Promise<PaymentStart> {
+  start(order: Payable): Promise<PaymentStart> {
     return Promise.resolve({
       kind: 'instructions',
       heading: 'Transfer to complete your order',
