@@ -10,6 +10,7 @@ import { User } from '../users/user.entity';
 import { GameEnrolment } from './entities/game-enrolment.entity';
 import { GameSeason } from './entities/game-season.entity';
 import { EnrolmentsService } from './enrolments.service';
+import { OpalCarryService } from './opal-carry.service';
 import { SeasonsService } from './seasons.service';
 
 /**
@@ -58,6 +59,8 @@ describe('EnrolmentsService', () => {
   let seasons: { current: jest.Mock; requireCurrent: jest.Mock };
   /** Settings by raw jsonb merge; the date of birth by a plain update. */
   let userRepo: { query: jest.Mock; update: jest.Mock };
+  /** Nothing to carry unless a test says otherwise — the common case. */
+  let opalCarry: { carryInto: jest.Mock };
 
   beforeEach(async () => {
     repo = {
@@ -94,12 +97,15 @@ describe('EnrolmentsService', () => {
       update: jest.fn().mockResolvedValue({ affected: 1 }),
     };
 
+    opalCarry = { carryInto: jest.fn().mockResolvedValue(0) };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EnrolmentsService,
         { provide: getRepositoryToken(GameEnrolment), useValue: repo },
         { provide: getRepositoryToken(User), useValue: userRepo },
         { provide: SeasonsService, useValue: seasons },
+        { provide: OpalCarryService, useValue: opalCarry },
       ],
     }).compile();
 
@@ -624,6 +630,49 @@ describe('EnrolmentsService', () => {
     it('does not care about the role when none is asked for', async () => {
       repo.findOne.mockResolvedValue({ id: 'e1', role: 'watcher' });
       await expect(service.require(USER)).resolves.toMatchObject({ id: 'e1' });
+    });
+  });
+
+  describe('bought opals from a closed season', () => {
+    const player = { id: 'u1', username: 'kate' } as User;
+
+    it('carries them in on join and returns the balance after', async () => {
+      opalCarry.carryInto.mockResolvedValueOnce(120);
+      repo.findOne.mockResolvedValueOnce({
+        id: 'e1',
+        seasonId: 's1',
+        userId: 'u1',
+        role: 'player',
+        handle: 'kate',
+        heartsRemaining: 3,
+        heartsTotal: 3,
+        nerve: 0,
+        coins: 120,
+      });
+
+      const view = await service.enrol(player, 'player');
+
+      expect(opalCarry.carryInto).toHaveBeenCalledWith('u1', {
+        id: 'e1',
+        seasonId: 's1',
+      });
+      expect(view.coins).toBe(120);
+    });
+
+    it('still lets them join when the carry fails', async () => {
+      opalCarry.carryInto.mockRejectedValueOnce(new Error('db hiccup'));
+
+      const view = await service.enrol(player, 'player');
+
+      expect(view.id).toBe('e1');
+      expect(view.coins).toBe(0);
+    });
+
+    it('does not re-read the enrolment when there was nothing to carry', async () => {
+      await service.enrol(player, 'player');
+
+      expect(opalCarry.carryInto).toHaveBeenCalledTimes(1);
+      expect(repo.findOne).not.toHaveBeenCalled();
     });
   });
 });

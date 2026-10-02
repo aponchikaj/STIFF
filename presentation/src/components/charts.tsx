@@ -1,15 +1,17 @@
-import type { ChartId } from "@/content/deck";
+import { MODEL, seasonBook, type ChartId } from "@/content/deck";
 
 /**
- * Three charts, drawn in HTML.
+ * Four charts, drawn in HTML.
  *
  * A bar is a rectangle, which a div does natively, and this way every label is
  * real text in the slide's own type scale. House style: no gridlines, no
  * legend boxes, one hairline, the value set large beside its bar, and the
  * solid colour used once per chart to mark the thing the slide is about.
  *
- * Figures are quoted from docs/game/hosting.md. The revenue split is the one
- * projection in the deck and carries a PROJECTED stamp.
+ * Figures are quoted from docs/game/hosting.md. The season projection is
+ * computed from `MODEL` and carries a PROJECTED stamp. The war book is a
+ * worked example of `settleWarBook` in backend/src/game/rules.ts, computed
+ * here by the same arithmetic rather than typed in.
  */
 
 const u = (n: number) => `calc(${n} * var(--u))`;
@@ -172,66 +174,108 @@ function R2VsAws() {
   );
 }
 
-function RevenueSplit() {
-  const parts = [
-    { label: "Coin bundles", pct: 40, note: "by card, via TBC and BOG" },
-    { label: "Season pass", pct: 30, note: "sold before the season opens" },
-    { label: "Sponsorship", pct: 20, note: "not before season two" },
-    { label: "Shop", pct: 10, note: "the number that matters" },
-  ];
+/**
+ * Revenue against cost, season by season.
+ *
+ * Nothing here is typed in: every figure is `seasonBook()` over `MODEL`, the
+ * same source the unit-economics page quotes, so a changed assumption moves
+ * the chart and the headline together.
+ */
+function RevenueSeasons() {
+  const books = MODEL.seasons.map((s) => ({ season: s, book: seasonBook(s) }));
+  const MAX = Math.max(...books.map((b) => b.book.revenueUsd));
+  const k = (n: number) => `$${(n / 1000).toFixed(1)}k`;
   return (
-    <Frame caption="Planning assumptions, not measurements — season one has not run. Sponsorship is last because it is the only source that needs an audience you already have.">
-      <div className="flex items-center" style={{ gap: u(1.5) }}>
-        <span
-          className="t-eyebrow border"
-          style={{
-            borderColor: "var(--fg)",
-            color: "var(--fg)",
-            padding: `${u(0.55)} ${u(1.2)}`,
-          }}
-        >
-          Projected
-        </span>
-        <span className="h-px flex-1" style={{ background: "var(--rule)" }} />
-      </div>
-      <div className="flex w-full overflow-hidden" style={{ height: u(6) }}>
-        {parts.map((p, i) => (
-          <div
-            key={p.label}
-            style={{
-              width: `${p.pct}%`,
-              background: i === 3 ? "var(--bar)" : "var(--bar-soft)",
-              opacity: i === 3 ? 1 : 1 - i * 0.24,
-            }}
+    <Frame
+      caption={`Projected revenue per three-day season, in US dollars at ₾${MODEL.fx} to $1, drawn to scale: coins, pass, shop orders and sponsored dares. Cost is hosting, media and AI — not the team, prizes or garments.`}
+    >
+      <span
+        className="t-eyebrow self-start border"
+        style={{
+          borderColor: "var(--fg)",
+          color: "var(--fg)",
+          padding: `${u(0.55)} ${u(1.2)}`,
+        }}
+      >
+        Projected
+      </span>
+      {books.map(({ season, book }) => (
+        <Bar
+          key={season.name}
+          label={season.name}
+          sub={`${season.participants.toLocaleString("en-US")} people · cost ${k(book.costUsd)} · net ${k(book.contributionUsd)}`}
+          value={k(book.revenueUsd)}
+          pct={(book.revenueUsd / MAX) * 100}
+          solid={book === books[books.length - 1].book}
+        />
+      ))}
+    </Frame>
+  );
+}
+
+/**
+ * The book on one clan war, settled.
+ *
+ * Parimutuel: the winners split the losers' pool in proportion to their
+ * stakes, after the house takes `RAKE`% of the losing pool. The shares here
+ * divide evenly, so the largest-remainder pass in the real function has
+ * nothing to hand out; the identity it guarantees is shown on the chart.
+ */
+function WarBook() {
+  const RAKE = 10;
+  const bets = [
+    { who: "Bettor A", side: "Wolves", won: true, stake: 200 },
+    { who: "Bettor B", side: "Wolves", won: true, stake: 100 },
+    { who: "Bettor C", side: "Crows", won: false, stake: 60 },
+    { who: "Bettor D", side: "Crows", won: false, stake: 40 },
+  ];
+  const winPool = bets.filter((b) => b.won).reduce((n, b) => n + b.stake, 0);
+  const losePool = bets.filter((b) => !b.won).reduce((n, b) => n + b.stake, 0);
+  const rake = Math.floor((losePool * RAKE) / 100);
+  const distributable = losePool - rake;
+  const rows = bets.map((b) => ({
+    ...b,
+    payout: b.won
+      ? b.stake + Math.floor((b.stake * distributable) / winPool)
+      : 0,
+  }));
+  const paid = rows.reduce((n, r) => n + r.payout, 0);
+  const MAX = Math.max(...rows.map((r) => Math.max(r.stake, r.payout)));
+
+  return (
+    <Frame
+      caption={`Wolves beat Crows. Crows' ${losePool} coins are the losing pool; the house keeps ${rake} (${RAKE}%), and ${distributable} is split ${bets[0].stake}:${bets[1].stake} between the Wolves' backers. Paid ${paid} + rake ${rake} = staked ${winPool + losePool}, exactly — the property the server's test holds over 400 random books.`}
+    >
+      {rows.map((r) => (
+        <div key={r.who} className="flex flex-col" style={{ gap: u(0.4) }}>
+          <Bar
+            label={r.who}
+            sub={`backed ${r.side} · staked ${r.stake}`}
+            value={r.won ? `${r.payout}` : "0"}
+            pct={(r.payout / MAX) * 100}
+            solid={r.won}
           />
-        ))}
-      </div>
-      <div className="flex flex-col" style={{ gap: u(0.9) }}>
-        {parts.map((p, i) => (
-          <div
-            key={p.label}
-            className="hair flex items-baseline border-b"
-            style={{ gap: u(2.4), paddingBottom: u(0.9) }}
-          >
-            <span className="t-mid num w-[12%] shrink-0">{p.pct}%</span>
-            <span
-              className="t-body flex-1"
-              style={{ color: "var(--fg)", fontWeight: i === 3 ? 600 : 400 }}
-            >
-              {p.label}
-            </span>
-            <span className="t-small">{p.note}</span>
-          </div>
-        ))}
+        </div>
+      ))}
+      <div className="flex" style={{ gap: u(4), marginTop: u(0.6) }}>
+        <span className="t-eyebrow flex items-center" style={{ gap: u(1), color: "var(--fg)" }}>
+          <span
+            className="inline-block"
+            style={{ width: u(3), height: u(1.3), background: "var(--bar)" }}
+          />
+          Coins back: stake plus share
+        </span>
+        <span className="t-eyebrow">House rake: {rake} coins, never money</span>
       </div>
     </Frame>
   );
 }
 
 const CHARTS: Record<ChartId, () => React.ReactElement> = {
+  "war-book": WarBook,
   "monthly-bill": MonthlyBill,
   "r2-vs-aws": R2VsAws,
-  "revenue-split": RevenueSplit,
+  "revenue-seasons": RevenueSeasons,
 };
 
 export function Chart({ id }: { id: ChartId }) {

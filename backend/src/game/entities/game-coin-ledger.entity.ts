@@ -22,7 +22,14 @@ export type CoinReason =
   /** Stake plus winnings, coming back after a war settled. */
   | 'war_payout'
   /** A stake returned because the book never really existed. */
-  | 'war_refund';
+  | 'war_refund'
+  /** Opals bought with money, landing on the season balance. */
+  | 'opal_topup'
+  /**
+   * Bought opals moving to the next season: negative on the old enrolment,
+   * positive on the new one, same `refId`.
+   */
+  | 'opal_carry';
 
 /**
  * Every coin that moved, and why.

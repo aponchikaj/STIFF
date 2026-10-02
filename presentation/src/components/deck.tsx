@@ -8,7 +8,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { SLIDES, folio } from "@/content/deck";
+import { DECK_SLIDES as SLIDES, folio } from "@/content/deck";
 import { SlideView } from "./slide";
 
 const TOTAL = SLIDES.length;

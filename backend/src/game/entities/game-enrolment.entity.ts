@@ -136,6 +136,24 @@ export class GameEnrolment {
   coins: number;
 
   /**
+   * How many of `coins` were bought rather than earned, as a running total
+   * of what was credited here — packs bought this season plus whatever was
+   * carried in from the last one.
+   *
+   * Bought opals are the same balance as earned ones (a cheating verdict
+   * zeroes both, and they count against the zero-balance sweep), but they
+   * outlive the season: when the account joins the next one, the unspent
+   * part — `LEAST(coins, paidOpals)`, i.e. bought opals are spent last —
+   * moves forward. `opalsCarriedAt` marks that this enrolment has been
+   * carried from, so it happens once.
+   */
+  @Column({ type: 'int', default: 0 })
+  paidOpals: number;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  opalsCarriedAt: Date | null;
+
+  /**
    * When this watcher was last paid for a vote. A paid vote starts a
    * cooldown (`VOTE_WIN_COOLDOWN_HOURS`) during which further correct votes
    * earn nothing. Null until the first win.

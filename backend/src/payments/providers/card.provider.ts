@@ -1,8 +1,8 @@
 import { Injectable, NotImplementedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
-import type { Order } from '../../orders/order.entity';
 import type {
+  Payable,
   PaymentMethod,
   PaymentProvider,
   PaymentStart,
@@ -62,7 +62,7 @@ export abstract class CardProvider implements PaymentProvider {
       : 'Card payment is coming soon.';
   }
 
-  async start(order: Order): Promise<PaymentStart> {
+  async start(order: Payable): Promise<PaymentStart> {
     if (this.testMode) {
       return {
         kind: 'simulated',
@@ -72,7 +72,7 @@ export abstract class CardProvider implements PaymentProvider {
     return this.startLive(order);
   }
 
-  protected startLive(order: Order): Promise<PaymentStart> {
+  protected startLive(order: Payable): Promise<PaymentStart> {
     void order;
     throw new NotImplementedException(
       `${this.label} is configured but the integration is not finished. ${this.docsHint}`,
