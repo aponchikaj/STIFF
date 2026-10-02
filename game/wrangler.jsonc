@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "stiff-game",
+  "main": "cloudflare/worker.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    // OpenNext calls back into its own worker; the name must match "name".
+    { "binding": "WORKER_SELF_REFERENCE", "service": "stiff-game" }
+  ],
+  "images": {
+    // next/image optimisation for hand-in media. The pixel icons bypass it
+    // (`unoptimized`), so this only serves remote photos.
+    "binding": "IMAGES"
+  }
+}

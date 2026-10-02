@@ -1,0 +1,507 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* ===========================================================================
+   STIFF — the game. Design tokens.
+
+   One source of truth for the arcade look. Everything here comes off the
+   three spec boards: the colour scheme, the type scale, the grid, and the
+   icon/symbol sheet. Screens read these tokens; they never hardcode a hex.
+
+   The one rule the colour board states outright — "we can use different
+   shades of blue, but nothing without blur" — is why every blue below ships
+   with a matching glow token. A flat blue is off-brand. Use `--glow-*` or
+   the `.glow-*` utilities whenever a blue is painted.
+   =========================================================================== */
+
+@theme {
+  /* ------------------------------------------------------------- colour --
+     The board names three: white, #01a3ff, #01e7ff, on black. The rest are
+     derived — tints for depth, the amber of a coin, the red of a heart —
+     and are sampled from the icon sheet rather than invented. */
+
+  --color-void: #000000;          /* the page. Pure black, always. */
+  --color-bone: #ffffff;          /* display type, full-health strokes */
+
+  --color-blue: #01a3ff;          /* primary. Buttons, borders, links */
+  --color-cyan: #01e7ff;          /* accent. Focus, live, hover lift */
+
+  /* Derived blues — the "different shades" the board allows. */
+  --color-blue-deep: #0066b3;     /* pressed, disabled-but-present */
+  --color-blue-dim: #014f7d;      /* hairlines, inactive rails */
+  --color-cyan-pale: #9ff5ff;     /* the hot core inside a glow */
+
+  /* Surfaces. Black is the page; these lift a panel off it without a fill
+     light enough to read as grey — the look stays black-on-black + glow. */
+  --color-surface: #050709;
+  --color-surface-2: #0a1016;
+  --color-surface-3: #0f1821;
+
+  /* Semantics, taken off the icon sheet: hearts are red, coins amber. */
+  --color-heart: #ff4d5e;
+  --color-heart-dim: #7a1d27;
+  --color-coin: #ffc227;
+  --color-coin-deep: #e08a12;
+  --color-danger: #ff3b30;
+  --color-caution: #ffb020;
+  --color-good: #2fd96b;
+
+  /* Text ramp on black. */
+  --color-ink: #ffffff;
+  --color-ink-muted: #8ba3b8;
+  --color-ink-faint: #4a5b6b;
+
+  /* ---------------------------------------------------------- typography --
+     Three roles, exactly as the board splits them.
+
+     display → PPNeueBit-Bold, the pixel face. Headlines and numbers.
+     pixel   → Press Start 2P. Labels, buttons, HUD — the arcade voice.
+     body    → Helvetica Neue. Anything a person reads a sentence of.
+
+     PPNeueBit is licensed from Pangram Pangram and is NOT in the repo.
+     Drop the files in `public/fonts/` and the @font-face below picks them
+     up; until then the stack falls through to Press Start 2P, which keeps
+     the pixel character while the licence is sorted. See public/fonts/README. */
+
+  --font-display: "PPNeueBit", "PP NeueBit", var(--font-press-start),
+    "Courier New", monospace;
+  --font-pixel: var(--font-press-start), "PPNeueBit", "Courier New", monospace;
+  --font-body: "Helvetica Neue", Helvetica, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* The board's sizes, to the pixel. Line heights are absolute, not ratios,
+     because a pixel face on a half-pixel baseline fringes. */
+  --text-hero: 32px;
+  --text-hero--line-height: 28px;
+  --text-hero--letter-spacing: 0.02em;
+
+  --text-body: 16px;
+  --text-body--line-height: 20px;      /* board says 18–22; 20 is the default */
+
+  --text-body-sm: 14px;
+  --text-body-sm--line-height: 18px;
+
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-caption--letter-spacing: 0.08em;
+
+  /* Above the board's range — it stops at the hero, but a title screen needs
+     more. These keep the 32/28 ratio (line-height = size × 0.875). */
+  --text-title: 48px;
+  --text-title--line-height: 42px;
+  --text-mega: 72px;
+  --text-mega--line-height: 63px;
+  --text-colossal: 112px;
+  --text-colossal--line-height: 98px;
+
+  /* --------------------------------------------------------------- grid --
+     The board specifies the small tier: 320–599px, 4 columns, 16px margins,
+     16px gutter. The rest of the ladder holds the 16px rhythm and adds
+     columns as the viewport earns them. `--grid-cols`/`--grid-margin` are
+     re-declared per breakpoint below; `.grid-stiff` reads them. */
+
+  --spacing-gutter: 16px;
+  --spacing-margin: 16px;
+
+  /* 8px base, because every icon is drawn on an 8px pixel grid. */
+  --spacing-px2: 2px;
+  --spacing-px4: 4px;
+
+  /* Breakpoints matching the grid tiers. */
+  --breakpoint-sm: 600px;
+  --breakpoint-md: 905px;
+  --breakpoint-lg: 1240px;
+  --breakpoint-xl: 1440px;
+
+  /* ------------------------------------------------------------- radius --
+     Pixel art has no curves. 0 everywhere; the "rounded" look in the mockups
+     is a notched corner, which `.frame-notch` cuts with clip-path. */
+  --radius-none: 0px;
+  --radius-pixel: 2px;
+
+  /* --------------------------------------------------------------- glow --
+     "Nothing without blur." Each is a layered bloom: a tight hot ring, a
+     mid halo, a wide atmospheric spill — which is what the icon sheet does
+     and why its blues read as emitted rather than painted. */
+
+  --glow-blue-sm: 0 0 4px rgb(1 163 255 / 0.9), 0 0 10px rgb(1 163 255 / 0.5);
+  --glow-blue: 0 0 4px rgb(1 163 255 / 0.9), 0 0 12px rgb(1 163 255 / 0.6),
+    0 0 28px rgb(1 163 255 / 0.3);
+  --glow-blue-lg: 0 0 6px rgb(1 163 255 / 1), 0 0 18px rgb(1 163 255 / 0.7),
+    0 0 44px rgb(1 163 255 / 0.4), 0 0 90px rgb(1 163 255 / 0.2);
+
+  --glow-cyan-sm: 0 0 4px rgb(1 231 255 / 0.9), 0 0 10px rgb(1 231 255 / 0.5);
+  --glow-cyan: 0 0 4px rgb(1 231 255 / 0.9), 0 0 12px rgb(1 231 255 / 0.6),
+    0 0 30px rgb(1 231 255 / 0.35);
+  --glow-cyan-lg: 0 0 6px rgb(1 231 255 / 1), 0 0 20px rgb(1 231 255 / 0.75),
+    0 0 48px rgb(1 231 255 / 0.45), 0 0 100px rgb(1 231 255 / 0.22);
+
+  --glow-bone: 0 0 6px rgb(255 255 255 / 0.9), 0 0 18px rgb(255 255 255 / 0.5),
+    0 0 44px rgb(1 231 255 / 0.3);
+  --glow-heart: 0 0 4px rgb(255 77 94 / 0.9), 0 0 14px rgb(255 77 94 / 0.5);
+  --glow-coin: 0 0 4px rgb(255 194 39 / 0.9), 0 0 16px rgb(255 194 39 / 0.5);
+  --glow-danger: 0 0 4px rgb(255 59 48 / 0.9), 0 0 16px rgb(255 59 48 / 0.5);
+
+  /* -------------------------------------------------------------- motion --
+     Arcade timing: snappy in, no bounce out. The step easings are what make
+     a counter tick rather than slide. */
+  --ease-arcade: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-snap: cubic-bezier(0.2, 0, 0, 1);
+  --ease-step-4: steps(4, end);
+  --ease-step-8: steps(8, end);
+
+  --animate-flicker: flicker 4s linear infinite;
+  --animate-pulse-glow: pulse-glow 2s var(--ease-arcade) infinite;
+  --animate-scanline-roll: scanline-roll 8s linear infinite;
+  --animate-blink: blink 1s steps(2, end) infinite;
+  --animate-float: float 3s ease-in-out infinite;
+  --animate-shake: shake 0.4s steps(5, end);
+  --animate-glitch: glitch 2.4s steps(3, end) infinite;
+}
+
+/* The grid ladder. The board's tier is the base; each breakpoint widens it. */
+:root {
+  --grid-cols: 4;
+  --grid-margin: 16px;
+  --grid-gutter: 16px;
+}
+@media (min-width: 600px) {
+  :root { --grid-cols: 8; --grid-margin: 24px; --grid-gutter: 16px; }
+}
+@media (min-width: 905px) {
+  :root { --grid-cols: 12; --grid-margin: 32px; --grid-gutter: 24px; }
+}
+@media (min-width: 1240px) {
+  :root { --grid-cols: 12; --grid-margin: 48px; --grid-gutter: 24px; }
+}
+
+/* ============================================================ base layer */
+
+@layer base {
+  * {
+    border-color: var(--color-blue-dim);
+  }
+
+  html {
+    background: var(--color-void);
+    /* The whole look is a CRT. Antialiasing a pixel face defeats it. */
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background: var(--color-void);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    font-size: var(--text-body);
+    line-height: 20px;
+    /* Nothing on a black page should scroll past its own glow. */
+    overflow-x: hidden;
+  }
+
+  /* A pixel face must land on whole pixels or it fringes. */
+  h1, h2, h3, .font-display, .font-pixel {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    -webkit-font-smoothing: none;
+    font-smooth: never;
+  }
+
+  h1 { font-size: var(--text-mega); line-height: 63px; }
+  h2 { font-size: var(--text-title); line-height: 42px; }
+  h3 { font-size: var(--text-hero); line-height: 28px; }
+
+  /* Pixel art must never be resampled smoothly. */
+  img[data-pixel], .pixelated {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+
+  /* Focus is cyan and glowing — it has to survive on a black page. */
+  :focus-visible {
+    outline: 2px solid var(--color-cyan);
+    outline-offset: 2px;
+    box-shadow: var(--glow-cyan-sm);
+  }
+
+  ::selection {
+    background: var(--color-blue);
+    color: var(--color-void);
+  }
+
+  /* An arcade scrollbar: a square cyan block on a black rail. */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--color-void); }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-blue-dim);
+    border-radius: 0;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-blue); }
+}
+
+/* ======================================================= utility layer */
+
+@layer utilities {
+  /* --- glow ------------------------------------------------------------ */
+  .glow-blue    { box-shadow: var(--glow-blue); }
+  .glow-blue-sm { box-shadow: var(--glow-blue-sm); }
+  .glow-blue-lg { box-shadow: var(--glow-blue-lg); }
+  .glow-cyan    { box-shadow: var(--glow-cyan); }
+  .glow-cyan-sm { box-shadow: var(--glow-cyan-sm); }
+  .glow-cyan-lg { box-shadow: var(--glow-cyan-lg); }
+  .glow-heart   { box-shadow: var(--glow-heart); }
+  .glow-coin    { box-shadow: var(--glow-coin); }
+
+  /* Text glow. `text-shadow`, not `box-shadow` — the letterforms emit.
+
+     Two tiers, and picking the wrong one is the most common mistake here.
+     The default is scaled for display type (16px and up). On a 10px pixel
+     numeral its 12px and 30px rings swallow the glyph whole and the number
+     renders as an unreadable blob of light. Anything at or below ~12px —
+     HUD counters, board rows, feed tallies — takes the `-xs` tier, which
+     is one tight ring and no spill. */
+  .text-glow-xs       { text-shadow: 0 0 3px rgb(255 255 255 / 0.55); }
+  .text-glow-cyan-xs  { text-shadow: 0 0 3px rgb(1 231 255 / 0.6); }
+  .text-glow-coin-xs  { text-shadow: 0 0 3px rgb(255 194 39 / 0.6); }
+  .text-glow-heart-xs { text-shadow: 0 0 3px rgb(255 77 94 / 0.6); }
+
+  .text-glow       { text-shadow: var(--glow-bone); }
+  .text-glow-blue  { text-shadow: var(--glow-blue); }
+  .text-glow-cyan  { text-shadow: var(--glow-cyan); }
+  .text-glow-lg    { text-shadow: var(--glow-cyan-lg); }
+  .text-glow-heart { text-shadow: var(--glow-heart); }
+  .text-glow-coin  { text-shadow: var(--glow-coin); }
+
+  /* Icons are flat webp; a drop-shadow filter is the only way to bloom
+     their alpha rather than their bounding box. */
+  .icon-glow      { filter: drop-shadow(0 0 3px rgb(1 231 255 / 0.8)) drop-shadow(0 0 9px rgb(1 163 255 / 0.5)); }
+  .icon-glow-lg   { filter: drop-shadow(0 0 4px rgb(1 231 255 / 0.95)) drop-shadow(0 0 14px rgb(1 163 255 / 0.65)) drop-shadow(0 0 32px rgb(1 163 255 / 0.3)); }
+  .icon-glow-heart{ filter: drop-shadow(0 0 3px rgb(255 77 94 / 0.85)) drop-shadow(0 0 10px rgb(255 77 94 / 0.5)); }
+  .icon-glow-coin { filter: drop-shadow(0 0 3px rgb(255 194 39 / 0.85)) drop-shadow(0 0 12px rgb(255 194 39 / 0.5)); }
+  /* A spent heart / empty slot: present, not lit. */
+  .icon-dim       { filter: grayscale(1) brightness(0.35); }
+
+  /* --- CRT ------------------------------------------------------------- */
+
+  /* Horizontal scanlines, baked the way the icon sheet bakes them. Sits on
+     a pseudo-element so it never intercepts a pointer. */
+  .scanlines { position: relative; }
+  .scanlines::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgb(0 0 0 / 0) 0px,
+      rgb(0 0 0 / 0) 1px,
+      rgb(0 0 0 / 0.42) 2px,
+      rgb(0 0 0 / 0.42) 3px
+    );
+  }
+  /* Coarser lines, for large type where 2px bands disappear. */
+  .scanlines-coarse::after {
+    background: repeating-linear-gradient(
+      to bottom,
+      rgb(0 0 0 / 0) 0px,
+      rgb(0 0 0 / 0) 2px,
+      rgb(0 0 0 / 0.5) 3px,
+      rgb(0 0 0 / 0.5) 5px
+    );
+  }
+
+  /* The slow bright band that rolls down a real tube. */
+  .crt-roll { position: relative; overflow: hidden; }
+  .crt-roll::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 0;
+    height: 28%;
+    pointer-events: none;
+    z-index: 3;
+    background: linear-gradient(
+      to bottom,
+      rgb(255 255 255 / 0) 0%,
+      rgb(1 231 255 / 0.05) 50%,
+      rgb(255 255 255 / 0) 100%
+    );
+    animation: var(--animate-scanline-roll);
+  }
+
+  /* Corner falloff — a tube is dimmer at the edges than the middle. */
+  .crt-vignette { position: relative; }
+  .crt-vignette::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    background: radial-gradient(
+      ellipse at center,
+      transparent 45%,
+      rgb(0 0 0 / 0.5) 100%
+    );
+  }
+
+  /* RGB misconvergence. Cheap, and the reason the logo reads as a photo of
+     a screen rather than a vector. */
+  .chromatic {
+    text-shadow:
+      -1px 0 rgb(255 0 60 / 0.35),
+      1px 0 rgb(1 231 255 / 0.45),
+      var(--glow-bone);
+  }
+
+  /* --- bloom ----------------------------------------------------------- */
+
+  /* `box-shadow` and `clip-path` do not coexist: clipping happens after the
+     shadow is painted, so a notched element loses its glow entirely. These
+     are the same glows expressed as `drop-shadow` filters, which follow the
+     *shape* rather than the box.
+
+     They must go on a PARENT of the clipped element, not on it. Filters are
+     applied before clipping on the same element, so a filter beside a
+     clip-path is clipped too. Parent blooms, child notches. `Frame` and
+     `Button` in components/ui.tsx are built that way — copy the pattern
+     rather than reaching for `shadow-*` on anything notched. */
+
+  .bloom-blue-sm { filter: drop-shadow(0 0 2px rgb(1 163 255 / 0.9)) drop-shadow(0 0 6px rgb(1 163 255 / 0.5)); }
+  .bloom-blue    { filter: drop-shadow(0 0 2px rgb(1 163 255 / 0.95)) drop-shadow(0 0 8px rgb(1 163 255 / 0.6)) drop-shadow(0 0 20px rgb(1 163 255 / 0.3)); }
+  .bloom-blue-lg { filter: drop-shadow(0 0 3px rgb(1 163 255 / 1)) drop-shadow(0 0 12px rgb(1 163 255 / 0.7)) drop-shadow(0 0 30px rgb(1 163 255 / 0.4)); }
+  .bloom-cyan    { filter: drop-shadow(0 0 2px rgb(1 231 255 / 0.95)) drop-shadow(0 0 8px rgb(1 231 255 / 0.65)) drop-shadow(0 0 22px rgb(1 231 255 / 0.35)); }
+  .bloom-cyan-lg { filter: drop-shadow(0 0 3px rgb(1 231 255 / 1)) drop-shadow(0 0 14px rgb(1 231 255 / 0.75)) drop-shadow(0 0 34px rgb(1 231 255 / 0.45)); }
+  .bloom-danger  { filter: drop-shadow(0 0 2px rgb(255 59 48 / 0.95)) drop-shadow(0 0 10px rgb(255 59 48 / 0.55)); }
+  .bloom-coin    { filter: drop-shadow(0 0 2px rgb(255 194 39 / 0.95)) drop-shadow(0 0 10px rgb(255 194 39 / 0.55)); }
+  .bloom-none    { filter: none; }
+
+  /* --- frames ---------------------------------------------------------- */
+
+  /* The notched rectangle every button and dialog on the icon sheet uses:
+     square, with the four corners cut at 6px. */
+  .frame-notch {
+    clip-path: polygon(
+      6px 0, calc(100% - 6px) 0, 100% 6px,
+      100% calc(100% - 6px), calc(100% - 6px) 100%,
+      6px 100%, 0 calc(100% - 6px), 0 6px
+    );
+  }
+  .frame-notch-lg {
+    clip-path: polygon(
+      10px 0, calc(100% - 10px) 0, 100% 10px,
+      100% calc(100% - 10px), calc(100% - 10px) 100%,
+      10px 100%, 0 calc(100% - 10px), 0 10px
+    );
+  }
+
+  /* --- grid ------------------------------------------------------------ */
+
+  /* The spec grid. Children span with `col-span-*`; the column count and
+     margins come from the breakpoint ladder, not from the markup. */
+  .grid-stiff {
+    display: grid;
+    grid-template-columns: repeat(var(--grid-cols), minmax(0, 1fr));
+    gap: var(--grid-gutter);
+    padding-inline: var(--grid-margin);
+    width: 100%;
+  }
+  .grid-stiff-full {
+    grid-column: 1 / -1;
+  }
+
+  /* --- type ------------------------------------------------------------ */
+
+  /* A pixel face only looks right at integer multiples of its design size.
+     This is the escape hatch for a headline that must scale with the
+     viewport: it snaps to whole pixels instead of landing on 37.4px. */
+  .pixel-snap {
+    font-variant-ligatures: none;
+    -webkit-font-smoothing: none;
+    font-smooth: never;
+    letter-spacing: 0.02em;
+  }
+
+  /* --- reduced motion -------------------------------------------------- */
+  /* Every animation token above is suppressed here rather than at each call
+     site, so a new animated component inherits the courtesy for free. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ========================================================== keyframes */
+
+@keyframes flicker {
+  0%, 100%   { opacity: 1; }
+  92%        { opacity: 1; }
+  93%        { opacity: 0.72; }
+  94%        { opacity: 1; }
+  96%        { opacity: 0.86; }
+  97%        { opacity: 1; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: var(--glow-blue); }
+  50%      { box-shadow: var(--glow-cyan-lg); }
+}
+
+@keyframes scanline-roll {
+  0%   { top: -30%; }
+  100% { top: 130%; }
+}
+
+@keyframes blink {
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-4px); }
+  40%      { transform: translateX(4px); }
+  60%      { transform: translateX(-2px); }
+  80%      { transform: translateX(2px); }
+}
+
+@keyframes glitch {
+  0%, 92%, 100% { transform: translate(0); clip-path: none; }
+  93% { transform: translate(-2px, 1px); }
+  95% { transform: translate(2px, -1px); }
+  97% { transform: translate(-1px, 0); }
+}
+
+/* =========================================================== webfonts */
+
+/* PPNeueBit — Pangram Pangram, commercial licence. Not committed.
+   Drop PPNeueBit-Bold.woff2 (and -Regular) into public/fonts/ and these
+   resolve; until then --font-display falls through to Press Start 2P.
+   `font-display: swap` means a missing file costs nothing at runtime. */
+
+@font-face {
+  font-family: "PPNeueBit";
+  src: url("/fonts/PPNeueBit-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "PPNeueBit";
+  src: url("/fonts/PPNeueBit-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
