@@ -12,6 +12,7 @@ import {
   decodeCursor,
   encodeCursor,
 } from './feed.service';
+import { CHEATER_NOTICE } from './rules';
 import { SeasonsService } from './seasons.service';
 
 /**
@@ -42,7 +43,11 @@ function attempt(overrides: Partial<GameAttempt> = {}): GameAttempt {
     shareCount: 0,
     publishedAt: new Date('2026-09-06T10:00:00.000Z'),
     createdAt: new Date('2026-09-06T09:00:00.000Z'),
-    enrolment: { handle: 'asterisk', nerve: 140 } as GameEnrolment,
+    enrolment: {
+      handle: 'asterisk',
+      nerve: 140,
+      status: 'active',
+    } as GameEnrolment,
     ...overrides,
   } as GameAttempt;
 }
@@ -102,7 +107,10 @@ describe('FeedService', () => {
       delete: jest.fn().mockResolvedValue({ affected: 1 }),
       count: jest.fn().mockResolvedValue(2),
     };
-    enrolmentRepo = { findOne: jest.fn().mockResolvedValue(null) };
+    enrolmentRepo = {
+      findOne: jest.fn().mockResolvedValue(null),
+      find: jest.fn().mockResolvedValue([]),
+    };
     seasons = { current: jest.fn().mockResolvedValue({ id: 's1' }) };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -149,7 +157,7 @@ describe('FeedService', () => {
         kind: 'video',
         durationSeconds: 42,
         mediaUrl: 'https://media.stiff.ge/a.mp4',
-        player: { handle: 'asterisk', nerve: 140 },
+        player: { handle: 'asterisk', nerve: 140, status: 'active' },
       });
     });
 
@@ -342,6 +350,93 @@ describe('FeedService', () => {
       ]);
       const comments = await service.listComments(WATCHER, 'a1');
       expect(comments.map((c) => c.isMine)).toEqual([true, false]);
+    });
+
+    /**
+     * The label is not stored on the comment. It is the author's standing
+     * this season at the moment of reading, so a flag applied today reaches
+     * every comment they ever wrote.
+     */
+    it('says so on every comment a cheater wrote', async () => {
+      commentRepo.find.mockResolvedValue([
+        {
+          id: 'c1',
+          body: 'lol fake',
+          authorHandle: 'sam',
+          userId: 'u2',
+          createdAt: new Date(),
+        },
+        {
+          id: 'c2',
+          body: 'nice',
+          authorHandle: 'kate',
+          userId: 'u1',
+          createdAt: new Date(),
+        },
+      ]);
+      enrolmentRepo.find.mockResolvedValue([
+        { userId: 'u2', status: 'cheater' },
+        { userId: 'u1', status: 'active' },
+      ]);
+
+      const comments = await service.listComments(WATCHER, 'a1');
+
+      expect(comments[0]).toMatchObject({
+        authorStatus: 'cheater',
+        notice: CHEATER_NOTICE,
+      });
+      expect(comments[0].notice).toBe('CHEATER WROTE A COMMENT');
+      expect(comments[1]).toMatchObject({
+        authorStatus: 'active',
+        notice: null,
+      });
+      // One query for the thread, scoped to this season's enrolments.
+      expect(enrolmentRepo.find).toHaveBeenCalledTimes(1);
+      const [query] = enrolmentRepo.find.mock.calls[0] as [
+        { where: { seasonId: string } },
+      ];
+      expect(query.where.seasonId).toBe('s1');
+    });
+
+    it('has no standing for an author who never enrolled', async () => {
+      commentRepo.find.mockResolvedValue([
+        {
+          id: 'c1',
+          body: 'hi',
+          authorHandle: 'guest',
+          userId: 'u3',
+          createdAt: new Date(),
+        },
+      ]);
+      const comments = await service.listComments(null, 'a1');
+      expect(comments[0]).toMatchObject({ authorStatus: null, notice: null });
+    });
+
+    it('does not query standings for an empty thread', async () => {
+      await service.listComments(null, 'a1');
+      expect(enrolmentRepo.find).not.toHaveBeenCalled();
+    });
+
+    it('labels a cheater’s new comment as it is written', async () => {
+      enrolmentRepo.findOne.mockResolvedValue({
+        handle: 'sam',
+        status: 'cheater',
+      });
+      const result = await service.addComment(WATCHER, 'a1', 'was real!!');
+      expect(result.notice).toBe(CHEATER_NOTICE);
+      expect(result.authorStatus).toBe('cheater');
+      // The comment itself is still stored — a cheater may speak, labelled.
+      expect(commentRepo.save).toHaveBeenCalled();
+    });
+
+    it('labels nothing on an honest comment', async () => {
+      enrolmentRepo.findOne.mockResolvedValue({
+        handle: 'kate',
+        status: 'active',
+      });
+      const result = await service.addComment(WATCHER, 'a1', 'nice');
+      expect(result.notice).toBeNull();
+      expect(result.authorStatus).toBe('active');
     });
 
     it('marks nothing as mine for a signed-out reader', async () => {

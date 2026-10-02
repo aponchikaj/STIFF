@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { Order } from '../orders/order.entity';
 import {
   PAYMENT_METHODS,
+  Payable,
   PaymentAvailability,
   PaymentMethod,
   PaymentProvider,
@@ -62,7 +62,7 @@ export class PaymentsService {
    * Throwing here rolls the order back, which is the behaviour we want: an
    * order nobody can pay for is worse than a failed checkout.
    */
-  async start(order: Order): Promise<PaymentStart> {
+  async start(order: Payable): Promise<PaymentStart> {
     const method = order.paymentMethod;
     const provider = this.require(method);
     if (!provider.isConfigured()) {

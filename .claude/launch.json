@@ -42,6 +42,28 @@
       "cwd": ".worktrees/admin/admin",
       "port": 3002,
       "autoPort": false
+    },
+    {
+      "name": "game-admin",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "cwd": ".worktrees/game-admin/game-admin",
+      "port": 3004,
+      "autoPort": false
+    },
+    {
+      "name": "presentation",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "cwd": "presentation",
+      "port": 3005,
+      "autoPort": false
     }
   ]
 }

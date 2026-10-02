@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { BLOCKED_TASK_TYPES } from './blocklist';
 import { CHARTER, CHARTER_HASH, CHARTER_PARTS } from './charter';
 import { EXCLUSION_CATEGORIES, GUARDS } from './exclusions';
 
@@ -31,6 +32,48 @@ describe('the Charter', () => {
 
   it('states that nothing is live', () => {
     expect(CHARTER).toMatch(/Nothing is live/i);
+  });
+
+  /**
+   * Every task says how it is proved. The rule is in the Charter so the
+   * creator writes it into the brief, and in the schema so the field exists.
+   */
+  it('carries the proof rule', () => {
+    expect(CHARTER).toMatch(/`proof`/);
+    for (const word of ['photo', 'video', 'either', 'Take a video.']) {
+      expect(CHARTER).toContain(word);
+    }
+  });
+
+  /** The register is a dare between friends, and the Charter shows one. */
+  it('sets the tone with the dog-food example', () => {
+    expect(CHARTER).toMatch(/dog food/i);
+  });
+
+  it('tells the creator to be strict', () => {
+    expect(CHARTER).toMatch(/strict/i);
+  });
+
+  /** The blocked list is rendered from one source, so the ids are verbatim. */
+  it('names every blocked task type by id', () => {
+    for (const type of BLOCKED_TASK_TYPES) {
+      expect(CHARTER).toContain(`- ${type.id} —`);
+    }
+  });
+
+  /**
+   * Clans of two play team tasks, and every task now pays. The creator has
+   * to be told both, or it writes tasks one person could do with a spectator
+   * and leaves the economy fields to chance.
+   */
+  it('explains team tasks and what a task pays', () => {
+    expect(CHARTER_PARTS).toHaveLength(7);
+    expect(CHARTER).toMatch(/clan/i);
+    expect(CHARTER).toMatch(/BOTH/);
+    expect(CHARTER).toContain('`mode: "team"`');
+    for (const field of ['rewardNerve', 'rewardCoins', 'penaltyCoins']) {
+      expect(CHARTER).toContain(field);
+    }
   });
 
   it('is assembled from its parts in order', () => {

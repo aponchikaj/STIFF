@@ -1,25 +1,25 @@
 import {
-  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
-import { rowsAffected } from '../common/utils/returned-rows';
+import { In, Repository } from 'typeorm';
 import { GameAttempt } from './entities/game-attempt.entity';
+import {
+  GameEnrolment,
+  type EnrolmentRole,
+  type EnrolmentStatus,
+} from './entities/game-enrolment.entity';
 import { GameSeason, type SeasonStatus } from './entities/game-season.entity';
+import { SeasonsService } from './seasons.service';
+import {
+  VerdictsService,
+  type SettleOptions,
+  type Verdict,
+} from './verdicts.service';
 
-export type Verdict = 'approve' | 'reject';
-
-export interface SettleOptions {
-  verdict: Verdict;
-  /** Nerve to award. Only read on an approval. */
-  nerve?: number;
-  /** Spec §12 — ash never returns, so this is deliberate and one-way. */
-  burnHeart?: boolean;
-  reason?: string;
-}
+export type { SettleOptions, Verdict };
 
 /**
  * What operating a season actually takes.
@@ -41,8 +41,36 @@ export class GameAdminService {
     private readonly seasonRepo: Repository<GameSeason>,
     @InjectRepository(GameAttempt)
     private readonly attemptRepo: Repository<GameAttempt>,
-    private readonly dataSource: DataSource,
+    @InjectRepository(GameEnrolment)
+    private readonly enrolmentRepo: Repository<GameEnrolment>,
+    private readonly seasonsService: SeasonsService,
+    private readonly verdicts: VerdictsService,
   ) {}
+
+  // ---------------------------------------------------------- enrolments --
+
+  /**
+   * Who is in the live season. The panel's people screen, and where a
+   * reviewer finds the enrolment id behind a flag or a reinstatement.
+   */
+  async listEnrolments(
+    options: {
+      status?: EnrolmentStatus;
+      role?: EnrolmentRole;
+      limit?: number;
+    } = {},
+  ): Promise<GameEnrolment[]> {
+    const season = await this.seasonsService.current();
+    if (!season) return [];
+    const where: Record<string, unknown> = { seasonId: season.id };
+    if (options.status) where.status = options.status;
+    if (options.role) where.role = options.role;
+    return this.enrolmentRepo.find({
+      where,
+      order: { demotedAt: 'DESC', nerve: 'DESC', handle: 'ASC' },
+      take: Math.min(Math.max(options.limit ?? 200, 1), 500),
+    });
+  }
 
   // ------------------------------------------------------------- seasons --
 
@@ -131,105 +159,15 @@ export class GameAdminService {
     return { items, total: items.length };
   }
 
-  /**
-   * The verdict. This is the only thing that puts an attempt in the feed.
-   *
-   * The transition is claimed with a conditional UPDATE rather than read then
-   * written, so two reviewers opening the same item cannot both settle it —
-   * and, more to the point, cannot both award its Nerve. The score is what
-   * ranks the season, so paying it twice is not a cosmetic bug.
-   *
-   * Idempotent by construction: a second call finds a status that is no longer
-   * `submitted` and is told so.
-   */
-  async settle(
-    attemptId: string,
-    options: SettleOptions,
-  ): Promise<GameAttempt> {
-    const attempt = await this.attemptRepo.findOne({
-      where: { id: attemptId },
-    });
-    if (!attempt) throw new NotFoundException('Attempt not found');
-    if (attempt.status === 'awaiting_upload') {
-      throw new BadRequestException('Nothing has been uploaded for that day.');
-    }
-
-    const nerve = Math.max(0, Math.round(options.nerve ?? 0));
-    const approving = options.verdict === 'approve';
-
-    await this.dataSource.transaction(async (manager) => {
-      const claimed = rowsAffected(
-        await manager.query<unknown[]>(
-          `UPDATE "game_attempts"
-              SET "status" = $2,
-                  "publishedAt" = CASE WHEN $2 = 'published' THEN now() ELSE NULL END
-            WHERE "id" = $1 AND "status" = 'submitted'
-            RETURNING "id"`,
-          [attemptId, approving ? 'published' : 'rejected'],
-        ),
-      );
-      if (claimed === 0) {
-        throw new ConflictException('That attempt has already been settled.');
-      }
-
-      if (approving && nerve > 0) {
-        // `lastScoredAt` moves with the score because the board breaks ties on
-        // it — whoever reached the total first is ahead, and that rule is
-        // published in advance.
-        await manager.query(
-          `UPDATE "game_enrolments"
-              SET "nerve" = "nerve" + $2, "lastScoredAt" = now()
-            WHERE "id" = $1`,
-          [attempt.enrolmentId, nerve],
-        );
-      }
-
-      if (options.burnHeart) {
-        // Never below zero, and never returned. Spec §12: ash is permanent,
-        // so the floor is in the statement rather than in a later correction.
-        await manager.query(
-          `UPDATE "game_enrolments"
-              SET "heartsRemaining" = GREATEST("heartsRemaining" - 1, 0)
-            WHERE "id" = $1`,
-          [attempt.enrolmentId],
-        );
-      }
-    });
-
-    const settled = await this.attemptRepo.findOne({
-      where: { id: attemptId },
-    });
-    return settled ?? attempt;
+  /** The verdict. See `VerdictsService`; this is the panel's door to it. */
+  settle(attemptId: string, options: SettleOptions): Promise<GameAttempt> {
+    return this.verdicts.settle(attemptId, options);
   }
 
-  /**
-   * Takes a published item back out of the feed.
-   *
-   * Deliberately does not claw the Nerve back. A score that moves after the
-   * fact reorders a board people have already seen, and the compensating
-   * ledger entry that does it properly is Level 5's job — doing it here with a
-   * bare subtraction would produce a number with no record of why it changed.
-   */
-  async unpublish(attemptId: string): Promise<GameAttempt> {
-    const attempt = await this.attemptRepo.findOne({
-      where: { id: attemptId },
-    });
-    if (!attempt) throw new NotFoundException('Attempt not found');
-
-    const claimed = rowsAffected(
-      await this.attemptRepo.query(
-        `UPDATE "game_attempts"
-            SET "status" = 'rejected', "publishedAt" = NULL
-          WHERE "id" = $1 AND "status" = 'published'
-          RETURNING "id"`,
-        [attemptId],
-      ),
-    );
-    if (claimed === 0) {
-      throw new ConflictException('That attempt is not in the feed.');
-    }
-
-    const fresh = await this.attemptRepo.findOne({ where: { id: attemptId } });
-    return fresh ?? attempt;
+  unpublish(
+    attemptId: string,
+    options: { by?: string } = {},
+  ): Promise<GameAttempt> {
+    return this.verdicts.unpublish(attemptId, options);
   }
 }

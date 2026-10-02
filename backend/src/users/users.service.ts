@@ -73,16 +73,25 @@ export class UsersService {
       .getOne();
   }
 
+  /**
+   * Email is optional since the game's front door: an account made there is a
+   * username, a password and a date of birth. With no email there is no
+   * duplicate to check and no verification to send; the account simply has
+   * nowhere to be mailed until one is added from settings.
+   */
   async createUser(data: {
     username: string;
-    email: string;
+    email?: string | null;
     password: string;
     role?: UserRole;
     isVerified?: boolean;
+    birthDate?: string | null;
   }): Promise<User> {
-    const email = data.email.toLowerCase();
-    const existingEmail = await this.userRepo.findOne({ where: { email } });
-    if (existingEmail) throw new ConflictException('Email already in use');
+    const email = data.email?.trim() ? data.email.trim().toLowerCase() : null;
+    if (email) {
+      const existingEmail = await this.userRepo.findOne({ where: { email } });
+      if (existingEmail) throw new ConflictException('Email already in use');
+    }
     const existingUsername = await this.userRepo
       .createQueryBuilder('user')
       .where('LOWER(user.username) = LOWER(:username)', {
@@ -100,6 +109,7 @@ export class UsersService {
       passwordHash,
       role: data.role ?? 'user',
       isVerified: data.isVerified ?? false,
+      birthDate: data.birthDate ?? null,
     });
     return this.userRepo.save(user);
   }
@@ -128,7 +138,19 @@ export class UsersService {
 
   // ---------- profile ----------
 
+  /**
+   * Username and, since the game's front door, email.
+   *
+   * An account made in the game has no address; this is where it gets one.
+   * A new address is unverified until proven — `isVerified` drops so the
+   * verification link (sent by `POST /api/auth/resend-verification`, which
+   * `AuthController` already exposes) is what turns it back on. Guest orders
+   * on the address are claimed by that verification, not here, for the same
+   * reason as always: an unverified email is a claim, not a fact.
+   */
   async updateProfile(user: User, dto: UpdateProfileDto): Promise<SafeUser> {
+    let changed = false;
+
     if (dto.username && dto.username !== user.username) {
       const taken = await this.userRepo
         .createQueryBuilder('user')
@@ -139,8 +161,23 @@ export class UsersService {
         .getOne();
       if (taken) throw new ConflictException('Username already taken');
       user.username = dto.username;
-      await this.userRepo.save(user);
+      changed = true;
     }
+
+    const email = dto.email?.trim().toLowerCase();
+    if (email && email !== (user.email ?? '').toLowerCase()) {
+      const taken = await this.userRepo
+        .createQueryBuilder('user')
+        .where('LOWER(user.email) = :email', { email })
+        .andWhere('user.id != :id', { id: user.id })
+        .getOne();
+      if (taken) throw new ConflictException('Email already in use');
+      user.email = email;
+      user.isVerified = false;
+      changed = true;
+    }
+
+    if (changed) await this.userRepo.save(user);
     return toSafeUser(user);
   }
 
@@ -192,7 +229,7 @@ export class UsersService {
    * Returns how many moved, so the caller can say so.
    */
   async claimGuestOrders(user: User): Promise<number> {
-    if (!user.isVerified) return 0;
+    if (!user.isVerified || !user.email) return 0;
 
     const result = await this.orderRepo
       .createQueryBuilder()

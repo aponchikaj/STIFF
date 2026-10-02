@@ -1,7 +1,9 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import { ConflictException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { User } from '../users/user.entity';
+import { CheatDetectorService } from './ai/cheat-detector.service';
+import { AssignmentsService } from './assignments.service';
 import { AttemptsService } from './attempts.service';
 import { GameAttempt } from './entities/game-attempt.entity';
 import { EnrolmentsService } from './enrolments.service';
@@ -9,20 +11,36 @@ import { MediaStorageService } from './media-storage.service';
 import { SeasonsService } from './seasons.service';
 
 /**
- * Handing in a day's proof.
+ * Handing in proof.
  *
  * There is no live streaming, so an attempt is a file: a still, or a clip
  * between five seconds and two minutes. The interesting property is that the
  * limits are checked **twice** — once to decide whether to spend an upload URL
  * on a client's claim, and once when the client comes back and says it is
  * done. Only the second one is a guarantee.
+ *
+ * There is no cap on hand-ins per day and there is a floor of four, so opening
+ * an attempt is a plain insert — nothing to reserve, nothing to conflict with.
+ *
+ * Every hand-in is against an accepted task with time left on its clock. The
+ * day and the task come from the assignment, never from the client, and the
+ * confirm is where the clock is judged.
  */
 
 const PLAYER = { id: 'u1', username: 'asterisk' } as User;
 
+/** The accepted task the upload opens against. Day two, so it is not a default. */
+const OPEN = {
+  id: 'as1',
+  day: 2,
+  taskTemplateId: 't1',
+  status: 'accepted',
+  taskTemplate: { proof: 'either' },
+};
+
 function clip(overrides: Record<string, unknown> = {}) {
   return {
-    day: 1,
+    assignmentId: 'as1',
     kind: 'video' as const,
     mimeType: 'video/mp4',
     byteSize: 6_000_000,
@@ -40,7 +58,13 @@ describe('AttemptsService', () => {
     find: jest.Mock;
     query: jest.Mock;
   };
+  let assignments: {
+    requireOpen: jest.Mock;
+    closeWithAttempt: jest.Mock;
+    expireOverdue: jest.Mock;
+  };
   let enrolments: { require: jest.Mock };
+  let cheatDetector: { inspectLater: jest.Mock };
   let storage: {
     mintObjectKey: jest.Mock;
     presignPut: jest.Mock;
@@ -55,13 +79,18 @@ describe('AttemptsService', () => {
       ),
       create: jest.fn((a: unknown) => a),
       find: jest.fn().mockResolvedValue([]),
-      // The reservation is one conditional upsert. An empty array is the
-      // database saying the day was already handed in.
+      // A plain INSERT ... RETURNING "id".
       query: jest.fn().mockResolvedValue([{ id: 'a1' }]),
+    };
+    assignments = {
+      requireOpen: jest.fn().mockResolvedValue(OPEN),
+      closeWithAttempt: jest.fn().mockResolvedValue(true),
+      expireOverdue: jest.fn().mockResolvedValue({ expired: 0, burns: [] }),
     };
     enrolments = {
       require: jest.fn().mockResolvedValue({ id: 'e1', role: 'player' }),
     };
+    cheatDetector = { inspectLater: jest.fn() };
     storage = {
       mintObjectKey: jest
         .fn()
@@ -91,7 +120,9 @@ describe('AttemptsService', () => {
           },
         },
         { provide: EnrolmentsService, useValue: enrolments },
+        { provide: AssignmentsService, useValue: assignments },
         { provide: MediaStorageService, useValue: storage },
+        { provide: CheatDetectorService, useValue: cheatDetector },
       ],
     }).compile();
 
@@ -112,7 +143,7 @@ describe('AttemptsService', () => {
       expect(enrolments.require).toHaveBeenCalledWith(PLAYER, 'player');
     });
 
-    it('reserves the row before the file exists', async () => {
+    it('opens the row before the file exists', async () => {
       await service.requestUpload(PLAYER, clip());
       const [sql, params] = repo.query.mock.calls[0] as [string, unknown[]];
       expect(sql).toMatch(/awaiting_upload/);
@@ -120,27 +151,144 @@ describe('AttemptsService', () => {
     });
 
     /**
-     * Two taps on upload arrive together. Read-then-write would have both
-     * find no row, both insert, and the second collide with
-     * `UQ_game_attempts_enrolment_day` as an unhandled driver error — a 500
-     * for pressing a button twice. The claim has to be one statement.
+     * Four a day is the floor, not the ceiling. Nothing is reserved per day,
+     * so there is no conflict clause and no day to be "already handed in".
      */
-    it('claims the day in a single conditional statement', async () => {
+    it('is a plain insert, with no per-day claim', async () => {
       await service.requestUpload(PLAYER, clip());
       expect(repo.query).toHaveBeenCalledTimes(1);
       const [sql] = repo.query.mock.calls[0] as [string];
-      expect(sql).toMatch(/ON CONFLICT \("enrolmentId", "day"\) DO UPDATE/);
-      // The WHERE is what keeps a handed-in day from being overwritten.
-      expect(sql).toMatch(
-        /WHERE "game_attempts"\."status" = 'awaiting_upload'/,
-      );
+      expect(sql).toMatch(/INSERT INTO "game_attempts"/);
+      expect(sql).not.toMatch(/ON CONFLICT/);
       expect(sql).toMatch(/RETURNING "id"/);
+      expect(repo.findOne).not.toHaveBeenCalled();
     });
 
-    /** No read decides it, so no read can be stale by the time it is used. */
-    it('does not decide the conflict with a separate read', async () => {
+    it('lets a player open as many as they like on the same day', async () => {
+      repo.query
+        .mockResolvedValueOnce([{ id: 'a1' }])
+        .mockResolvedValueOnce([{ id: 'a2' }]);
+      const first = await service.requestUpload(PLAYER, clip());
+      const second = await service.requestUpload(PLAYER, clip());
+      expect(first.attemptId).toBe('a1');
+      expect(second.attemptId).toBe('a2');
+      expect(repo.query).toHaveBeenCalledTimes(2);
+    });
+
+    /** Every hand-in is against an accepted task with time left. */
+    it('opens only against this player’s accepted, unexpired task', async () => {
       await service.requestUpload(PLAYER, clip());
-      expect(repo.findOne).not.toHaveBeenCalled();
+      expect(assignments.requireOpen).toHaveBeenCalledWith('e1', 'as1');
+    });
+
+    /**
+     * Offered, declined, expired, someone else's — `requireOpen` says which,
+     * and nothing is minted for any of them.
+     */
+    it('refuses with what the task actually is, before spending a URL', async () => {
+      assignments.requireOpen.mockRejectedValue(
+        new ConflictException('Time ran out on that task.'),
+      );
+      await expect(service.requestUpload(PLAYER, clip())).rejects.toThrow(
+        /Time ran out/,
+      );
+      expect(storage.mintObjectKey).not.toHaveBeenCalled();
+      expect(storage.presignPut).not.toHaveBeenCalled();
+      expect(repo.query).not.toHaveBeenCalled();
+    });
+
+    /**
+     * The task says how it is proved, and the upload has to be that. A
+     * "take a video" dare handed in as a still is not the dare.
+     */
+    describe('proof', () => {
+      it('refuses a photo for a task that asks for a video, before spending a URL', async () => {
+        assignments.requireOpen.mockResolvedValue({
+          ...OPEN,
+          taskTemplate: { proof: 'video' },
+        });
+        await expect(
+          service.requestUpload(
+            PLAYER,
+            clip({
+              kind: 'photo',
+              mimeType: 'image/jpeg',
+              durationSeconds: undefined,
+            }),
+          ),
+        ).rejects.toThrow(/asks for a video/);
+        expect(storage.mintObjectKey).not.toHaveBeenCalled();
+        expect(repo.query).not.toHaveBeenCalled();
+      });
+
+      it('refuses a video for a task that asks for a photo', async () => {
+        assignments.requireOpen.mockResolvedValue({
+          ...OPEN,
+          taskTemplate: { proof: 'photo' },
+        });
+        await expect(service.requestUpload(PLAYER, clip())).rejects.toThrow(
+          /asks for a photo/,
+        );
+        expect(repo.query).not.toHaveBeenCalled();
+      });
+
+      it('accepts either kind for a task that leaves it to the player', async () => {
+        assignments.requireOpen.mockResolvedValue({
+          ...OPEN,
+          taskTemplate: { proof: 'either' },
+        });
+        await service.requestUpload(PLAYER, clip());
+        await service.requestUpload(
+          PLAYER,
+          clip({
+            kind: 'photo',
+            mimeType: 'image/jpeg',
+            durationSeconds: undefined,
+          }),
+        );
+        expect(repo.query).toHaveBeenCalledTimes(2);
+      });
+
+      it('treats a task with no template loaded as either', async () => {
+        assignments.requireOpen.mockResolvedValue({
+          ...OPEN,
+          taskTemplate: undefined,
+        });
+        await service.requestUpload(
+          PLAYER,
+          clip({
+            kind: 'photo',
+            mimeType: 'image/jpeg',
+            durationSeconds: undefined,
+          }),
+        );
+        expect(repo.query).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    /** The client no longer says which day or which task; the assignment does. */
+    it('takes the day and the task from the assignment, not the client', async () => {
+      await service.requestUpload(PLAYER, clip());
+      const [, params] = repo.query.mock.calls[0] as [string, unknown[]];
+      expect(params.slice(0, 5)).toEqual(['s1', 'e1', 't1', 'as1', 2]);
+    });
+
+    it('binds everything in the order the statement expects', async () => {
+      await service.requestUpload(PLAYER, clip());
+      const [sql, params] = repo.query.mock.calls[0] as [string, unknown[]];
+      expect(sql).toMatch(/"taskTemplateId", "assignmentId", "day", "kind"/);
+      expect(params).toEqual([
+        's1',
+        'e1',
+        't1',
+        'as1',
+        2,
+        'video',
+        'seasons/zero/day-1/deadbeef.mp4',
+        'video/mp4',
+        6_000_000,
+        42,
+      ]);
     });
 
     /** The key is minted by the server; a filename cannot steer it. */
@@ -148,7 +296,7 @@ describe('AttemptsService', () => {
       await service.requestUpload(PLAYER, clip());
       expect(storage.mintObjectKey).toHaveBeenCalledWith(
         'season-zero',
-        1,
+        2,
         'mp4',
       );
     });
@@ -184,43 +332,13 @@ describe('AttemptsService', () => {
       // CHK_game_attempts_duration insists on.
       expect(params[params.length - 1]).toBeNull();
     });
-
-    it('refuses a day that is not on the ladder', async () => {
-      await expect(
-        service.requestUpload(PLAYER, clip({ day: 4 })),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    /**
-     * The `WHERE` matched nothing, so the upsert returned nothing. That empty
-     * result *is* the conflict — the service does not ask a second time.
-     */
-    it('refuses a second hand-in for a day already submitted', async () => {
-      repo.query.mockResolvedValue([]);
-      await expect(service.requestUpload(PLAYER, clip())).rejects.toThrow(
-        ConflictException,
-      );
-    });
-
-    /**
-     * A player who starts an upload, loses signal and retries must not be
-     * locked out of their own day by the row they abandoned. The row is still
-     * `awaiting_upload`, so the conditional update replaces it and hands back
-     * the same id.
-     */
-    it('replaces an abandoned reservation rather than blocking it', async () => {
-      repo.query.mockResolvedValue([{ id: 'a1' }]);
-      const ticket = await service.requestUpload(PLAYER, clip());
-      expect(ticket.attemptId).toBe('a1');
-      const [sql] = repo.query.mock.calls[0] as [string];
-      expect(sql).toMatch(/"mediaUrl"\s*= NULL/);
-    });
   });
 
   describe('confirmUpload', () => {
     const reserved = {
       id: 'a1',
       enrolmentId: 'e1',
+      assignmentId: 'as1',
       status: 'awaiting_upload',
       kind: 'video' as const,
       mimeType: 'video/mp4',
@@ -240,6 +358,156 @@ describe('AttemptsService', () => {
         'https://media.stiff.ge/seasons/zero/day-1/deadbeef.mp4',
       );
       expect(result.durationSeconds).toBe(42);
+    });
+
+    /** The confirm is the hand-in; this is the timestamp the sweep counts. */
+    it('stamps submittedAt at the confirm', async () => {
+      repo.findOne.mockResolvedValue({ ...reserved });
+      const before = Date.now();
+      const result = await service.confirmUpload(PLAYER, 'a1', {
+        byteSize: 1,
+        durationSeconds: 10,
+      });
+      expect(result.submittedAt).toBeInstanceOf(Date);
+      expect((result.submittedAt as Date).getTime()).toBeGreaterThanOrEqual(
+        before,
+      );
+    });
+
+    /**
+     * The cheat check starts after the save and off the request: the player
+     * gets their 200 and the verdict lands on the row later. Nothing about
+     * the confirm waits on a model.
+     */
+    it('hands the saved attempt to the cheat detector, and does not wait', async () => {
+      repo.findOne.mockResolvedValue({ ...reserved });
+      await service.confirmUpload(PLAYER, 'a1', {
+        byteSize: 1,
+        durationSeconds: 10,
+      });
+      expect(cheatDetector.inspectLater).toHaveBeenCalledWith('a1');
+      // Called once the row is a real attempt, not before.
+      const saveOrder = repo.save.mock.invocationCallOrder[0];
+      const inspectOrder =
+        cheatDetector.inspectLater.mock.invocationCallOrder[0];
+      expect(inspectOrder).toBeGreaterThan(saveOrder);
+    });
+
+    /**
+     * The clock is judged at the confirm. The assignment is closed with this
+     * attempt only while `expiresAt` is still ahead — the database decides.
+     */
+    it('closes the task with the hand-in while the clock is ahead', async () => {
+      repo.findOne.mockResolvedValue({ ...reserved });
+      const result = await service.confirmUpload(PLAYER, 'a1', {
+        byteSize: 1,
+        durationSeconds: 10,
+      });
+      expect(assignments.closeWithAttempt).toHaveBeenCalledWith(
+        'as1',
+        'e1',
+        'a1',
+      );
+      expect(result.status).toBe('submitted');
+      expect(assignments.expireOverdue).not.toHaveBeenCalled();
+    });
+
+    /**
+     * Late is late, whatever the phone said. The file is kept as a rejected
+     * row so nothing is orphaned and the record says what happened; the clock
+     * is settled at once — a heart, and watcher if it was the last — and the
+     * player is told.
+     */
+    it('keeps a late hand-in as rejected, settles the clock, and says so', async () => {
+      repo.findOne.mockResolvedValue({ ...reserved });
+      assignments.closeWithAttempt.mockResolvedValue(false);
+
+      await expect(
+        service.confirmUpload(PLAYER, 'a1', {
+          byteSize: 1,
+          durationSeconds: 10,
+        }),
+      ).rejects.toThrow(ConflictException);
+
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'a1',
+          status: 'rejected',
+          rejectionReason: 'Handed in after the clock ran out.',
+          submittedAt: expect.any(Date) as Date,
+        }),
+      );
+      expect(assignments.expireOverdue).toHaveBeenCalledWith('as1');
+      expect(cheatDetector.inspectLater).not.toHaveBeenCalled();
+    });
+
+    it('tells the player the time ran out', async () => {
+      repo.findOne.mockResolvedValue({ ...reserved });
+      assignments.closeWithAttempt.mockResolvedValue(false);
+      await expect(
+        service.confirmUpload(PLAYER, 'a1', {
+          byteSize: 1,
+          durationSeconds: 10,
+        }),
+      ).rejects.toThrow(/Time ran out before you handed in/);
+    });
+
+    /**
+     * The watchers' window opens at the confirm — not at the reservation,
+     * not at the verdict — and shuts three hours later on the server's clock.
+     */
+    it('opens the vote for exactly three hours from the confirm', async () => {
+      repo.findOne.mockResolvedValue({ ...reserved });
+      const result = await service.confirmUpload(PLAYER, 'a1', {
+        byteSize: 1,
+        durationSeconds: 10,
+      });
+      expect(result.votingStatus).toBe('open');
+      expect(result.votingEndsAt).toBeInstanceOf(Date);
+      expect(
+        (result.votingEndsAt as Date).getTime() -
+          (result.submittedAt as Date).getTime(),
+      ).toBe(3 * 60 * 60 * 1000);
+    });
+
+    /** A late file is kept as a record, but nobody votes on it. */
+    it('does not open a vote on a late hand-in', async () => {
+      repo.findOne.mockResolvedValue({ ...reserved });
+      assignments.closeWithAttempt.mockResolvedValue(false);
+      await expect(
+        service.confirmUpload(PLAYER, 'a1', {
+          byteSize: 1,
+          durationSeconds: 10,
+        }),
+      ).rejects.toThrow(ConflictException);
+      const [saved] = repo.save.mock.calls[0] as [
+        { votingStatus?: string; votingEndsAt?: Date },
+      ];
+      expect(saved.votingStatus).not.toBe('open');
+      expect(saved.votingEndsAt).toBeUndefined();
+    });
+
+    /** Rows from before the clock existed carry no assignment and just submit. */
+    it('submits a row with no assignment without touching a clock', async () => {
+      repo.findOne.mockResolvedValue({ ...reserved, assignmentId: null });
+      const result = await service.confirmUpload(PLAYER, 'a1', {
+        byteSize: 1,
+        durationSeconds: 10,
+      });
+      expect(result.status).toBe('submitted');
+      expect(assignments.closeWithAttempt).not.toHaveBeenCalled();
+      expect(cheatDetector.inspectLater).toHaveBeenCalledWith('a1');
+    });
+
+    it('does not ask the detector about a refused confirm', async () => {
+      repo.findOne.mockResolvedValue({ ...reserved });
+      await expect(
+        service.confirmUpload(PLAYER, 'a1', {
+          byteSize: 1,
+          durationSeconds: 2,
+        }),
+      ).rejects.toThrow();
+      expect(cheatDetector.inspectLater).not.toHaveBeenCalled();
     });
 
     /**
@@ -280,7 +548,7 @@ describe('AttemptsService', () => {
       ).rejects.toThrow(/at least 5 seconds/);
     });
 
-    it('refuses to confirm the same day twice', async () => {
+    it('refuses to confirm the same attempt twice', async () => {
       repo.findOne.mockResolvedValue({ ...reserved, status: 'submitted' });
       await expect(
         service.confirmUpload(PLAYER, 'a1', {
@@ -288,6 +556,12 @@ describe('AttemptsService', () => {
           durationSeconds: 10,
         }),
       ).rejects.toThrow(ConflictException);
+      await expect(
+        service.confirmUpload(PLAYER, 'a1', {
+          byteSize: 1,
+          durationSeconds: 10,
+        }),
+      ).rejects.toThrow(/already handed in/);
     });
 
     /** Scoped to the caller's own enrolment, so ids are not enough. */
@@ -320,6 +594,39 @@ describe('AttemptsService', () => {
         caption: '   ',
       });
       expect(blank.caption).toBeNull();
+    });
+  });
+
+  describe('mine', () => {
+    it('lists this player’s attempts oldest first', async () => {
+      repo.find.mockResolvedValue([{ id: 'a1' }, { id: 'a2' }]);
+      const mine = await service.mine(PLAYER);
+      expect(mine.map((a) => a.id)).toEqual(['a1', 'a2']);
+      expect(repo.find).toHaveBeenCalledWith({
+        where: { enrolmentId: 'e1' },
+        order: { day: 'ASC', submittedAt: 'ASC', createdAt: 'ASC' },
+      });
+    });
+  });
+
+  /**
+   * The same count the nightly sweep makes, asked early so the dashboard can
+   * show "2 of 4" rather than let someone find out at midnight.
+   */
+  describe('handedInToday', () => {
+    it('counts confirmed hand-ins since midnight in Tbilisi', async () => {
+      repo.query.mockResolvedValue([{ count: 3 }]);
+      await expect(service.handedInToday('e1')).resolves.toBe(3);
+      const [sql, params] = repo.query.mock.calls[0] as [string, unknown[]];
+      expect(params).toEqual(['e1', 'Asia/Tbilisi']);
+      expect(sql).toMatch(/"submittedAt" >= date_trunc\('day'/);
+      expect(sql).toMatch(/'submitted', 'published'/);
+      expect(sql).not.toMatch(/awaiting_upload/);
+    });
+
+    it('is zero when nothing was handed in', async () => {
+      repo.query.mockResolvedValue([]);
+      await expect(service.handedInToday('e1')).resolves.toBe(0);
     });
   });
 });

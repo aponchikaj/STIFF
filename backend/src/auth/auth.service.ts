@@ -13,8 +13,16 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { User } from '../users/user.entity';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
 import { EmailToken, EmailTokenType } from './email-token.entity';
+
+/** What `register` needs. `RegisterDto` is one shape of it; the game's is another. */
+export interface RegisterInput {
+  username: string;
+  email?: string | null;
+  password: string;
+  /** `YYYY-MM-DD`. The game collects it; the shop does not. */
+  birthDate?: string | null;
+}
 
 const VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
 const RESET_TTL_MS = 60 * 60 * 1000;
@@ -33,11 +41,18 @@ export class AuthService {
     private readonly emailTokenRepo: Repository<EmailToken>,
   ) {}
 
-  async register(dto: RegisterDto): Promise<User> {
+  /**
+   * The shop's `RegisterDto` satisfies this, and so does the game's sign-up,
+   * which sends no email and a date of birth. An account with no address gets
+   * no verification mail — there is nowhere to send it — and stays
+   * unverified until one is added from settings and proven.
+   */
+  async register(dto: RegisterInput): Promise<User> {
     const user = await this.usersService.createUser({
       username: dto.username,
-      email: dto.email,
+      email: dto.email ?? null,
       password: dto.password,
+      birthDate: dto.birthDate ?? null,
     });
     await this.sendVerification(user);
     return user;
@@ -58,7 +73,7 @@ export class AuthService {
   }
 
   async sendVerification(user: User): Promise<void> {
-    if (user.isVerified) return;
+    if (user.isVerified || !user.email) return;
     // Invalidate outstanding verify tokens so only the newest link works.
     await this.emailTokenRepo.update(
       { userId: user.id, type: 'verify', usedAt: IsNull() },
@@ -108,7 +123,9 @@ export class AuthService {
   async forgotPassword(email: string): Promise<void> {
     const user = await this.usersService.findByEmail(email);
     // Always succeed from the caller's perspective — no user enumeration.
-    if (!user || user.isBlocked) return;
+    // `user.email` is re-checked for the type: an account found by address
+    // has one, but an account with none can never reach a reset link.
+    if (!user || user.isBlocked || !user.email) return;
     const raw = await this.createToken(user.id, 'reset', RESET_TTL_MS);
     await this.mailService.sendPasswordResetEmail(user.email, raw);
   }

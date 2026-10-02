@@ -1,5 +1,3 @@
-import type { Order } from '../orders/order.entity';
-
 /**
  * How the money arrives.
  *
@@ -19,6 +17,19 @@ export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export function isPaymentMethod(value: unknown): value is PaymentMethod {
   return (PAYMENT_METHODS as readonly unknown[]).includes(value);
+}
+
+/**
+ * Anything a provider can be asked to collect for.
+ *
+ * A shop `Order` is one; a game opal order is another. Providers only ever
+ * need to know what they are charging for and by which method — a live
+ * acquirer integration adds the amount it needs to this shape, rather than
+ * every provider depending on the shop's order entity.
+ */
+export interface Payable {
+  id: string;
+  paymentMethod: PaymentMethod;
 }
 
 /** What the shop should do with the order once checkout returns. */
@@ -67,5 +78,5 @@ export interface PaymentProvider {
    */
   isConfigured(): boolean;
 
-  start(order: Order): Promise<PaymentStart>;
+  start(order: Payable): Promise<PaymentStart>;
 }

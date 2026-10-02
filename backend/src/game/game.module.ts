@@ -1,15 +1,36 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { PaymentsModule } from '../payments/payments.module';
 import { User } from '../users/user.entity';
+import { AssignmentsService } from './assignments.service';
 import { AttemptsService } from './attempts.service';
+import { CheatDetectorService } from './ai/cheat-detector.service';
+import { ClansController } from './clans.controller';
+import { ClansService } from './clans.service';
+import { DisciplineService } from './discipline.service';
+import { EconomyService } from './economy.service';
 import {
   GameAttempt,
   GameAttemptComment,
+  GameClanWar,
+  GameWarBet,
   GameAttemptReaction,
+  GameAttemptVote,
+  GameClan,
+  GameClanMember,
+  GameCoinLedger,
   GameEnrolment,
   GameGenerationRejection,
+  GameOpalOrder,
+  GameOpalPack,
+  GamePurchase,
+  GameReport,
+  GameShopItem,
+  GameScoreLedger,
   GameSeason,
+  GameTaskAssignment,
   GameTaskTemplate,
 } from './entities';
 import { EnrolmentsService } from './enrolments.service';
@@ -19,9 +40,27 @@ import { FeedService } from './feed.service';
 import { GameController } from './game.controller';
 import { LeaderboardService } from './leaderboard.service';
 import { MediaStorageService } from './media-storage.service';
+import { OpalCarryService } from './opal-carry.service';
+import { OpalsController } from './opals.controller';
+import { OpalsService } from './opals.service';
+import { ReportsAdminController } from './reports/reports-admin.controller';
+import { ReportsController } from './reports/reports.controller';
+import { ReportsService } from './reports/reports.service';
 import { SeasonsService } from './seasons.service';
 import { TaskGeneratorService } from './ai/task-generator.service';
+import { TaskPipelineService } from './ai/task-pipeline.service';
+import { TaskReviewerService } from './ai/task-reviewer.service';
 import { TaskTemplatesService } from './task-templates.service';
+import { VoteResolverService } from './ai/vote-resolver.service';
+import { ShopController } from './shop.controller';
+import { ShopService } from './shop.service';
+import { VerdictsService } from './verdicts.service';
+import { VotingController } from './voting.controller';
+import { VotingService } from './voting.service';
+import { OperationsController } from './operations.controller';
+import { OperationsService } from './operations.service';
+import { WarsAdminController, WarsController } from './wars.controller';
+import { WarsService } from './wars.service';
 
 /**
  * The game's own slice of the API, under `/api/game/*`.
@@ -29,6 +68,11 @@ import { TaskTemplatesService } from './task-templates.service';
  * Ships on every branch the way `src/staff/` and `src/admin/` do — the extra
  * Next app lives only on `game`, but one Nest app serves all of them, so the
  * module has to be here wherever the backend is deployed.
+ *
+ * The rules that move a player to watcher — the cheat detector, the nightly
+ * sweeps, the task clock — live here too (`DisciplineService`,
+ * `CheatDetectorService`, `AssignmentsService`), and `NotificationsModule` is
+ * imported so the person is told when one fires.
  */
 @Module({
   imports: [
@@ -39,25 +83,70 @@ import { TaskTemplatesService } from './task-templates.service';
       GameAttemptReaction,
       GameAttemptComment,
       GameTaskTemplate,
+      GameTaskAssignment,
       GameGenerationRejection,
+      GameClan,
+      GameClanMember,
+      GameCoinLedger,
+      GameScoreLedger,
+      GameClanWar,
+      GameWarBet,
+      GameAttemptVote,
+      GameShopItem,
+      GamePurchase,
+      GameOpalPack,
+      GameOpalOrder,
+      GameReport,
       // Not a game table. `EnrolmentsService` keeps the side someone picked
-      // before there was a season to join, and `users.settings` is where a
-      // per-account preference already lives — no new table for one key.
+      // before there was a season to join and the date of birth the age gate
+      // checks, and `users` is where both already live — no new table.
       User,
     ]),
     AuthModule,
+    NotificationsModule,
+    // Opals are sold through the shop's own card providers, so turning an
+    // acquirer on is one config change for both.
+    PaymentsModule,
   ],
-  controllers: [GameController, GameAdminController],
+  controllers: [
+    GameController,
+    ClansController,
+    ShopController,
+    OpalsController,
+    VotingController,
+    ReportsController,
+    ReportsAdminController,
+    WarsController,
+    WarsAdminController,
+    OperationsController,
+    GameAdminController,
+  ],
   providers: [
     SeasonsService,
     EnrolmentsService,
+    AssignmentsService,
     AttemptsService,
     FeedService,
     LeaderboardService,
     MediaStorageService,
     GameAdminService,
     TaskGeneratorService,
+    TaskReviewerService,
+    TaskPipelineService,
     TaskTemplatesService,
+    DisciplineService,
+    EconomyService,
+    ClansService,
+    VerdictsService,
+    ShopService,
+    OpalsService,
+    OpalCarryService,
+    VoteResolverService,
+    VotingService,
+    CheatDetectorService,
+    ReportsService,
+    WarsService,
+    OperationsService,
   ],
   exports: [SeasonsService, EnrolmentsService],
 })

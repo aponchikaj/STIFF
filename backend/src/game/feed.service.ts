@@ -5,14 +5,18 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { rowsAffected } from '../common/utils/returned-rows';
 import { User } from '../users/user.entity';
 import { GameAttemptComment } from './entities/game-attempt-comment.entity';
 import { GameAttemptReaction } from './entities/game-attempt-reaction.entity';
 import { GameAttempt } from './entities/game-attempt.entity';
-import { GameEnrolment } from './entities/game-enrolment.entity';
+import {
+  GameEnrolment,
+  type EnrolmentStatus,
+} from './entities/game-enrolment.entity';
 import type { AttemptKind, SeasonDay } from './media-rules';
+import { CHEATER_NOTICE } from './rules';
 import { SeasonsService } from './seasons.service';
 
 /** A reel is scrolled, not paged — a cursor, so new items cannot shift a page. */
@@ -28,7 +32,7 @@ export interface FeedItem {
   width: number | null;
   height: number | null;
   caption: string | null;
-  player: { handle: string; nerve: number };
+  player: { handle: string; nerve: number; status: EnrolmentStatus };
   likeCount: number;
   commentCount: number;
   shareCount: number;
@@ -49,6 +53,14 @@ export interface CommentView {
   id: string;
   body: string;
   authorHandle: string;
+  /**
+   * The author's standing this season, or null for someone who never
+   * enrolled. Read at render time rather than snapshotted: once an account is
+   * marked a cheater, every comment it ever wrote says so.
+   */
+  authorStatus: EnrolmentStatus | null;
+  /** `CHEATER WROTE A COMMENT` when the author is one; otherwise null. */
+  notice: string | null;
   isMine: boolean;
   createdAt: string;
 }
@@ -89,10 +101,12 @@ export class FeedService {
     const qb = this.attemptRepo
       .createQueryBuilder('attempt')
       .innerJoin('attempt.enrolment', 'enrolment')
-      .addSelect(['enrolment.handle', 'enrolment.nerve'])
+      .addSelect(['enrolment.handle', 'enrolment.nerve', 'enrolment.status'])
       .where('attempt.seasonId = :seasonId', { seasonId: season.id })
       .andWhere('attempt.status = :status', { status: 'published' })
-      .andWhere('attempt.publishedAt IS NOT NULL');
+      .andWhere('attempt.publishedAt IS NOT NULL')
+      // Hidden by reports, pending a person. See `ReportsService`.
+      .andWhere('attempt.hiddenAt IS NULL');
 
     if (options.day !== undefined) {
       qb.andWhere('attempt.day = :day', { day: options.day });
@@ -128,7 +142,7 @@ export class FeedService {
 
   async getOne(user: User | null, id: string): Promise<FeedItem> {
     const attempt = await this.attemptRepo.findOne({
-      where: { id, status: 'published' },
+      where: { id, status: 'published', hiddenAt: IsNull() },
       relations: { enrolment: true },
     });
     if (!attempt) throw new NotFoundException('Not found');
@@ -192,19 +206,19 @@ export class FeedService {
     user: User | null,
     attemptId: string,
   ): Promise<CommentView[]> {
-    await this.requirePublished(attemptId);
+    const attempt = await this.requirePublished(attemptId);
     const comments = await this.commentRepo.find({
-      where: { attemptId },
+      where: { attemptId, hiddenAt: IsNull() },
       order: { createdAt: 'ASC' },
       take: 200,
     });
-    return comments.map((c) => ({
-      id: c.id,
-      body: c.body,
-      authorHandle: c.authorHandle,
-      isMine: user ? c.userId === user.id : false,
-      createdAt: c.createdAt.toISOString(),
-    }));
+    const standing = await this.standingOf(
+      attempt.seasonId,
+      comments.map((c) => c.userId),
+    );
+    return comments.map((c) =>
+      this.toCommentView(c, standing.get(c.userId) ?? null, user),
+    );
   }
 
   async addComment(
@@ -234,13 +248,7 @@ export class FeedService {
     );
 
     await this.recountComments(attempt.id);
-    return {
-      id: comment.id,
-      body: comment.body,
-      authorHandle: comment.authorHandle,
-      isMine: true,
-      createdAt: comment.createdAt.toISOString(),
-    };
+    return this.toCommentView(comment, enrolment?.status ?? null, user);
   }
 
   /** Own comment, or an admin moderating. */
@@ -258,12 +266,49 @@ export class FeedService {
 
   // ---------------------------------------------------------------- helpers
 
+  /** In the feed: published, and not hidden by reports. */
   private async requirePublished(id: string): Promise<GameAttempt> {
     const attempt = await this.attemptRepo.findOne({
-      where: { id, status: 'published' },
+      where: { id, status: 'published', hiddenAt: IsNull() },
     });
     if (!attempt) throw new NotFoundException('Not found');
     return attempt;
+  }
+
+  /**
+   * Each author's standing this season, one query for the whole thread.
+   *
+   * This is what makes a cheater's comments read as a cheater's. The label
+   * is not stored on the comment: it is the enrolment's status at the moment
+   * of reading, so a flag applied today reaches every comment ever written.
+   */
+  private async standingOf(
+    seasonId: string,
+    userIds: string[],
+  ): Promise<Map<string, EnrolmentStatus>> {
+    const ids = [...new Set(userIds)];
+    if (ids.length === 0) return new Map();
+    const rows = await this.enrolmentRepo.find({
+      where: { seasonId, userId: In(ids) },
+      select: { userId: true, status: true },
+    });
+    return new Map(rows.map((r) => [r.userId, r.status ?? 'active']));
+  }
+
+  private toCommentView(
+    comment: GameAttemptComment,
+    authorStatus: EnrolmentStatus | null,
+    reader: User | null,
+  ): CommentView {
+    return {
+      id: comment.id,
+      body: comment.body,
+      authorHandle: comment.authorHandle,
+      authorStatus,
+      notice: authorStatus === 'cheater' ? CHEATER_NOTICE : null,
+      isMine: reader ? comment.userId === reader.id : false,
+      createdAt: comment.createdAt.toISOString(),
+    };
   }
 
   /** One query for the whole screenful rather than one per item. */
@@ -312,6 +357,7 @@ export class FeedService {
       player: {
         handle: attempt.enrolment?.handle ?? 'unknown',
         nerve: attempt.enrolment?.nerve ?? 0,
+        status: attempt.enrolment?.status ?? 'active',
       },
       likeCount: attempt.likeCount,
       commentCount: attempt.commentCount,

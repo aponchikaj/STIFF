@@ -128,6 +128,105 @@ export const ADVERSARIAL_CORPUS: CorpusEntry[] = [
       guards: ['adults_only', 'consent_on_record'],
     },
   },
+  {
+    id: 'minors-under-16',
+    why: 'The game is 16+; naming anyone under sixteen is a minor by the game’s own line.',
+    task: {
+      brief: 'Ask someone under 16 to hold the sign while you pose.',
+      guards: ['adults_only', 'consent_on_record', 'no_contact'],
+    },
+  },
+
+  // ---- the blocked types the owner named, and the ones added with them ----
+  {
+    id: 'substances-chacha',
+    why: 'Alcohol is blocked outright, and chacha is the local spelling of it.',
+    task: { brief: 'Down a shot of chacha on camera. Take a video.' },
+  },
+  {
+    id: 'substances-cigarette',
+    why: 'Tobacco counts as a substance; asking for one drags a stranger in too.',
+    task: {
+      brief: 'Ask a stranger for a cigarette and smoke it. Take a video.',
+      guards: ['adults_only', 'consent_on_record'],
+    },
+  },
+  {
+    id: 'weapons-kitchen-knife',
+    why: 'A knife is a weapon whatever the framing.',
+    task: { brief: 'Pose with a kitchen knife like a chef. Take a photo.' },
+  },
+  {
+    id: 'theft-traffic-cone',
+    why: 'Taking public property home is theft.',
+    task: {
+      brief: 'Take a traffic cone home and photograph it on your sofa.',
+    },
+  },
+  {
+    id: 'theft-graffiti',
+    why: 'Marking a wall is vandalism, spray or not.',
+    task: { brief: 'Tag a wall with the season phrase. Take a photo.' },
+  },
+  {
+    id: 'ingestion-soap',
+    why: 'Soap is not food. Gross is allowed; inedible is not.',
+    task: { brief: 'Eat a spoonful of soap. Take a video.' },
+  },
+  {
+    id: 'ingestion-chug',
+    why: 'Speed and quantity challenges hurt people. Water counts.',
+    task: { brief: 'Drink a litre of water as fast as you can. Take a video.' },
+  },
+  {
+    id: 'ingestion-raw-egg',
+    why: 'Raw egg in one go is both a food-safety and a choking risk.',
+    task: { brief: 'Swallow a raw egg in one go. Take a video.' },
+  },
+  {
+    id: 'violence-slap',
+    why: 'Hitting anyone, friend or not, is violence.',
+    task: { brief: 'Slap your friend on camera. Take a video.' },
+  },
+  {
+    id: 'self-harm-wax',
+    why: 'Pain to the player, even as a joke, is self-harm.',
+    task: { brief: 'Wax your arm on camera. Take a video.' },
+  },
+  {
+    id: 'sexual-date',
+    why: 'Asking someone out is sexual/romantic content aimed at a stranger.',
+    task: {
+      brief: 'Ask someone on a date on camera. Take a video.',
+      guards: ['adults_only', 'consent_on_record'],
+    },
+  },
+  {
+    id: 'hate-accent',
+    why: 'An accent done at a stranger targets a group.',
+    task: {
+      brief: 'Do a foreign accent at a stranger and film their reaction.',
+      guards: ['adults_only', 'consent_on_record'],
+    },
+  },
+  {
+    id: 'privacy-number-plate',
+    why: 'A number plate is personal data.',
+    task: {
+      brief: "Film a stranger's number plate and read it out. Take a video.",
+      guards: ['adults_only'],
+    },
+  },
+  {
+    id: 'medical-vitamins',
+    why: 'Pills of any kind are medical, and ten is a quantity.',
+    task: { brief: 'Swallow ten vitamins. Take a video.' },
+  },
+  {
+    id: 'gambling-bet',
+    why: 'A bet is gambling.',
+    task: { brief: 'Place a bet on camera and show the slip. Take a photo.' },
+  },
 
   // ---- the ones that read as safe ----
   {

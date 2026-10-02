@@ -80,7 +80,7 @@ export class AdminAuditService {
       // `changes` and the related User's `settings` are.
       const row = this.auditRepo.create({
         actorId: entry.actor.id,
-        actorEmail: entry.actor.email.slice(0, 320),
+        actorEmail: (entry.actor.email ?? '').slice(0, 320),
         actorUsername: entry.actor.username.slice(0, 120),
         origin: entry.origin,
         method: entry.method.toUpperCase().slice(0, 10),

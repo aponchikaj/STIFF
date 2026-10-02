@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsEmail,
   IsIn,
   IsOptional,
   IsString,
@@ -20,6 +21,11 @@ export class UpdateProfileDto {
     message: 'username can only contain letters, numbers and underscores',
   })
   username?: string;
+
+  /** Adds or changes the address. A new one is unverified until proven. */
+  @IsOptional()
+  @IsEmail()
+  email?: string;
 }
 
 export class ChangePasswordDto {

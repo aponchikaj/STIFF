@@ -49,6 +49,10 @@ export class GameAttemptComment {
   @Column({ type: 'varchar', length: 500 })
   body: string;
 
+  /** Hidden by enough reports, pending a person. See `GameAttempt.hiddenAt`. */
+  @Column({ type: 'timestamptz', nullable: true })
+  hiddenAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

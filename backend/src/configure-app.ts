@@ -10,6 +10,18 @@ import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { Server, type ServerOptions } from 'socket.io';
 
+/**
+ * Every origin allowed to call this API with credentials.
+ *
+ * Named one host at a time, never a wildcard: a subdomain nobody serves is a
+ * subdomain someone else can take, and this list is what stands between a
+ * stolen session cookie and a page that can use it.
+ *
+ * **Two domains, not one.** The shop and its panels are on stiff.ge; the game
+ * and its panel are on stiff.co. One Nest app serves both, so both belong
+ * here — and because they are different registrable domains, every call the
+ * game's panel makes is cross-site unless it is proxied first-party.
+ */
 export function corsOrigins(): string[] {
   return [
     ...new Set([
@@ -17,13 +29,21 @@ export function corsOrigins(): string[] {
       process.env.STAFF_FRONTEND_URL ?? 'http://localhost:3001',
       process.env.ADMIN_FRONTEND_URL ?? 'http://localhost:3002',
       process.env.GAME_FRONTEND_URL ?? 'http://localhost:3003',
+      process.env.GAME_ADMIN_FRONTEND_URL ?? 'http://localhost:3004',
       'https://stiff.ge',
       'https://www.stiff.ge',
       'https://staff.stiff.ge',
       'https://admin.stiff.ge',
-      'https://game.stiff.ge',
       'https://stage.stiff.ge',
       'https://pre-prod.stiff.ge',
+      // The game, and the panel that runs it.
+      'https://stiff.co',
+      'https://www.stiff.co',
+      'https://admin.stiff.co',
+      // Kept while the old host may still be pointed somewhere. The game is
+      // named Stiff and lives at stiff.co; when nothing serves this any more
+      // it should come out, because an unserved subdomain is a liability.
+      'https://game.stiff.ge',
     ]),
   ];
 }
