@@ -5,6 +5,7 @@ import {
   IsEmail,
   IsIn,
   IsInt,
+  IsISO8601,
   IsOptional,
   IsString,
   IsUUID,
@@ -405,6 +406,13 @@ export class CreateSeasonDto {
   @Min(1)
   @Max(10)
   startingHearts?: number;
+}
+
+export class ScheduleSeasonDto {
+  /** ISO 8601 with an offset or Z. Null clears the schedule. */
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  startsAt?: string | null;
 }
 
 export class SetSeasonStatusDto {

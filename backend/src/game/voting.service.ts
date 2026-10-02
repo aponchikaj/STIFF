@@ -131,9 +131,9 @@ export class VotingService {
     const written = rowsAffected(
       await this.voteRepo.query(
         `INSERT INTO "game_attempt_votes" ("attemptId", "enrolmentId", "userId", "vote")
-         SELECT $1, $2, $3, $4
+         SELECT $1::uuid, $2::uuid, $3::uuid, $4::varchar
           WHERE EXISTS (SELECT 1 FROM "game_attempts"
-                         WHERE "id" = $1 AND "votingStatus" = 'open' AND "votingEndsAt" > now())
+                         WHERE "id" = $1::uuid AND "votingStatus" = 'open' AND "votingEndsAt" > now())
          ON CONFLICT ("attemptId", "enrolmentId") DO UPDATE
            SET "vote" = EXCLUDED."vote", "updatedAt" = now()
            WHERE "game_attempt_votes"."paidCoins" = 0
