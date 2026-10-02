@@ -19,6 +19,7 @@ import { AuthService } from '../auth/auth.service';
 import { TokenService } from '../auth/token.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
+import { SessionStart } from '../common/decorators/session-start.decorator';
 import type { AuthenticatedRequest } from '../common/types/authenticated-request';
 import { toSafeUser, User } from '../users/user.entity';
 import { assertOldEnough, parseBirthDate } from './age-gate';
@@ -37,8 +38,8 @@ import {
   PlayerSearchQueryDto,
   RequestUploadDto,
 } from './dto/game.dto';
-import { EnrolmentsService } from './enrolments.service';
 import type { GameSeason } from './entities/game-season.entity';
+import { EnrolmentsService } from './enrolments.service';
 import { FeedService } from './feed.service';
 import { LeaderboardService } from './leaderboard.service';
 import {
@@ -51,8 +52,8 @@ import {
   VOTE_REWARD_MIN_COINS,
   VOTE_WIN_COOLDOWN_HOURS,
   VOTING_WINDOW_HOURS,
-} from './rules';
   opalWindows,
+} from './rules';
 import { SeasonsService } from './seasons.service';
 import { TaskTemplatesService } from './task-templates.service';
 
@@ -153,6 +154,7 @@ export class GameController {
    * kept. `pending` says which of those happened.
    */
   @Public()
+  @SessionStart()
   @Post('register')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async register(
