@@ -108,8 +108,12 @@ const config = { get: () => undefined };
 let signedIn: { id: string; username: string; role: string } | null = null;
 
 interface GuardContext {
-  getHandler: () => object;
-  getClass: () => object;
+  // `Reflector` reads metadata off functions and classes; typed as such so
+  // `getAllAndOverride` resolves to its (key, targets) overload.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+  getHandler: () => Function;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+  getClass: () => Function;
   switchToHttp: () => { getRequest: () => Record<string, unknown> };
 }
 

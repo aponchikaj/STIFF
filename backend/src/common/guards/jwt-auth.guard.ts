@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { IS_SESSION_START_KEY } from '../decorators/session-start.decorator';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import type { AuthenticatedRequest } from '../types/authenticated-request';
 import type { UserRole } from '../../users/user.entity';
@@ -96,11 +97,31 @@ export class JwtAuthGuard implements CanActivate {
     // Cookie first (same-site deployments); Authorization: Bearer as the
     // fallback for cross-domain setups where third-party cookies are blocked.
     // The two origins use different cookie names, so a browser holding both
-    // sessions presents each only to the site it belongs to.
+    // sessions presents each only to the site it belongs to — *when the
+    // origins differ by host*. They do not always: every `localhost` port is
+    // one cookie host, so in development the game and the admin panel share
+    // a jar, and the admin cookie rides along on every game request.
+    //
+    // So an admin *cookie* is only taken to speak for the request when
+    // nothing more deliberate does:
+    //  - a non-admin Bearer token is an explicit shop credential, set by the
+    //    client on purpose (a cross-site page cannot set that header), and
+    //    outranks an ambient cookie;
+    //  - a @SessionStart() route authenticates from its body, so a cookie
+    //    riding along is irrelevant to it.
+    // Neither lets an admin token do anything new: the cookie is dropped, and
+    // an admin token presented as the bearer is still judged below.
     const bearerIsAdmin = isAdminToken(this.peek(bearer));
-    const adminToken =
-      request.cookies?.[ADMIN_ACCESS_COOKIE] ??
-      (bearerIsAdmin ? bearer : undefined);
+    const explicitShopBearer = bearer !== undefined && !bearerIsAdmin;
+    const isSessionStart = this.reflector.getAllAndOverride<boolean>(
+      IS_SESSION_START_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    const adminCookie =
+      explicitShopBearer || isSessionStart
+        ? undefined
+        : request.cookies?.[ADMIN_ACCESS_COOKIE];
+    const adminToken = adminCookie ?? (bearerIsAdmin ? bearer : undefined);
     const shopToken =
       request.cookies?.[SHOP_ACCESS_COOKIE] ??
       (bearerIsAdmin ? undefined : bearer);

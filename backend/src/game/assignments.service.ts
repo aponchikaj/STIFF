@@ -20,7 +20,7 @@ import {
 import { GameTaskTemplate } from './entities/game-task-template.entity';
 import { EnrolmentsService } from './enrolments.service';
 import { isSeasonDay, type SeasonDay } from './media-rules';
-import { clampPenalty } from './rules';
+import { clampPenalty, opalWindows, openOpal } from './rules';
 import { SeasonsService } from './seasons.service';
 import type { PlayableTask } from './task-templates.service';
 
@@ -97,12 +97,10 @@ export class AssignmentsService {
    * running — an open season is still enrolling and has no clock to start.
    */
   async draw(user: User, day: number): Promise<AssignmentView> {
-    const season = await this.seasonsService.requireCurrent();
-    if (season.status !== 'running') {
-      throw new ConflictException('The season has not started yet.');
-    }
+    const season = await this.startedSeason();
     const enrolment = await this.enrolmentsService.require(user, 'player');
     if (!isSeasonDay(day)) throw new ConflictException('There are three days.');
+    assertOpalOpen(season.startsAt, day);
 
     const held = await this.held(enrolment.id);
     if (held) {
@@ -118,14 +116,14 @@ export class AssignmentsService {
       await this.assignmentRepo.query(
         `INSERT INTO "game_task_assignments"
            ("seasonId", "enrolmentId", "taskTemplateId", "day", "status", "clockMinutes")
-         SELECT $1, $2, t."id", $3, 'offered', t."clockMinutes"
+         SELECT $1::uuid, $2::uuid, t."id", $3::smallint, 'offered', t."clockMinutes"
            FROM "game_task_templates" t
           WHERE t."status" = 'approved'
             AND t."mode" = 'solo'
-            AND t."tier" = $3
+            AND t."tier" = $3::smallint
             AND NOT EXISTS (
               SELECT 1 FROM "game_task_assignments" a
-               WHERE a."enrolmentId" = $2 AND a."taskTemplateId" = t."id"
+               WHERE a."enrolmentId" = $2::uuid AND a."taskTemplateId" = t."id"
             )
           ORDER BY random()
           LIMIT 1
@@ -149,12 +147,10 @@ export class AssignmentsService {
    * leader, which for a clan that cannot change is per clan.
    */
   async drawForClan(user: User, day: number): Promise<AssignmentView> {
-    const season = await this.seasonsService.requireCurrent();
-    if (season.status !== 'running') {
-      throw new ConflictException('The season has not started yet.');
-    }
+    const season = await this.startedSeason();
     const enrolment = await this.enrolmentsService.require(user, 'player');
     if (!isSeasonDay(day)) throw new ConflictException('There are three days.');
+    assertOpalOpen(season.startsAt, day);
     const seats = await this.clans.requireLeader(enrolment.id);
 
     const held = await this.held(enrolment.id);
@@ -174,14 +170,14 @@ export class AssignmentsService {
       await this.assignmentRepo.query(
         `INSERT INTO "game_task_assignments"
            ("seasonId", "enrolmentId", "clanId", "taskTemplateId", "day", "status", "clockMinutes")
-         SELECT $1, $2, $4, t."id", $3, 'offered', t."clockMinutes"
+         SELECT $1::uuid, $2::uuid, $4::uuid, t."id", $3::smallint, 'offered', t."clockMinutes"
            FROM "game_task_templates" t
           WHERE t."status" = 'approved'
             AND t."mode" = 'team'
-            AND t."tier" = $3
+            AND t."tier" = $3::smallint
             AND NOT EXISTS (
               SELECT 1 FROM "game_task_assignments" a
-               WHERE a."enrolmentId" = $2 AND a."taskTemplateId" = t."id"
+               WHERE a."enrolmentId" = $2::uuid AND a."taskTemplateId" = t."id"
             )
           ORDER BY random()
           LIMIT 1
@@ -196,6 +192,32 @@ export class AssignmentsService {
       );
     }
     return this.view(await this.load(picked[0].id));
+  }
+
+  /**
+   * The current season, provided it has started — starting it here if its
+   * hour has come and the minute sweep has not got to it yet.
+   *
+   * Opal 001 unlocks on every screen at `startsAt` exactly, and the player
+   * is dealt a task the moment it opens. Waiting up to a minute for
+   * `startDue` would refuse that first draw with "has not started", at the
+   * one moment everyone is pressing it. Same conditional UPDATE as the
+   * sweep, so the two cannot start it twice.
+   */
+  private async startedSeason() {
+    const season = await this.seasonsService.requireCurrent();
+    if (
+      season.status === 'open' &&
+      season.startsAt &&
+      season.startsAt.getTime() <= Date.now()
+    ) {
+      await this.seasonsService.startDue();
+      season.status = 'running';
+    }
+    if (season.status !== 'running') {
+      throw new ConflictException('The season has not started yet.');
+    }
+    return season;
   }
 
   /** The offer waiting or the clock running, or null. */
@@ -420,13 +442,19 @@ export class AssignmentsService {
     await this.expireOverdue(assignmentId);
   }
 
-  /** Every minute. A clock that hits 00:00 is settled within the minute. */
+  /**
+   * Every minute. A clock that hits 00:00 is settled within the minute, and
+   * a season whose start time has come is started.
+   */
   @Cron('* * * * *')
   async sweepClocks(): Promise<void> {
     try {
-      await this.leaderLock.withLock('gameTaskClock', 55_000, () =>
-        this.expireOverdue(),
-      );
+      await this.leaderLock.withLock('gameTaskClock', 55_000, async () => {
+        // A season opens itself at `startsAt`, so opal 001 unlocks on the
+        // minute with nobody at the panel. Same lock, same minute.
+        await this.seasonsService.startDue();
+        await this.expireOverdue();
+      });
     } catch (err) {
       this.logger.error(
         'gameTaskClock failed',
@@ -522,4 +550,48 @@ export class AssignmentsService {
       attemptId: a.attemptId,
     };
   }
+}
+
+/** `1` → `001`: how an opal is named on screen and in every message. */
+function opalName(day: number): string {
+  return String(day).padStart(3, '0');
+}
+
+/** "5h 12m", "43m", "under a minute". Coarse on purpose — it is a refusal. */
+function inWords(ms: number): string {
+  const minutes = Math.max(0, Math.ceil(ms / 60_000));
+  if (minutes < 1) return 'under a minute';
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ''}` : `${m}m`;
+}
+
+/**
+ * Only the open opal deals tasks.
+ *
+ * Opal N opens 24h × (N − 1) after `startsAt` and closes 24h later (see
+ * `opalWindows`). A draw for a locked opal is too early and one for a
+ * closed opal is too late; both say which opal *is* open, because that is
+ * the next thing the player needs to know. A season with no start time has
+ * no schedule to hold anyone to — that is a hand-made test season, never a
+ * running one, since starting a season stamps `startsAt`.
+ */
+function assertOpalOpen(startsAt: Date | null, day: number): void {
+  if (!startsAt) return;
+  const now = new Date();
+  const opal = opalWindows(startsAt, now).find((w) => w.day === day);
+  if (!opal || opal.state === 'open') return;
+  if (opal.state === 'locked') {
+    throw new ConflictException(
+      `Opal ${opalName(day)} is still locked. It opens in ${inWords(
+        opal.opensAt.getTime() - now.getTime(),
+      )}.`,
+    );
+  }
+  const open = openOpal(startsAt, now);
+  throw new ConflictException(
+    open
+      ? `Opal ${opalName(day)} is closed. Opal ${opalName(open.day)} is open.`
+      : `Opal ${opalName(day)} is closed. The season's opals are done.`,
+  );
 }

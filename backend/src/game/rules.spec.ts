@@ -22,6 +22,10 @@ import {
   clampVoteReward,
   dailyMinimumTasks,
   defaultVoteReward,
+  OPAL_HOURS,
+  SEASON_OPAL_COUNT,
+  opalWindows,
+  openOpal,
 } from './rules';
 
 /** A `ConfigService` stand-in: one key, one value. */
@@ -407,5 +411,63 @@ describe('settleWarBook', () => {
       for (const p of result.payouts)
         expect(Number.isInteger(p.payout)).toBe(true);
     }
+  });
+});
+
+describe('the opals', () => {
+  const START = new Date('2026-10-30T00:00:00.000+04:00');
+  const HOUR = 3_600_000;
+  const at = (hours: number) => new Date(START.getTime() + hours * HOUR);
+
+  it('are three, of 24 hours each', () => {
+    expect(SEASON_OPAL_COUNT).toBe(3);
+    expect(OPAL_HOURS).toBe(24);
+  });
+
+  it('are all locked before the season starts', () => {
+    expect(opalWindows(START, at(-1)).map((w) => w.state)).toEqual([
+      'locked',
+      'locked',
+      'locked',
+    ]);
+    expect(openOpal(START, at(-1))).toBeNull();
+  });
+
+  it('open one at a time, each closing as the next opens', () => {
+    expect(opalWindows(START, at(0)).map((w) => w.state)).toEqual([
+      'open',
+      'locked',
+      'locked',
+    ]);
+    expect(opalWindows(START, at(24)).map((w) => w.state)).toEqual([
+      'closed',
+      'open',
+      'locked',
+    ]);
+    expect(opalWindows(START, at(71.99)).map((w) => w.state)).toEqual([
+      'closed',
+      'closed',
+      'open',
+    ]);
+  });
+
+  it('are all closed once the third has had its day', () => {
+    expect(opalWindows(START, at(72)).every((w) => w.state === 'closed')).toBe(
+      true,
+    );
+    expect(openOpal(START, at(72))).toBeNull();
+  });
+
+  it('carry exact windows, 24 hours apart', () => {
+    const [one, two, three] = opalWindows(START, at(0));
+    expect(one.opensAt.toISOString()).toBe('2026-10-29T20:00:00.000Z');
+    expect(two.opensAt.getTime() - one.opensAt.getTime()).toBe(24 * HOUR);
+    expect(three.closesAt.getTime() - START.getTime()).toBe(72 * HOUR);
+    expect(openOpal(START, at(30))?.day).toBe(2);
+  });
+
+  it('have no schedule without a start time', () => {
+    expect(opalWindows(null)).toEqual([]);
+    expect(opalWindows('not a date')).toEqual([]);
   });
 });
