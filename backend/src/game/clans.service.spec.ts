@@ -160,6 +160,18 @@ describe('ClansService', () => {
       expect(enrolments.require).toHaveBeenCalledWith(USER, 'player');
     });
 
+    it('refuses a watcher before any insert', async () => {
+      enrolments.require.mockRejectedValue(
+        new ConflictException(
+          'You joined this season as a watcher, so you cannot take part.',
+        ),
+      );
+      await expect(service.create(USER, 'Night Owls')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+    });
+
     it('refuses a name another clan has this season', async () => {
       manager.query.mockResolvedValueOnce([]);
       await expect(service.create(USER, 'Night Owls')).rejects.toThrow(
@@ -229,6 +241,24 @@ describe('ClansService', () => {
   });
 
   describe('join', () => {
+    it('asks for a player enrolment', async () => {
+      await service.join(USER, 'ABCD2345').catch(() => undefined);
+      expect(enrolments.require).toHaveBeenCalledWith(USER, 'player');
+    });
+
+    it('refuses a watcher before looking the code up', async () => {
+      enrolments.require.mockRejectedValue(
+        new ConflictException(
+          'You joined this season as a watcher, so you cannot take part.',
+        ),
+      );
+      await expect(service.join(USER, 'ABCD2345')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(clanRepo.findOne).not.toHaveBeenCalled();
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+    });
+
     it('refuses someone already in a clan', async () => {
       memberRepo.findOne.mockResolvedValue(memberSeat());
       await expect(service.join(USER, 'ABCD2345')).rejects.toThrow(

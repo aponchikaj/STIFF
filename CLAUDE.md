@@ -198,7 +198,7 @@ update workflow"* — the fix is on the token, not the branch.
 
 ## Skills
 
-`.claude/skills/` holds **420 skills**, curated for this repo. Sources: the
+`.claude/skills/` holds **439 skills**, curated for this repo. Sources: the
 original 50, [alirezarezvani/claude-skills](https://github.com/alirezarezvani/claude-skills),
 plus stack-specific skills from Anthropic, Vercel, Supabase, obra/superpowers,
 mattpocock, AccessLint and others. Skills for stacks we do not use have been
@@ -266,6 +266,12 @@ stdlib-only.
 - **Image / video / visual** — `canvas-design`, `algorithmic-art`,
   `banner-design`, `theme-factory`, `slack-gif-creator`, `demo-video`,
   `video-content-strategist`, `youtube-full`, `data-visualization`
+- **AI video / Higgsfield** — `seedance-fashion-lookbook`, `seedance-ecommerce-ad`,
+  `seedance-product-360`, `seedance-social-hook`, `seedance-brand-story` for
+  prompts; `higgsfield-image-auto`, `seedance-auto-generate`, `ugc-video-auto`
+  to submit them (Playwright MCP). Generation spends Higgsfield credits —
+  confirm before clicking Generate. The connected Higgsfield MCP can generate
+  directly instead of driving the browser.
 - **Claude Code itself** — `claude-md-improver`, `skill-development`,
   `hook-development`, `claude-automation-recommender`, `write-a-skill`
 

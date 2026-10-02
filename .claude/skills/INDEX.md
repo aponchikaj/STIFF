@@ -1,6 +1,6 @@
 # Skill Index
 
-420 skills in `.claude/skills/`. Grouped by what they're for. Open `.claude/skills/<name>/SKILL.md` for the full instructions.
+439 skills in `.claude/skills/`. Grouped by what they're for. Open `.claude/skills/<name>/SKILL.md` for the full instructions.
 
 ## Stack: NestJS / API / DB (20)
 
@@ -249,6 +249,30 @@
 - **data-visualization** — When the user wants to pick a chart type, design a dashboard, or make an existing visualization clearer and more honest.
 - **full-page-screenshot** — Use when the user asks to capture a full-page screenshot, long screenshot, or complete page capture of a web page.
 - **slack-gif-creator** — Knowledge and utilities for creating animated GIFs optimized for Slack.
+
+## AI Video / Higgsfield (19)
+
+From [AKCodez/higgsfield-claude-skills](https://github.com/AKCodez/higgsfield-claude-skills) (prompt skills adapted from beshuaxian/higgsfield-seedance2-jineng). Installed under their frontmatter names, not the repo's numbered folders. The four automation skills drive higgsfield.ai through Playwright MCP; the connected Higgsfield MCP (`generate_image` / `generate_video`) does the same without a browser.
+
+- **higgsfield-image-auto** — Generate an image on Higgsfield (Soul 2.0, Nano Banana Pro, …) via Playwright; asks before spending credits.
+- **seedance-auto-generate** — Generate a Seedance 2.0 video from an image on Higgsfield via Playwright; routes to the style skills below for the prompt.
+- **ugc-video-auto** — Full UGC pipeline: character image → Seedance 2.0 video, via Playwright.
+- **ugc-hot-girl** — Image prompt for a photorealistic female UGC ad character.
+- **seedance-fashion-lookbook** — Lookbooks, model walks, streetwear, collection launches. Closest fit for the shop.
+- **seedance-ecommerce-ad** — Product ads for online selling: showcases, unboxing, TikTok/Instagram shop.
+- **seedance-product-360** — Turntable, multi-angle reveal and hero shots of a physical product.
+- **seedance-social-hook** — Scroll-stopping openers for TikTok, Reels and Shorts.
+- **seedance-brand-story** — Brand films, origin and founder stories, mission videos.
+- **seedance-motion-design-ad** — SaaS/app promos, UI showcases, feature launches.
+- **seedance-cinematic** — Film-look prompts: lighting, lenses, camera moves.
+- **seedance-3d-cgi** — Rendered/CGI looks: Pixar, Unreal, ray-traced.
+- **seedance-cartoon** — 2D, cel-shaded, hand-drawn and motion-graphics animation.
+- **seedance-anime-action** — Anime styles: shonen, mecha, openings.
+- **seedance-comic-to-video** — Animate comic panels, manga, webtoons, storyboards.
+- **seedance-fight-scenes** — Combat and action choreography.
+- **seedance-music-video** — Beat-synced, performance and lyric visuals.
+- **seedance-food-beverage** — Food, drink and restaurant promos.
+- **seedance-real-estate** — Property tours, architecture, interiors.
 
 ## Product / PM / Research (33)
 

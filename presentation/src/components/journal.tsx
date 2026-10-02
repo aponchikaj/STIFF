@@ -184,10 +184,13 @@ export function Journal() {
 
   const closed = turned === 0;
   const finished = spread && turned === maxTurned;
+  // Only an even book ends on a lone verso. An odd one's last spread is a
+  // full pair, and sliding it would push the final page off the screen.
+  const lastAlone = finished && TOTAL % 2 === 0;
   // Closed, the cover sits in the middle of the screen rather than in the
   // right half of an invisible spread, so the whole book slides half a page
   // across and slides back as it opens. Mirrored at the far end.
-  const shift = spread ? (closed ? "-25%" : finished ? "25%" : "0%") : "0%";
+  const shift = spread ? (closed ? "-25%" : lastAlone ? "25%" : "0%") : "0%";
 
   const counter = closed
     ? "Cover"
@@ -207,7 +210,7 @@ export function Journal() {
           style={{ transform: `translateX(${shift})` }}
         >
           <div className="book-shadow book-shadow-l" style={{ opacity: closed ? 0 : 1 }} aria-hidden />
-          <div className="book-shadow book-shadow-r" style={{ opacity: finished ? 0 : 1 }} aria-hidden />
+          <div className="book-shadow book-shadow-r" style={{ opacity: lastAlone ? 0 : 1 }} aria-hidden />
           <span
             className="book-edge book-edge-l"
             style={{ width: `${turned * EDGE_PX}px` }}
@@ -358,7 +361,7 @@ export function Journal() {
                   <td>
                     <kbd>?</kbd>
                   </td>
-                  <td>This card. The URL always carries the page number; /deck is the same content as 16:9 slides.</td>
+                  <td>This card. The URL always carries the page number. /deck is the same fifteen pages as 16:9 slides.</td>
                 </tr>
               </tbody>
             </table>
