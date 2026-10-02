@@ -18,6 +18,7 @@ import { CartService } from '../cart/cart.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedRequest } from '../common/types/authenticated-request';
 import { Public } from '../common/decorators/public.decorator';
+import { SessionStart } from '../common/decorators/session-start.decorator';
 import { toSafeUser, User } from '../users/user.entity';
 import { UsersService } from '../users/users.service';
 import { clearAuthCookies, setAuthCookies } from './auth-cookies';
@@ -44,6 +45,7 @@ export class AuthController {
   ) {}
 
   @Public()
+  @SessionStart()
   @Post('register')
   async register(
     @Body() dto: RegisterDto,
@@ -62,6 +64,7 @@ export class AuthController {
   }
 
   @Public()
+  @SessionStart()
   @Post('login')
   @HttpCode(200)
   async login(
@@ -81,6 +84,7 @@ export class AuthController {
   }
 
   @Public()
+  @SessionStart()
   @Post('refresh')
   @HttpCode(200)
   async refresh(
@@ -109,6 +113,7 @@ export class AuthController {
     };
   }
 
+  @SessionStart()
   @Post('logout')
   @HttpCode(200)
   async logout(
@@ -128,6 +133,7 @@ export class AuthController {
   }
 
   @Public()
+  @SessionStart()
   @Post('verify-email')
   @HttpCode(200)
   async verifyEmail(@Body() dto: VerifyEmailDto) {
@@ -143,6 +149,7 @@ export class AuthController {
   }
 
   @Public()
+  @SessionStart()
   @Post('forgot-password')
   @HttpCode(200)
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
@@ -151,6 +158,7 @@ export class AuthController {
   }
 
   @Public()
+  @SessionStart()
   @Post('reset-password')
   @HttpCode(200)
   async resetPassword(@Body() dto: ResetPasswordDto) {

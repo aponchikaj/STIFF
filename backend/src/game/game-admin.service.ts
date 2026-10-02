@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -12,6 +13,7 @@ import {
   type EnrolmentStatus,
 } from './entities/game-enrolment.entity';
 import { GameSeason, type SeasonStatus } from './entities/game-season.entity';
+import { OPAL_HOURS, SEASON_OPAL_COUNT } from './rules';
 import { SeasonsService } from './seasons.service';
 import {
   VerdictsService,
@@ -124,9 +126,45 @@ export class GameAdminService {
       }
     }
 
-    if (status === 'running' && !season.startsAt) season.startsAt = new Date();
+    if (status === 'running') {
+      // Started by hand. With no start time, or one still in the future,
+      // the clock starts now — the opals count from `startsAt`, and a
+      // season running while its 001 is still locked would deal nothing.
+      const now = new Date();
+      if (!season.startsAt || season.startsAt.getTime() > now.getTime()) {
+        season.startsAt = now;
+        season.endsAt = seasonEnd(now);
+      }
+    }
     if (status === 'closed' && !season.endsAt) season.endsAt = new Date();
     season.status = status;
+    return this.seasonRepo.save(season);
+  }
+
+  /**
+   * Schedules when a season starts — the moment opal 001 unlocks.
+   *
+   * Set from the panel while the season is a draft or open; once it is
+   * running the clock is the clock. The end follows from the start (three
+   * opals of 24 hours), so it is written here rather than asked for. The
+   * season starts itself at that moment (`SeasonsService.startDue`) —
+   * provided it is `open` by then. `null` clears the schedule.
+   */
+  async scheduleSeason(id: string, startsAt: Date | null): Promise<GameSeason> {
+    const season = await this.seasonRepo.findOne({ where: { id } });
+    if (!season) throw new NotFoundException('Season not found');
+    if (season.status === 'running' || season.status === 'closed') {
+      throw new ConflictException(
+        `"${season.title}" is ${season.status}; its start can no longer move.`,
+      );
+    }
+    if (startsAt && startsAt.getTime() <= Date.now() + 60_000) {
+      throw new BadRequestException(
+        'Pick a start at least a minute from now. To start right away, use Start the clock.',
+      );
+    }
+    season.startsAt = startsAt;
+    season.endsAt = startsAt ? seasonEnd(startsAt) : null;
     return this.seasonRepo.save(season);
   }
 
@@ -170,4 +208,11 @@ export class GameAdminService {
   ): Promise<GameAttempt> {
     return this.verdicts.unpublish(attemptId, options);
   }
+}
+
+/** Three opals of 24 hours each: when the last one closes. */
+function seasonEnd(startsAt: Date): Date {
+  return new Date(
+    startsAt.getTime() + SEASON_OPAL_COUNT * OPAL_HOURS * 3_600_000,
+  );
 }
