@@ -55,7 +55,7 @@ function harness(cookieDomain?: string) {
   return { controller, res, req, set, cleared };
 }
 
-const login = { email: 'a@b.c', password: 'x' };
+const login = { emailOrUsername: 'a@b.c', password: 'x' };
 
 describe('auth cookie domain', () => {
   it('stays host-only when COOKIE_DOMAIN is unset', async () => {
