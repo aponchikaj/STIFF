@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { IS_SESSION_START_KEY } from '../decorators/session-start.decorator';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import {
   ADMIN_ACCESS_COOKIE,
@@ -34,11 +35,12 @@ type RouteMeta = Partial<Record<string, unknown>>;
 function contextFor(
   cookies: Record<string, string>,
   method = 'GET',
+  headers: Record<string, string> = {},
 ): ExecutionContext {
   const request = {
     cookies,
     method,
-    headers: {},
+    headers,
     url: '/api/orders',
     originalUrl: '/api/orders',
     ip: '203.0.113.7',
@@ -258,6 +260,78 @@ describe('JwtAuthGuard — admin session confinement', () => {
 
     await expect(guard.canActivate(context)).rejects.toThrow(
       'Insufficient permissions',
+    );
+  });
+});
+
+/**
+ * One cookie jar per host: in development every `localhost` port shares it,
+ * so the admin panel's cookie rides along on the game's requests. These pin
+ * when that ambient cookie is set aside — and that setting it aside never
+ * hands an admin token anything.
+ */
+describe('JwtAuthGuard — an ambient admin cookie', () => {
+  const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
+
+  it('lets an explicit shop Bearer outrank the admin cookie', async () => {
+    const guard = buildGuard({});
+    const context = contextFor(
+      { [ADMIN_ACCESS_COOKIE]: adminToken() },
+      'POST',
+      bearer(shopToken()),
+    );
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    const request = context.switchToHttp().getRequest<{ user?: User }>();
+    expect(request.user).toBe(shopUser);
+  });
+
+  it('lets a sign-in route through with only the admin cookie, as nobody', async () => {
+    const guard = buildGuard({
+      [IS_PUBLIC_KEY]: true,
+      [IS_SESSION_START_KEY]: true,
+    });
+    const context = contextFor({ [ADMIN_ACCESS_COOKIE]: adminToken() }, 'POST');
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    const request = context
+      .switchToHttp()
+      .getRequest<{ user?: User; isAdminOrigin?: boolean }>();
+    expect(request.user).toBeUndefined();
+    expect(request.isAdminOrigin).toBeUndefined();
+  });
+
+  it('still refuses the admin cookie writing to a public route that is not a sign-in', async () => {
+    // The cart case: @Public() at class level, so an admin session must not
+    // be allowed to write to it. Unchanged by the sign-in carve-out.
+    const guard = buildGuard({ [IS_PUBLIC_KEY]: true });
+    const context = contextFor({ [ADMIN_ACCESS_COOKIE]: adminToken() }, 'POST');
+
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+  });
+
+  it('still judges an admin token sent explicitly as the Bearer', async () => {
+    // Explicit is explicit: on a sign-in route that does not admit admins,
+    // an admin bearer is refused rather than quietly ignored.
+    const guard = buildGuard({
+      [IS_PUBLIC_KEY]: true,
+      [IS_SESSION_START_KEY]: true,
+    });
+    const context = contextFor({}, 'POST', bearer(adminToken()));
+
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+  });
+
+  it('does not let an admin-audience Bearer pass as a shop credential', async () => {
+    const guard = buildGuard({});
+    const context = contextFor({}, 'GET', bearer(adminToken()));
+
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
+      UnauthorizedException,
     );
   });
 });

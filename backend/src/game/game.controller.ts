@@ -19,6 +19,7 @@ import { AuthService } from '../auth/auth.service';
 import { TokenService } from '../auth/token.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
+import { SessionStart } from '../common/decorators/session-start.decorator';
 import type { AuthenticatedRequest } from '../common/types/authenticated-request';
 import { toSafeUser, User } from '../users/user.entity';
 import { assertOldEnough, parseBirthDate } from './age-gate';
@@ -37,6 +38,7 @@ import {
   PlayerSearchQueryDto,
   RequestUploadDto,
 } from './dto/game.dto';
+import type { GameSeason } from './entities/game-season.entity';
 import { EnrolmentsService } from './enrolments.service';
 import { FeedService } from './feed.service';
 import { LeaderboardService } from './leaderboard.service';
@@ -50,6 +52,7 @@ import {
   VOTE_REWARD_MIN_COINS,
   VOTE_WIN_COOLDOWN_HOURS,
   VOTING_WINDOW_HOURS,
+  opalWindows,
 } from './rules';
 import { SeasonsService } from './seasons.service';
 import { TaskTemplatesService } from './task-templates.service';
@@ -122,16 +125,7 @@ export class GameController {
   async season() {
     const season = await this.seasonsService.current();
     if (!season) return { season: null };
-    return {
-      season: {
-        id: season.id,
-        slug: season.slug,
-        title: season.title,
-        status: season.status,
-        startsAt: season.startsAt,
-        endsAt: season.endsAt,
-      },
-    };
+    return { season: seasonView(season) };
   }
 
   // ---------------------------------------------------- the front door
@@ -160,6 +154,7 @@ export class GameController {
    * kept. `pending` says which of those happened.
    */
   @Public()
+  @SessionStart()
   @Post('register')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async register(
@@ -230,16 +225,7 @@ export class GameController {
         : null;
     return {
       user: toSafeUser(user),
-      season: season
-        ? {
-            id: season.id,
-            slug: season.slug,
-            title: season.title,
-            status: season.status,
-            startsAt: season.startsAt,
-            endsAt: season.endsAt,
-          }
-        : null,
+      season: season ? seasonView(season) : null,
       enrolment,
       /** Their place on the board, by the board's own rule; null off it. */
       rank:
@@ -423,4 +409,31 @@ export class GameController {
 /** `@Public()` routes get the user attached when there is one, or nothing. */
 function currentUser(req: Request): User | null {
   return (req as AuthenticatedRequest).user ?? null;
+}
+
+/**
+ * The public face of a season, with its opal schedule.
+ *
+ * `opals` is every opal's window and state as the server sees it now, and
+ * `now` is the server's clock at the moment of answering — so a phone whose
+ * clock is wrong can still count down to the right second by offsetting
+ * from it, and the state it shows agrees with what a draw will be told.
+ */
+function seasonView(season: GameSeason) {
+  const now = new Date();
+  return {
+    id: season.id,
+    slug: season.slug,
+    title: season.title,
+    status: season.status,
+    startsAt: season.startsAt,
+    endsAt: season.endsAt,
+    now: now.toISOString(),
+    opals: opalWindows(season.startsAt, now).map((w) => ({
+      day: w.day,
+      opensAt: w.opensAt.toISOString(),
+      closesAt: w.closesAt.toISOString(),
+      state: w.state,
+    })),
+  };
 }

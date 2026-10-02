@@ -96,10 +96,14 @@ export class VerdictsService {
     await this.dataSource.transaction(async (manager) => {
       const claimed = rowsAffected(
         await manager.query<unknown[]>(
+          // `$2::varchar` everywhere it appears: used once as the column's
+          // value (varchar) and once against a text literal, an uncast $2 is
+          // deduced as two types and Postgres refuses the statement (42P08)
+          // — every approve and reject failed with a 500 until it was cast.
           `UPDATE "game_attempts"
-              SET "status" = $2,
-                  "publishedAt" = CASE WHEN $2 = 'published' THEN now() ELSE NULL END,
-                  "rejectionReason" = CASE WHEN $2 = 'rejected' THEN $3 ELSE NULL END
+              SET "status" = $2::varchar,
+                  "publishedAt" = CASE WHEN $2::varchar = 'published' THEN now() ELSE NULL END,
+                  "rejectionReason" = CASE WHEN $2::varchar = 'rejected' THEN $3::varchar ELSE NULL END
             WHERE "id" = $1 AND "status" = 'submitted'
             RETURNING "id"`,
           [

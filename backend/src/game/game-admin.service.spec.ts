@@ -1,4 +1,8 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { GameAttempt } from './entities/game-attempt.entity';
@@ -148,6 +152,92 @@ describe('GameAdminService', () => {
       await expect(
         service.setSeasonStatus('s1', 'closed'),
       ).resolves.toMatchObject({ status: 'closed' });
+    });
+  });
+
+  describe('the schedule', () => {
+    const HOUR = 3_600_000;
+
+    it('schedules a start and derives the end: three opals of 24 hours', async () => {
+      const startsAt = new Date(Date.now() + 48 * HOUR);
+      seasonRepo.findOne.mockResolvedValue({ id: 's1', status: 'open' });
+
+      const season = await service.scheduleSeason('s1', startsAt);
+
+      expect(season.startsAt).toEqual(startsAt);
+      expect(season.endsAt?.getTime()).toBe(startsAt.getTime() + 72 * HOUR);
+    });
+
+    it('can schedule a draft, so it is ready before it opens', async () => {
+      seasonRepo.findOne.mockResolvedValue({ id: 's1', status: 'draft' });
+      await expect(
+        service.scheduleSeason('s1', new Date(Date.now() + HOUR)),
+      ).resolves.toMatchObject({ status: 'draft' });
+    });
+
+    it('refuses a start in the past or the next minute', async () => {
+      seasonRepo.findOne.mockResolvedValue({ id: 's1', status: 'open' });
+      await expect(
+        service.scheduleSeason('s1', new Date(Date.now() + 30_000)),
+      ).rejects.toThrow(BadRequestException);
+      expect(seasonRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('will not move the start of a season already running', async () => {
+      seasonRepo.findOne.mockResolvedValue({
+        id: 's1',
+        title: 'Zero',
+        status: 'running',
+      });
+      await expect(
+        service.scheduleSeason('s1', new Date(Date.now() + HOUR)),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('clears the schedule with null', async () => {
+      seasonRepo.findOne.mockResolvedValue({
+        id: 's1',
+        status: 'open',
+        startsAt: new Date(Date.now() + HOUR),
+        endsAt: new Date(Date.now() + 73 * HOUR),
+      });
+      await expect(service.scheduleSeason('s1', null)).resolves.toMatchObject({
+        startsAt: null,
+        endsAt: null,
+      });
+    });
+
+    /**
+     * Started by hand ahead of schedule: the opals count from `startsAt`,
+     * so it moves to now — otherwise the season would be running with 001
+     * still locked, dealing nothing.
+     */
+    it('moves a future start to now when the season is started by hand', async () => {
+      const scheduled = new Date(Date.now() + 10 * HOUR);
+      seasonRepo.findOne
+        .mockResolvedValueOnce({
+          id: 's1',
+          status: 'open',
+          startsAt: scheduled,
+        })
+        .mockResolvedValueOnce({ id: 's1' });
+
+      const season = await service.setSeasonStatus('s1', 'running');
+
+      expect(season.startsAt!.getTime()).toBeLessThanOrEqual(Date.now());
+      expect(season.endsAt!.getTime() - season.startsAt!.getTime()).toBe(
+        72 * HOUR,
+      );
+    });
+
+    it('keeps a start that has already passed when started by hand', async () => {
+      const passed = new Date(Date.now() - HOUR);
+      seasonRepo.findOne
+        .mockResolvedValueOnce({ id: 's1', status: 'open', startsAt: passed })
+        .mockResolvedValueOnce({ id: 's1' });
+
+      const season = await service.setSeasonStatus('s1', 'running');
+      expect(season.startsAt).toEqual(passed);
     });
   });
 

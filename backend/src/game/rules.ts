@@ -298,3 +298,59 @@ export function settleWarBook(
 
   return { payouts, pools, rake, refunded: false, reason: 'paid' };
 }
+
+// ------------------------------------------------------------ the opals --
+
+/**
+ * A season is three opals — 001, 002, 003 — one per day of the ladder.
+ *
+ * Opal N opens `(N − 1) × 24h` after the season's `startsAt` and closes 24h
+ * later, when the next one opens. Only the open opal deals tasks: a draw
+ * for a locked one is too early, and a draw for a closed one is too late.
+ * Counted from `startsAt` rather than from Tbilisi midnight, so a season
+ * that starts at 00:00 local lines up with the calendar day and one that
+ * starts at noon still gives every opal its full 24 hours.
+ */
+export const SEASON_OPAL_COUNT = 3;
+export const OPAL_HOURS = 24;
+
+const OPAL_MS = OPAL_HOURS * 60 * 60 * 1000;
+
+export type OpalState = 'locked' | 'open' | 'closed';
+
+export interface OpalWindow {
+  /** 1, 2 or 3 — shown as 001, 002, 003. Also the task tier it deals. */
+  day: number;
+  opensAt: Date;
+  closesAt: Date;
+  state: OpalState;
+}
+
+/** Every opal's window and state at `now`. Empty without a start time. */
+export function opalWindows(
+  startsAt: Date | string | null | undefined,
+  now: Date = new Date(),
+): OpalWindow[] {
+  if (!startsAt) return [];
+  const start = new Date(startsAt).getTime();
+  if (Number.isNaN(start)) return [];
+  const at = now.getTime();
+  return Array.from({ length: SEASON_OPAL_COUNT }, (_, index) => {
+    const opensAt = start + index * OPAL_MS;
+    const closesAt = opensAt + OPAL_MS;
+    return {
+      day: index + 1,
+      opensAt: new Date(opensAt),
+      closesAt: new Date(closesAt),
+      state: at < opensAt ? 'locked' : at < closesAt ? 'open' : 'closed',
+    };
+  });
+}
+
+/** The opal open at `now`, or null before the first and after the last. */
+export function openOpal(
+  startsAt: Date | string | null | undefined,
+  now: Date = new Date(),
+): OpalWindow | null {
+  return opalWindows(startsAt, now).find((w) => w.state === 'open') ?? null;
+}

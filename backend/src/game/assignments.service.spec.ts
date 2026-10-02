@@ -87,7 +87,7 @@ describe('AssignmentsService', () => {
   };
   /** What `held()` and the accept guard read through the builder. */
   let getOne: jest.Mock;
-  let seasons: { requireCurrent: jest.Mock };
+  let seasons: { requireCurrent: jest.Mock; startDue: jest.Mock };
   let enrolments: { require: jest.Mock };
   let discipline: { burnHearts: jest.Mock };
   let economy: { move: jest.Mock; announce: jest.Mock };
@@ -117,6 +117,7 @@ describe('AssignmentsService', () => {
         slug: 'season-zero',
         status: 'running',
       }),
+      startDue: jest.fn().mockResolvedValue(0),
     };
     enrolments = {
       require: jest
@@ -176,9 +177,89 @@ describe('AssignmentsService', () => {
       expect(repo.query).not.toHaveBeenCalled();
     });
 
+    /** 001 unlocks on screen at `startsAt`; the sweep may be a minute behind. */
+    it('starts a season whose hour has come, and deals', async () => {
+      seasons.requireCurrent.mockResolvedValue({
+        id: 's1',
+        status: 'open',
+        startsAt: new Date(Date.now() - 5_000),
+      });
+      repo.query.mockResolvedValue([{ id: 'as1' }]);
+      repo.findOne.mockResolvedValue(assignment());
+      await expect(service.draw(PLAYER, 1)).resolves.toBeDefined();
+      expect(seasons.startDue).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not start a season before its hour', async () => {
+      seasons.requireCurrent.mockResolvedValue({
+        id: 's1',
+        status: 'open',
+        startsAt: new Date(Date.now() + 60_000),
+      });
+      await expect(service.draw(PLAYER, 1)).rejects.toThrow(/not started/);
+      expect(seasons.startDue).not.toHaveBeenCalled();
+      expect(repo.query).not.toHaveBeenCalled();
+    });
+
     it('refuses a day off the ladder', async () => {
       await expect(service.draw(PLAYER, 4)).rejects.toThrow(/three days/);
       expect(repo.query).not.toHaveBeenCalled();
+    });
+
+    describe('only the open opal deals', () => {
+      const HOUR = 3_600_000;
+      /** A season that started `hoursAgo` hours ago. */
+      function startedHoursAgo(hoursAgo: number) {
+        seasons.requireCurrent.mockResolvedValue({
+          id: 's1',
+          slug: 'season-zero',
+          status: 'running',
+          startsAt: new Date(Date.now() - hoursAgo * HOUR),
+        });
+      }
+
+      it('deals opal 001 in its first 24 hours', async () => {
+        startedHoursAgo(3);
+        repo.query.mockResolvedValue([{ id: 'as1' }]);
+        repo.findOne.mockResolvedValue(assignment());
+        await expect(service.draw(PLAYER, 1)).resolves.toBeDefined();
+      });
+
+      it('refuses opal 002 while it is still locked, and says when it opens', async () => {
+        startedHoursAgo(3);
+        await expect(service.draw(PLAYER, 2)).rejects.toThrow(
+          /Opal 002 is still locked\. It opens in 21h/,
+        );
+        expect(repo.query).not.toHaveBeenCalled();
+      });
+
+      it('refuses opal 001 once it has closed, and names the open one', async () => {
+        startedHoursAgo(25);
+        await expect(service.draw(PLAYER, 1)).rejects.toThrow(
+          /Opal 001 is closed\. Opal 002 is open\./,
+        );
+        expect(repo.query).not.toHaveBeenCalled();
+      });
+
+      it('deals opal 003 on the third day', async () => {
+        startedHoursAgo(49);
+        repo.query.mockResolvedValue([{ id: 'as1' }]);
+        repo.findOne.mockResolvedValue(assignment({ day: 3 }));
+        await expect(service.draw(PLAYER, 3)).resolves.toBeDefined();
+      });
+
+      it('says the opals are done after the third has closed', async () => {
+        startedHoursAgo(73);
+        await expect(service.draw(PLAYER, 3)).rejects.toThrow(/opals are done/);
+      });
+
+      it('holds a clan draw to the same schedule', async () => {
+        startedHoursAgo(3);
+        await expect(service.drawForClan(PLAYER, 2)).rejects.toThrow(
+          /Opal 002 is still locked/,
+        );
+        expect(clans.requireLeader).not.toHaveBeenCalled();
+      });
     });
 
     it('asks for a player enrolment, not merely a session', async () => {
@@ -840,6 +921,16 @@ describe('AssignmentsService', () => {
         expect.any(Function),
       );
       expect(repo.query).toHaveBeenCalledTimes(1);
+    });
+
+    /** Opal 001 unlocks on the minute: the same sweep starts a due season. */
+    it('starts a season whose start time has come, before the clocks', async () => {
+      repo.query.mockResolvedValue([]);
+      await service.sweepClocks();
+      expect(seasons.startDue).toHaveBeenCalledTimes(1);
+      expect(seasons.startDue.mock.invocationCallOrder[0]).toBeLessThan(
+        repo.query.mock.invocationCallOrder[0],
+      );
     });
 
     /** A throw must never escape into the scheduler. */

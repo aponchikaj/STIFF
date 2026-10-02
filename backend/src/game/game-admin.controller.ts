@@ -25,6 +25,7 @@ import {
   ListTemplatesQueryDto,
   ReinstateDto,
   ReviewQueueQueryDto,
+  ScheduleSeasonDto,
   ScoreLedgerQueryDto,
   SetSeasonStatusDto,
   SettleAttemptDto,
@@ -84,6 +85,18 @@ export class GameAdminController {
   @Post('seasons')
   createSeason(@Body() dto: CreateSeasonDto) {
     return this.gameAdminService.createSeason(dto);
+  }
+
+  /** When opal 001 unlocks. The end follows: three opals of 24 hours. */
+  @Patch('seasons/:id/schedule')
+  scheduleSeason(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ScheduleSeasonDto,
+  ) {
+    return this.gameAdminService.scheduleSeason(
+      id,
+      dto.startsAt ? new Date(dto.startsAt) : null,
+    );
   }
 
   @Patch('seasons/:id/status')
