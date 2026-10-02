@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useInView } from "react-intersection-observer";
+import { CommentSheet } from "@/components/comment-sheet";
+import { FeedTaskDetails, FeedTaskTitle } from "@/components/feed-task";
 import { Icon } from "@/components/icon";
 import {
   Body,
@@ -101,6 +103,7 @@ function FeedCard({ item, priority }: { item: FeedItem; priority: boolean }) {
   const router = useRouter();
   const { isSignedIn } = useAuthState();
   const like = useToggleLike();
+  const [commenting, setCommenting] = useState(false);
 
   const cheater = item.player.status === "cheater";
 
@@ -141,6 +144,9 @@ function FeedCard({ item, priority }: { item: FeedItem; priority: boolean }) {
         </div>
       </header>
 
+      {/* the dare — what this clip is proof of */}
+      {item.task ? <FeedTaskTitle task={item.task} day={item.day} /> : null}
+
       {/* the proof */}
       <Link href={`/feed/${item.id}`} className="group relative block">
         <div className="scanlines relative overflow-hidden bg-surface">
@@ -173,7 +179,16 @@ function FeedCard({ item, priority }: { item: FeedItem; priority: boolean }) {
         </div>
       </Link>
 
-      {item.caption ? <Body size="sm">{item.caption}</Body> : null}
+      {item.caption ? (
+        <Body size="sm" className="text-ink">
+          <span className="font-pixel text-[9px] uppercase tracking-[0.1em] text-cyan">
+            {item.player.handle}
+          </span>{" "}
+          {item.caption}
+        </Body>
+      ) : null}
+
+      {item.task ? <FeedTaskDetails task={item.task} /> : null}
 
       {/* actions */}
       <footer className="flex items-center gap-7">
@@ -209,7 +224,12 @@ function FeedCard({ item, priority }: { item: FeedItem; priority: boolean }) {
           </span>
         </button>
 
-        <Link href={`/feed/${item.id}`} className="group flex items-center gap-2.5 py-1">
+        <button
+          type="button"
+          onClick={() => setCommenting(true)}
+          aria-label={`Comments (${item.commentCount})`}
+          className="group flex items-center gap-2.5 py-1"
+        >
           <Icon
             name="chat"
             size="sm"
@@ -218,10 +238,14 @@ function FeedCard({ item, priority }: { item: FeedItem; priority: boolean }) {
           <span className="font-pixel text-[10px] tabular-nums text-ink-muted">
             {formatCompact(item.commentCount)}
           </span>
-        </Link>
+        </button>
 
         <ShareButton item={item} />
       </footer>
+
+      {commenting ? (
+        <CommentSheet item={item} onClose={() => setCommenting(false)} />
+      ) : null}
     </motion.article>
   );
 }

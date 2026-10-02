@@ -303,6 +303,24 @@ export interface FeedItem {
   publishedAt: string;
   /** What the share sheet turns into a story card. */
   shareUrl: string;
+  /**
+   * The task this is proof of — what a viewer is watching, and what a voter
+   * judges it against. Null when it was handed in against no task. Optional
+   * so an API that predates it still type-checks as "no task".
+   */
+  task?: FeedTask | null;
+}
+
+/** The public face of a task, as `GET /game/feed` sends it. */
+export interface FeedTask {
+  title: string;
+  brief: string;
+  mode: TaskMode;
+  proof: TaskProof;
+  rewardNerve: number;
+  rewardCoins: number;
+  /** What the watchers check, as the sentences they judge. */
+  criteria: string[];
 }
 
 export interface FeedPage {

@@ -171,6 +171,7 @@ export function useAddComment(attemptId: string) {
       void qc.invalidateQueries({ queryKey: queryKeys.feed.comments(attemptId) });
       // The card shows a comment count, so it is stale too.
       void qc.invalidateQueries({ queryKey: queryKeys.feed.item(attemptId) });
+      bumpCommentCount(qc, attemptId, 1);
     },
   });
 }
@@ -182,8 +183,40 @@ export function useRemoveComment(attemptId: string) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.feed.comments(attemptId) });
       void qc.invalidateQueries({ queryKey: queryKeys.feed.item(attemptId) });
+      bumpCommentCount(qc, attemptId, -1);
     },
   });
+}
+
+/**
+ * The comment count on every feed page that holds this card.
+ *
+ * Patched rather than invalidated: refetching the infinite feed to move one
+ * number would re-page everything above the reader and jump the scroll —
+ * from inside the comment sheet that is open over that very feed.
+ */
+function bumpCommentCount(
+  qc: ReturnType<typeof useQueryClient>,
+  attemptId: string,
+  delta: number,
+) {
+  qc.setQueriesData<{ pages: FeedPage[]; pageParams: unknown[] }>(
+    { queryKey: queryKeys.feed.all, exact: false },
+    (old) => {
+      if (!old?.pages) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page) => ({
+          ...page,
+          items: page.items.map((item) =>
+            item.id === attemptId
+              ? { ...item, commentCount: Math.max(0, item.commentCount + delta) }
+              : item,
+          ),
+        })),
+      };
+    },
+  );
 }
 
 /* ---------------------------------------------------------------- board */

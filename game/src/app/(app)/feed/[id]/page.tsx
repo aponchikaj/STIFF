@@ -1,46 +1,26 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useParams } from "next/navigation";
+import { CommentThread } from "@/components/comments";
+import { FeedTaskDetails, FeedTaskTitle } from "@/components/feed-task";
 import { Icon } from "@/components/icon";
 import { BackLink } from "@/components/nav";
-import {
-  Body,
-  Button,
-  Empty,
-  ErrorNote,
-  Label,
-  Loading,
-  Rule,
-  Screen,
-} from "@/components/ui";
-import type { ApiError, CommentView } from "@/lib/api";
-import {
-  useAddComment,
-  useAuthState,
-  useComments,
-  useFeedItem,
-  useRemoveComment,
-  useToggleLike,
-} from "@/lib/queries";
+import { Body, Empty, Label, Loading, Rule, Screen } from "@/components/ui";
+import { useFeedItem, useToggleLike } from "@/lib/queries";
 import { cn, formatAgo, formatCompact } from "@/lib/utils";
 
 /**
- * One hand-in, with its comments.
+ * One hand-in: the task it was proof of, the clip, and its comments.
  *
- * The notable rule here is the cheater notice. `authorStatus` is read at
- * render time rather than snapshotted when the comment was written, so the
- * moment an account is marked a cheater every comment it ever left says
- * so. The backend sends the exact wording in `notice`; we render that
- * string rather than composing our own, so there is one phrasing of it.
+ * The thread is `CommentThread`, shared with the sheet that opens over the
+ * feed — the cheater notice and the delete rule live there, once.
  */
 export default function FeedItemPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? "";
 
   const item = useFeedItem(id);
-  const comments = useComments(id);
   const like = useToggleLike();
 
   if (item.isLoading) {
@@ -97,6 +77,9 @@ export default function FeedItemPage() {
           </div>
         </header>
 
+        {/* the dare */}
+        {data.task ? <FeedTaskTitle task={data.task} day={data.day} size="lg" /> : null}
+
         {/* the proof */}
         <div className="scanlines relative overflow-hidden bg-surface">
           {data.mediaUrl ? (
@@ -123,7 +106,9 @@ export default function FeedItemPage() {
           )}
         </div>
 
-        {data.caption ? <Body>{data.caption}</Body> : null}
+        {data.caption ? <Body className="text-ink">{data.caption}</Body> : null}
+
+        {data.task ? <FeedTaskDetails task={data.task} defaultOpen /> : null}
 
         <div className="flex items-center gap-8">
           <button
@@ -164,138 +149,12 @@ export default function FeedItemPage() {
         <Rule />
 
         {/* comments */}
-        <section className="flex flex-col gap-6">
-          <Label>
-            {data.commentCount === 1 ? "1 comment" : `${data.commentCount} comments`}
-          </Label>
-
-          <CommentComposer attemptId={id} />
-
-          {comments.isLoading ? (
-            <Loading />
-          ) : (comments.data?.length ?? 0) === 0 ? (
-            <Body size="sm" className="py-6 text-ink-faint">
-              Nothing said yet.
-            </Body>
-          ) : (
-            <ul className="flex flex-col gap-6">
-              {comments.data?.map((comment) => (
-                <CommentRow key={comment.id} comment={comment} attemptId={id} />
-              ))}
-            </ul>
-          )}
-        </section>
+        <CommentThread
+          attemptId={id}
+          count={data.commentCount}
+          returnTo={`/feed/${id}`}
+        />
       </Screen>
     </main>
-  );
-}
-
-/* ------------------------------------------------------------- comments */
-
-function CommentComposer({ attemptId }: { attemptId: string }) {
-  const router = useRouter();
-  const { isSignedIn } = useAuthState();
-  const add = useAddComment(attemptId);
-  const [body, setBody] = useState("");
-
-  if (!isSignedIn) {
-    return (
-      <button
-        type="button"
-        onClick={() => router.push(`/login?next=/feed/${attemptId}`)}
-        className="py-3 text-left font-body text-caption uppercase tracking-[0.12em] text-ink-faint transition-colors hover:text-cyan"
-      >
-        Sign in to say something
-      </button>
-    );
-  }
-
-  const error = add.error as ApiError | null;
-
-  return (
-    <form
-      className="flex flex-col gap-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        const trimmed = body.trim();
-        if (!trimmed) return;
-        add.mutate(trimmed, { onSuccess: () => setBody("") });
-      }}
-    >
-      <div className="flex items-end gap-4">
-        <input
-          value={body}
-          onChange={(event) => setBody(event.target.value)}
-          maxLength={500}
-          placeholder="SAY SOMETHING"
-          className="flex-1 border-b border-blue-dim bg-transparent pb-2.5 font-pixel text-[11px] uppercase tracking-[0.08em] text-ink outline-none transition-all placeholder:text-ink-faint/50 focus:border-cyan focus:[box-shadow:0_1px_0_0_rgb(1_231_255/0.6)]"
-        />
-        <Button
-          type="submit"
-          size="sm"
-          marker={false}
-          icon="send"
-          loading={add.isPending}
-          disabled={!body.trim()}
-        >
-          Send
-        </Button>
-      </div>
-      {error ? <ErrorNote>{error.message}</ErrorNote> : null}
-    </form>
-  );
-}
-
-function CommentRow({
-  comment,
-  attemptId,
-}: {
-  comment: CommentView;
-  attemptId: string;
-}) {
-  const remove = useRemoveComment(attemptId);
-  const cheater = comment.authorStatus === "cheater";
-
-  return (
-    <motion.li
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      className="flex flex-col gap-2"
-    >
-      {/* The backend composes this string; render it, do not rewrite it. */}
-      {comment.notice ? (
-        <span className="font-pixel text-[8px] uppercase tracking-[0.12em] text-danger [text-shadow:var(--glow-danger)]">
-          {comment.notice}
-        </span>
-      ) : null}
-
-      <div className="flex items-baseline gap-3">
-        <span
-          className={cn(
-            "font-pixel text-[10px] uppercase tracking-[0.1em]",
-            cheater ? "text-danger" : "text-cyan",
-          )}
-        >
-          {comment.authorHandle}
-        </span>
-        <Label tone="faint">{formatAgo(comment.createdAt)}</Label>
-
-        {comment.isMine ? (
-          <button
-            type="button"
-            onClick={() => remove.mutate(comment.id)}
-            disabled={remove.isPending}
-            className="ml-auto font-body text-[10px] uppercase tracking-[0.12em] text-ink-faint transition-colors hover:text-danger disabled:opacity-40"
-          >
-            Delete
-          </button>
-        ) : null}
-      </div>
-
-      <Body size="sm" className="text-ink">
-        {comment.body}
-      </Body>
-    </motion.li>
   );
 }
