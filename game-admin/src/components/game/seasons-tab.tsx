@@ -110,6 +110,9 @@ export function SeasonsTab() {
             onStatus={(status, done) =>
               act(() => gameApi.setSeasonStatus(season.id, status), done)
             }
+            onSchedule={(startsAt, done) =>
+              act(() => gameApi.scheduleSeason(season.id, startsAt), done)
+            }
           />
         ))
       )}
@@ -142,10 +145,12 @@ function SeasonCard({
   season,
   busy,
   onStatus,
+  onSchedule,
 }: {
   season: GameSeason;
   busy: boolean;
   onStatus: (status: SeasonStatus, done: string) => void | Promise<void>;
+  onSchedule: (startsAt: string | null, done: string) => void | Promise<void>;
 }) {
   return (
     <Card className="p-5">
@@ -186,6 +191,11 @@ function SeasonCard({
           ]}
         />
       </div>
+
+      {(season.status === "draft" || season.status === "open") && (
+        <ScheduleControl season={season} busy={busy} onSchedule={onSchedule} />
+      )}
+      {season.startsAt && <OpalTimeline startsAt={season.startsAt} />}
 
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-4">
         {season.status === "draft" && (
@@ -228,7 +238,9 @@ function SeasonCard({
               Back to draft
             </button>
             <p className="text-[11px] text-faint">
-              Starting stamps the start time.
+              {season.startsAt
+                ? "Starts itself at the scheduled time. Starting now moves the start to now."
+                : "Starting stamps the start time."}
             </p>
           </>
         )}
@@ -251,6 +263,137 @@ function SeasonCard({
         )}
       </div>
     </Card>
+  );
+}
+
+// ------------------------------------------------------------- schedule --
+
+const HOUR = 3_600_000;
+const OPAL_HOURS = 24;
+
+/** A Date as the value a `datetime-local` input wants, in local time. */
+function toLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/**
+ * When opal 001 unlocks. A `datetime-local` is read in this browser's own
+ * time zone — named under the field, because "00:00" means a different
+ * moment in Tbilisi and in London — and sent as an absolute ISO instant.
+ */
+function ScheduleControl({
+  season,
+  busy,
+  onSchedule,
+}: {
+  season: GameSeason;
+  busy: boolean;
+  onSchedule: (startsAt: string | null, done: string) => void | Promise<void>;
+}) {
+  const [value, setValue] = useState(toLocalInput(season.startsAt));
+  const [problem, setProblem] = useState<string | null>(null);
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const fieldId = `schedule-${season.id}`;
+
+  function save(e: FormEvent) {
+    e.preventDefault();
+    const when = new Date(value);
+    if (!value || Number.isNaN(when.getTime())) {
+      setProblem("Pick a date and a time.");
+      return;
+    }
+    if (when.getTime() <= Date.now() + 60_000) {
+      setProblem("Pick a start at least a minute from now.");
+      return;
+    }
+    setProblem(null);
+    void onSchedule(
+      when.toISOString(),
+      `“${season.title}” starts ${formatDateTime(when.toISOString())}. Opal 001 unlocks then.`,
+    );
+  }
+
+  return (
+    <form
+      onSubmit={save}
+      noValidate
+      className="mt-4 flex flex-col gap-3 rounded-[var(--radius-control)] border border-line bg-raised p-4"
+    >
+      <div className="flex flex-wrap items-end gap-3">
+        <span className="block w-64">
+          <Field id={fieldId} label="Start (opal 001 unlocks)">
+            <input
+              id={fieldId}
+              type="datetime-local"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              aria-describedby={`${fieldId}-hint`}
+              className={inputCls}
+            />
+          </Field>
+        </span>
+        <button type="submit" disabled={busy} className={btnPrimarySm}>
+          {season.startsAt ? "Reschedule" : "Schedule start"}
+        </button>
+        {season.startsAt && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              setValue("");
+              void onSchedule(null, `“${season.title}” has no start time now.`);
+            }}
+            className={btnSecondarySm}
+          >
+            Clear
+          </button>
+        )}
+      </div>
+      <p id={`${fieldId}-hint`} className="text-[11px] leading-5 text-faint">
+        Your time zone: {zone}. Each opal lasts {OPAL_HOURS} hours, so the season
+        ends 72 hours after the start. An open season starts itself on time; a
+        draft has to be opened first.
+      </p>
+      {problem && <ErrorNote message={problem} />}
+    </form>
+  );
+}
+
+/** The three opals' windows, so the operator sees what players will see. */
+function OpalTimeline({ startsAt }: { startsAt: string }) {
+  const start = new Date(startsAt).getTime();
+  // Read once on mount: a timeline glanced at, not a clock to watch.
+  const [now] = useState(() => Date.now());
+  return (
+    <ol className="mt-4 grid gap-2 sm:grid-cols-3">
+      {[1, 2, 3].map((day) => {
+        const opens = start + (day - 1) * OPAL_HOURS * HOUR;
+        const closes = opens + OPAL_HOURS * HOUR;
+        const state = now < opens ? "locked" : now < closes ? "open" : "closed";
+        return (
+          <li
+            key={day}
+            className="rounded-[var(--radius-control)] border border-line bg-raised px-3 py-2.5"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono text-[13px] font-bold">
+                Opal {String(day).padStart(3, "0")}
+              </span>
+              <Pill tone={state === "open" ? "positive" : state === "locked" ? "caution" : "neutral"}>
+                {state}
+              </Pill>
+            </div>
+            <p className="tnum mt-1 text-[11px] leading-5 text-faint">
+              {formatDateTime(new Date(opens).toISOString())} →{" "}
+              {formatDateTime(new Date(closes).toISOString())}
+            </p>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 

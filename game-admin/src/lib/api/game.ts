@@ -107,6 +107,21 @@ export function createSeason(input: CreateSeasonInput): Promise<GameSeason> {
 }
 
 /**
+ * When opal 001 unlocks. The backend derives the end (three opals of 24
+ * hours) and starts an `open` season itself when the moment comes. Only
+ * for a draft or open season; `null` clears it.
+ */
+export function scheduleSeason(
+  seasonId: string,
+  startsAt: string | null,
+): Promise<GameSeason> {
+  return apiFetch(`${ADMIN}/seasons/${id(seasonId)}/schedule`, {
+    method: "PATCH",
+    body: { startsAt },
+  });
+}
+
+/**
  * `draft → open → running → closed`. Only one season may be open or running
  * at a time; the backend refuses a second with a 409 naming the live one.
  * Going `running` stamps `startsAt`; `closed` stamps `endsAt`.
