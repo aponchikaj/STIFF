@@ -54,6 +54,23 @@ export interface Season {
    */
   startsAt: string | null;
   endsAt: string | null;
+  /**
+   * The server's clock when it answered. Countdowns offset from this, so a
+   * phone set five minutes fast still unlocks 001 on the right second.
+   */
+  now?: string;
+  /** Each opal's window and state as the server saw it. Empty with no start. */
+  opals?: OpalWindowView[];
+}
+
+export type OpalState = "locked" | "open" | "closed";
+
+/** One opal: 001, 002 or 003, one per season day. */
+export interface OpalWindowView {
+  day: SeasonDay;
+  opensAt: string;
+  closesAt: string;
+  state: OpalState;
 }
 
 /** A season runs three days. The ladder is three rungs — spec §04. */
@@ -152,8 +169,17 @@ export type TaskProof = (typeof TASK_PROOFS)[number];
 export const TEMPLATE_STATUSES = ["draft", "approved", "retired"] as const;
 export type TemplateStatus = (typeof TEMPLATE_STATUSES)[number];
 
+/**
+ * One thing the watchers check a hand-in for. `assert` is the sentence they
+ * judge ("A plant is in frame"); `modality` says whether it is seen or heard;
+ * a criterion that is not `required` can be missed without failing.
+ */
 export interface TemplateCriterion {
   id?: string;
+  assert?: string;
+  modality?: "visual" | "audio" | string;
+  required?: boolean;
+  /** Older templates named the sentence `label`. */
   label?: string;
   [key: string]: unknown;
 }

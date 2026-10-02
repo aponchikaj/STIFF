@@ -8,6 +8,12 @@ import { Body, Button, Display, ErrorNote, Label, Rule } from "./ui";
 import { errorMessages, type AssignmentView, type AttemptKind } from "@/lib/api";
 import { useHandIn } from "@/lib/queries";
 import { measureMedia } from "@/lib/hooks";
+import {
+  CompressionCanceled,
+  preparePhoto,
+  prepareVideo,
+  ProbeRefusal,
+} from "@/lib/compress";
 import { formatBytes, formatPercent } from "@/lib/utils";
 
 /**
@@ -31,10 +37,10 @@ import { formatBytes, formatPercent } from "@/lib/utils";
 /* The backend's own numbers, from `media-rules.ts`. Restated rather than
  * fetched because the hand-in sheet must be able to refuse a file while
  * offline, and these change on a deploy, not at runtime. */
-const MAX_VIDEO_BYTES = 40 * 1024 * 1024;
-const MAX_PHOTO_BYTES = 12 * 1024 * 1024;
-const MIN_VIDEO_SECONDS = 5;
-const MAX_VIDEO_SECONDS = 120;
+export const MAX_VIDEO_BYTES = 40 * 1024 * 1024;
+export const MAX_PHOTO_BYTES = 12 * 1024 * 1024;
+export const MIN_VIDEO_SECONDS = 5;
+export const MAX_VIDEO_SECONDS = 120;
 const VIDEO_MIME = ["video/mp4", "video/webm", "video/quicktime"];
 const PHOTO_MIME = ["image/jpeg", "image/png", "image/webp"];
 
@@ -42,6 +48,8 @@ interface Measured {
   file: File;
   kind: AttemptKind;
   previewUrl: string;
+  /** What was picked, before shrinking; equal to `file.size` when untouched. */
+  originalBytes: number;
   width?: number;
   height?: number;
   durationSeconds?: number;
@@ -51,14 +59,26 @@ interface Measured {
 function reject(measured: Measured): string | null {
   const { file, kind, durationSeconds } = measured;
 
+  const shrunk = measured.originalBytes !== file.size;
+
   if (kind === "photo") {
     if (!PHOTO_MIME.includes(file.type)) return "Photos must be JPEG, PNG or WebP.";
-    if (file.size > MAX_PHOTO_BYTES) return "That photo is larger than 12 MB.";
+    if (file.size > MAX_PHOTO_BYTES) {
+      return shrunk
+        ? "That photo is still over 12 MB after shrinking."
+        : "That photo is larger than 12 MB, and this browser could not shrink it.";
+    }
     return null;
   }
 
-  if (!VIDEO_MIME.includes(file.type)) return "Clips must be MP4, WebM or MOV.";
-  if (file.size > MAX_VIDEO_BYTES) return "That clip is larger than 40 MB.";
+  if (!VIDEO_MIME.includes(file.type)) {
+    return "This browser could not convert that clip. Record it as MP4 or MOV.";
+  }
+  if (file.size > MAX_VIDEO_BYTES) {
+    return shrunk
+      ? "That clip is still over 40 MB after shrinking. Try a shorter one."
+      : "That clip is over 40 MB, and this browser could not shrink it. Try a shorter one.";
+  }
   if (durationSeconds === undefined) return "Could not read that clip.";
   if (durationSeconds < MIN_VIDEO_SECONDS) return "Clips must run at least 5 seconds.";
   if (durationSeconds > MAX_VIDEO_SECONDS) return "Clips must be under 2 minutes.";
@@ -68,9 +88,12 @@ function reject(measured: Measured): string | null {
 export function HandInSheet({
   assignment,
   onClose,
+  onDone,
 }: {
   assignment: AssignmentView;
   onClose: () => void;
+  /** Fires once, when the confirm lands and the attempt is real. */
+  onDone?: (assignment: AssignmentView) => void;
 }) {
   const handIn = useHandIn();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -80,12 +103,15 @@ export function HandInSheet({
   const [caption, setCaption] = useState("");
 
   const proof = assignment.task.proof;
+  // Any image or video the phone makes — HEIC, HEVC, 4K. It is converted
+  // below into something the server takes, at a fraction of the size.
   const accept =
-    proof === "photo"
-      ? PHOTO_MIME.join(",")
-      : proof === "video"
-        ? VIDEO_MIME.join(",")
-        : [...PHOTO_MIME, ...VIDEO_MIME].join(",");
+    proof === "photo" ? "image/*" : proof === "video" ? "video/*" : "image/*,video/*";
+
+  // Shrinking in progress: how far, and from what size.
+  const [shrinking, setShrinking] = useState<{ fraction: number; bytes: number; kind: AttemptKind } | null>(null);
+  const shrinkAbort = useRef<AbortController | null>(null);
+  useEffect(() => () => shrinkAbort.current?.abort(), []);
 
   // Revoke the object URL when the preview changes or the sheet closes.
   // Without this each retry leaks a whole video into memory, which on a
@@ -101,28 +127,86 @@ export function HandInSheet({
     if (!file) return;
     setLocalError(null);
 
-    const kind: AttemptKind = file.type.startsWith("video/") ? "video" : "photo";
-    const dimensions = await measureMedia(file);
-    const next: Measured = {
-      file,
-      kind,
-      previewUrl: URL.createObjectURL(file),
-      ...dimensions,
-    };
+    // A new pick cancels a shrink still running for the last one.
+    shrinkAbort.current?.abort();
+    const abort = new AbortController();
+    shrinkAbort.current = abort;
 
-    const problem = reject(next);
-    if (problem) {
-      URL.revokeObjectURL(next.previewUrl);
-      setLocalError(problem);
-      setMeasured(null);
-      return;
+    const kind: AttemptKind = isVideo(file) ? "video" : "photo";
+    setMeasured(null);
+    setShrinking({ fraction: 0, bytes: file.size, kind });
+
+    try {
+      const prepared =
+        kind === "video"
+          ? await prepareVideo(file, {
+              signal: abort.signal,
+              onProgress: (fraction) =>
+                setShrinking((s) => (s ? { ...s, fraction } : s)),
+              // Too short or too long is refused before the slow part: no
+              // point spending a minute encoding what the server will refuse.
+              onProbe: ({ durationSeconds }) =>
+                durationSeconds < MIN_VIDEO_SECONDS
+                  ? "Clips must run at least 5 seconds."
+                  : durationSeconds > MAX_VIDEO_SECONDS
+                    ? "Clips must be under 2 minutes."
+                    : null,
+            })
+          : await preparePhoto(file, abort.signal);
+
+      // Measured off the final file, the way the server will see it. A
+      // clip the encoder could not open is measured by the browser instead.
+      const dimensions = await measureMedia(prepared.file);
+      const next: Measured = {
+        file: prepared.file,
+        kind,
+        previewUrl: URL.createObjectURL(prepared.file),
+        originalBytes: prepared.originalBytes,
+        width: dimensions.width ?? prepared.width,
+        height: dimensions.height ?? prepared.height,
+        durationSeconds: dimensions.durationSeconds ?? prepared.durationSeconds,
+      };
+
+      const problem = reject(next);
+      if (problem) {
+        URL.revokeObjectURL(next.previewUrl);
+        setLocalError(problem);
+        return;
+      }
+      setMeasured(next);
+    } catch (error) {
+      if (error instanceof CompressionCanceled) return;
+      setLocalError(
+        error instanceof ProbeRefusal ? error.message : "Could not read that file. Try another.",
+      );
+    } finally {
+      if (shrinkAbort.current === abort) {
+        shrinkAbort.current = null;
+        setShrinking(null);
+      }
     }
-    setMeasured(next);
   }
 
   const apiErrors = errorMessages(handIn.error);
   const busy = handIn.isPending;
   const done = handIn.stage === "done" && handIn.isSuccess;
+
+  // Told once, from an effect: the caller keeps the hand-in on screen after
+  // the server stops returning it as the current assignment.
+  const onDoneRef = useRef(onDone);
+  useEffect(() => {
+    onDoneRef.current = onDone;
+  }, [onDone]);
+  // Once per hand-in, guarded by a ref. Keyed on `done` alone it re-fired
+  // whenever the caller re-rendered this sheet with a new `assignment`
+  // object — which the caller does *in* `onDone` — and looped until React
+  // gave up ("Maximum update depth exceeded").
+  const reported = useRef(false);
+  useEffect(() => {
+    if (!done || reported.current) return;
+    reported.current = true;
+    onDoneRef.current?.(assignment);
+  }, [done, assignment]);
 
   return (
     <div
@@ -145,7 +229,10 @@ export function HandInSheet({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => {
+              shrinkAbort.current?.abort();
+              onClose();
+            }}
             disabled={busy}
             aria-label="Close"
             className="p-2 opacity-60 transition-opacity hover:opacity-100 disabled:opacity-20"
@@ -165,8 +252,15 @@ export function HandInSheet({
           <Done onClose={onClose} />
         ) : (
           <>
-            {/* picker / preview */}
-            {!measured ? (
+            {/* picker / shrinking / preview */}
+            {shrinking ? (
+              <Shrinking
+                kind={shrinking.kind}
+                fraction={shrinking.fraction}
+                bytes={shrinking.bytes}
+                onCancel={() => shrinkAbort.current?.abort()}
+              />
+            ) : !measured ? (
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
@@ -186,8 +280,8 @@ export function HandInSheet({
                 </span>
                 <Label tone="faint">
                   {proof === "photo"
-                    ? "JPEG, PNG or WebP · up to 12 MB"
-                    : "5 s – 2 min · up to 40 MB"}
+                    ? "Any photo · shrunk before it is sent"
+                    : "5 s – 2 min · shrunk to 720p before it is sent"}
                 </Label>
               </button>
             ) : (
@@ -235,7 +329,7 @@ export function HandInSheet({
               <Button
                 size="lg"
                 fullWidth
-                disabled={!measured}
+                disabled={!measured || shrinking !== null}
                 loading={busy}
                 onClick={() => {
                   if (!measured) return;
@@ -292,17 +386,74 @@ function Preview({
       </div>
 
       <div className="flex items-center justify-between gap-4">
-        <Label tone="faint">
-          {formatBytes(measured.file.size)}
-          {measured.durationSeconds ? ` · ${measured.durationSeconds}s` : ""}
-          {measured.width ? ` · ${measured.width}×${measured.height}` : ""}
-        </Label>
+        <div className="flex flex-col gap-1">
+          {measured.originalBytes !== measured.file.size ? (
+            <span className="font-pixel text-[9px] uppercase tracking-[0.12em] text-good">
+              Shrunk {formatBytes(measured.originalBytes)} → {formatBytes(measured.file.size)}
+              {" · "}−
+              {Math.max(1, Math.round((1 - measured.file.size / measured.originalBytes) * 100))}%
+            </span>
+          ) : null}
+          <Label tone="faint">
+            {formatBytes(measured.file.size)}
+            {measured.durationSeconds ? ` · ${measured.durationSeconds}s` : ""}
+            {measured.width ? ` · ${measured.width}×${measured.height}` : ""}
+          </Label>
+        </div>
         <Button variant="quiet" size="sm" onClick={onReplace}>
           Replace
         </Button>
       </div>
     </div>
   );
+}
+
+/**
+ * The file is being made smaller before anything is sent: a real bar for a
+ * clip (it can take a while on a phone), a blink for a photo (it cannot).
+ */
+function Shrinking({
+  kind,
+  fraction,
+  bytes,
+  onCancel,
+}: {
+  kind: AttemptKind;
+  fraction: number;
+  bytes: number;
+  onCancel: () => void;
+}) {
+  const video = kind === "video";
+  return (
+    <div className="flex flex-col items-center gap-5 py-14 text-center">
+      <Icon name={video ? "video" : "camera"} size="2xl" glow className="animate-pulse" />
+      <span className="font-pixel text-[12px] uppercase tracking-[0.12em] text-cyan text-glow-cyan">
+        {video ? "Shrinking your clip" : "Shrinking your photo"}
+        {video ? ` ${formatPercent(fraction)}` : ""}
+      </span>
+      {video ? (
+        <div className="relative h-0.5 w-full max-w-xs bg-blue-dim/40">
+          <motion.div
+            className="absolute inset-y-0 left-0 bg-cyan shadow-[var(--glow-cyan)]"
+            animate={{ width: `${fraction * 100}%` }}
+            transition={{ duration: 0.2, ease: "linear" }}
+          />
+        </div>
+      ) : null}
+      <Label tone="faint">
+        {formatBytes(bytes)} → {video ? "720p MP4" : "web size"} · stays on your phone until you send it
+      </Label>
+      <Button variant="quiet" size="sm" onClick={onCancel}>
+        Cancel
+      </Button>
+    </div>
+  );
+}
+
+/** Some browsers leave `type` empty for a .mov; the extension decides then. */
+function isVideo(file: File): boolean {
+  if (file.type) return file.type.startsWith("video/");
+  return /\.(mp4|mov|m4v|webm|3gp|mkv)$/i.test(file.name);
 }
 
 const STAGE_LABEL: Record<string, string> = {
