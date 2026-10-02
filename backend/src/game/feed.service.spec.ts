@@ -56,6 +56,7 @@ function queryBuilder() {
   const qb: Record<string, jest.Mock> = {};
   for (const m of [
     'innerJoin',
+    'leftJoinAndSelect',
     'addSelect',
     'select',
     'where',
@@ -159,6 +160,42 @@ describe('FeedService', () => {
         mediaUrl: 'https://media.stiff.ge/a.mp4',
         player: { handle: 'asterisk', nerve: 140, status: 'active' },
       });
+    });
+
+    it('carries the task it is proof of, as the sentences the watchers judge', async () => {
+      attemptQb.getMany.mockResolvedValue([
+        attempt({
+          taskTemplate: {
+            title: 'Compliment a plant',
+            brief: 'Give a houseplant three sincere compliments on camera.',
+            mode: 'solo',
+            proof: 'video',
+            rewardNerve: 10,
+            rewardCoins: 2,
+            criteria: [
+              { id: 'c1', assert: 'Three compliments are spoken' },
+              { id: 'c2', label: 'A plant is in frame' },
+              { id: 'c3', assert: '   ' },
+            ],
+          } as GameAttempt['taskTemplate'],
+        }),
+      ]);
+      const { items } = await service.list(null);
+      expect(items[0].task).toEqual({
+        title: 'Compliment a plant',
+        brief: 'Give a houseplant three sincere compliments on camera.',
+        mode: 'solo',
+        proof: 'video',
+        rewardNerve: 10,
+        rewardCoins: 2,
+        criteria: ['Three compliments are spoken', 'A plant is in frame'],
+      });
+    });
+
+    it('says null, not a blank task, when there is no task', async () => {
+      attemptQb.getMany.mockResolvedValue([attempt({ taskTemplate: null })]);
+      const { items } = await service.list(null);
+      expect(items[0].task).toBeNull();
     });
 
     /**
