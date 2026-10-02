@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -18,6 +19,7 @@ import {
   type EnrolmentStatus,
 } from './entities/game-enrolment.entity';
 import { GameSeason } from './entities/game-season.entity';
+import { OpalCarryService } from './opal-carry.service';
 import { SeasonsService } from './seasons.service';
 
 /**
@@ -67,12 +69,15 @@ const DEMOTION_MESSAGES: Record<DemotionReason, string> = {
 
 @Injectable()
 export class EnrolmentsService {
+  private readonly logger = new Logger(EnrolmentsService.name);
+
   constructor(
     @InjectRepository(GameEnrolment)
     private readonly enrolmentRepo: Repository<GameEnrolment>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly seasonsService: SeasonsService,
+    private readonly opalCarry: OpalCarryService,
   ) {}
 
   /**
@@ -245,7 +250,9 @@ export class EnrolmentsService {
       ),
     ) as GameEnrolment[];
 
-    if (claimed.length > 0) return this.view(claimed[0], season);
+    if (claimed.length > 0) {
+      return this.view(await this.withCarriedOpals(claimed[0]), season);
+    }
 
     // The upsert declined, which now means one thing only: this account is
     // already on the other side. What is on record answers it.
@@ -268,7 +275,40 @@ export class EnrolmentsService {
     const enrolment = await this.enrolmentRepo.findOne({
       where: { seasonId: season.id, userId: user.id },
     });
-    return enrolment ? this.view(enrolment, season) : null;
+    return enrolment
+      ? this.view(await this.withCarriedOpals(enrolment), season)
+      : null;
+  }
+
+  /**
+   * Brings bought opals forward from closed seasons, then re-reads the
+   * balance if anything moved.
+   *
+   * Run on join and on every read of "my enrolment" — the read is the
+   * safety net: one indexed query that finds nothing almost always, and
+   * the reason a carry that failed on join still happens the next time the
+   * dashboard loads. It never blocks either: a failure is logged, and the
+   * opals are still sitting on the old enrolment, unclaimed, for next time.
+   */
+  private async withCarriedOpals(
+    enrolment: GameEnrolment,
+  ): Promise<GameEnrolment> {
+    try {
+      const moved = await this.opalCarry.carryInto(enrolment.userId, {
+        id: enrolment.id,
+        seasonId: enrolment.seasonId,
+      });
+      if (moved === 0) return enrolment;
+      const fresh = await this.enrolmentRepo.findOne({
+        where: { id: enrolment.id },
+      });
+      return fresh ?? enrolment;
+    } catch (error) {
+      this.logger.error(
+        `Opal carry-over failed for enrolment ${enrolment.id}: ${(error as Error).message}`,
+      );
+      return enrolment;
+    }
   }
 
   /**
