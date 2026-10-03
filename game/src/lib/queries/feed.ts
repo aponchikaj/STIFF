@@ -53,7 +53,6 @@ export function useFeedItem(id: string, enabled = true) {
   return useQuery({
     queryKey: queryKeys.feed.item(id),
     queryFn: () => gameApi.feedItem(id),
-    select: (data) => data.item,
     enabled: enabled && Boolean(id),
   });
 }
@@ -108,8 +107,8 @@ export function useToggleLike() {
         },
       );
 
-      qc.setQueryData<{ item: FeedItem }>(queryKeys.feed.item(id), (old) =>
-        old ? { item: patch(old.item) } : old,
+      qc.setQueryData<FeedItem>(queryKeys.feed.item(id), (old) =>
+        old ? patch(old) : old,
       );
 
       return { previous };
@@ -126,15 +125,9 @@ export function useToggleLike() {
     onSuccess: (outcome, id) => {
       // Trust the server's count over the optimistic one — other people
       // have been liking it too.
-      qc.setQueryData<{ item: FeedItem }>(queryKeys.feed.item(id), (old) =>
+      qc.setQueryData<FeedItem>(queryKeys.feed.item(id), (old) =>
         old
-          ? {
-              item: {
-                ...old.item,
-                likedByMe: outcome.liked,
-                likeCount: outcome.likeCount,
-              },
-            }
+          ? { ...old, likedByMe: outcome.liked, likeCount: outcome.likeCount }
           : old,
       );
     },

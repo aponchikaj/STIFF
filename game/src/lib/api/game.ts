@@ -146,8 +146,9 @@ export function requestUpload(input: RequestUploadInput) {
 /** Step two: the file is in storage, so the row becomes a real attempt.
  *  The media claims are re-checked here — a client that lied in step one is
  *  caught now. */
+/** Bare, like `feedItem` — the confirmed attempt itself, not `{ attempt }`. */
 export function confirmAttempt(id: string, input: ConfirmAttemptInput) {
-  return apiFetch<{ attempt: AttemptView }>(`/game/attempts/${id}/confirm`, {
+  return apiFetch<AttemptView>(`/game/attempts/${id}/confirm`, {
     method: "POST",
     body: input,
   });
@@ -163,8 +164,11 @@ export function feed(query: FeedQuery = {}) {
   return apiFetch<FeedPage>("/game/feed", { query: { ...query } });
 }
 
+/** The bare item — not wrapped in `{ item }`, unlike most responses here.
+ *  Reading `.item` off it gave `undefined`, and every post page said the
+ *  hand-in had been taken down. */
 export function feedItem(id: string) {
-  return apiFetch<{ item: FeedItem }>(`/game/feed/${id}`);
+  return apiFetch<FeedItem>(`/game/feed/${id}`);
 }
 
 export function toggleLike(id: string) {
@@ -182,8 +186,9 @@ export function comments(id: string) {
   return apiFetch<{ comments: CommentView[] }>(`/game/feed/${id}/comments`);
 }
 
+/** Bare: the new comment itself, not `{ comment }`. */
 export function addComment(id: string, body: string) {
-  return apiFetch<{ comment: CommentView }>(`/game/feed/${id}/comments`, {
+  return apiFetch<CommentView>(`/game/feed/${id}/comments`, {
     method: "POST",
     body: { body },
   });
