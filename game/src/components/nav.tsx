@@ -5,7 +5,7 @@
  *
  * **From `md` (905px): one top bar and nothing else.**
  *
- *     FEED  BOARD  ME  SHOP  |  ▶ PLAY  |  ♥♥♡ ★ 12.5K ◆ 3,820  [▣ HANDLE]
+ *     FEED  BOARD  SHOP  |  ▶ PLAY  |  ♥♥♡ ★ 12.5K ◆ 3,820  [▣ HANDLE]
  *                                                              PLAYER · #14
  *
  * Places on the left, the one action in the middle, *you* on the right —
@@ -21,11 +21,11 @@
  * what a watcher *does* is vote on players' hand-ins, so their button is
  * VOTE. Same position, same weight, the verb that applies to them.
  *
- * **"You" became a tab when clans and wars were archived.** It used to be
- * reached only from the identity in the status strip — and still is — but
- * with two of four places gone, the bar was two · action · one. Me fills
- * the slot; the profile is where the rest lives — votes (for a watcher),
- * purchases, reports. Five with a raised middle is still the layout.
+ * **"You" is not a tab.** The identity in the status strip is the way to
+ * the profile, and the profile is where the rest lives — votes (for a
+ * watcher), purchases, reports. Clans and wars were archived (see
+ * src/archive/), which leaves three places; the tab bar sizes itself to
+ * however many there are.
  *
  * Every bar is borderless: held off the content by a scanline band and the
  * shared `Rule`, with the current place marked by light — a lit label and
@@ -59,9 +59,6 @@ interface Place {
 const PLACES: Place[] = [
   { href: "/feed", label: "Feed", icon: "live" },
   { href: "/board", label: "Board", icon: "trophy" },
-  // Clans and wars are archived (see src/archive/). Me holds their slot so
-  // the phone tab bar stays two · action · two.
-  { href: "/me", label: "Me", icon: "profile" },
   { href: "/shop", label: "Shop", icon: "cart" },
 ];
 
@@ -146,7 +143,9 @@ export function StatusStrip() {
   const enrolment = data?.enrolment ?? null;
 
   return (
-    <header className="sticky top-0 z-40 bg-void/85 backdrop-blur-md">
+    // `data-chrome` lets a full-screen view (the feed) measure the bars it
+    // sits under, rather than hard-coding a height that differs by breakpoint.
+    <header data-chrome="top" className="sticky top-0 z-40 bg-void/85 backdrop-blur-md">
       <DesktopBar
         enrolment={enrolment}
         rank={data?.rank ?? null}
@@ -674,9 +673,10 @@ function HudCell({
 /* ============================================================== bottom */
 
 /**
- * The phone tab bar: Feed, Board, [action], Me, Shop.
+ * The phone tab bar: Feed, Board, [action], Shop.
  *
- * Five equal columns with the action in the third, raised half out of the
+ * One equal column per place plus one for the action — the places split
+ * either side of it, the larger half first — and the action raised half out of the
  * bar on a notched, lit plate — the only control in the bar with a fill,
  * and the only one that breaks its top edge, so it is found without
  * looking. Hidden from `md`, where the top bar carries everything.
@@ -685,15 +685,26 @@ export function TabBar() {
   const pathname = usePathname();
   const { data } = useDashboard();
   const action = actionFor(data?.enrolment);
-  const [left, right] = [PLACES.slice(0, 2), PLACES.slice(2)];
+  const half = Math.ceil(PLACES.length / 2);
+  const [left, right] = [PLACES.slice(0, half), PLACES.slice(half)];
+  // A literal per count, so Tailwind can see every class it must generate.
+  const cols = ["grid-cols-3", "grid-cols-4", "grid-cols-5", "grid-cols-6"][
+    Math.min(Math.max(PLACES.length - 2, 0), 3)
+  ];
 
   return (
     <nav
       aria-label="Main"
+      data-chrome="bottom"
       className="fixed inset-x-0 bottom-0 z-40 bg-void/90 backdrop-blur-md md:hidden"
     >
       <Rule />
-      <div className="scanlines mx-auto grid w-full max-w-lg grid-cols-5 items-end px-1 pb-[env(safe-area-inset-bottom)]">
+      <div
+        className={cn(
+          "scanlines mx-auto grid w-full max-w-lg items-end px-1 pb-[env(safe-area-inset-bottom)]",
+          cols,
+        )}
+      >
         {left.map((place) => (
           <PlaceTab
             key={place.href}

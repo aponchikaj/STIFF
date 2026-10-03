@@ -20,15 +20,15 @@ import {
   gameApi,
   type FeedItem,
   type FeedPage,
+  type FeedQuery,
   type LeaderboardQuery,
   type LikeOutcome,
-  type SeasonDay,
 } from "@/lib/api";
 import { queryKeys } from "./keys";
 
 /* ----------------------------------------------------------------- feed */
 
-export function useFeed(options: { day?: SeasonDay; limit?: number } = {}) {
+export function useFeed(options: Omit<FeedQuery, "cursor"> = {}) {
   return useInfiniteQuery({
     queryKey: queryKeys.feed.list(options),
     queryFn: ({ pageParam }) =>
@@ -41,7 +41,7 @@ export function useFeed(options: { day?: SeasonDay; limit?: number } = {}) {
 }
 
 /** Flattens the pages. Infinite queries nest, and nothing downstream cares. */
-export function useFeedItems(options: { day?: SeasonDay; limit?: number } = {}) {
+export function useFeedItems(options: Omit<FeedQuery, "cursor"> = {}) {
   const query = useFeed(options);
   return {
     ...query,

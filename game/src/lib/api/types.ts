@@ -711,6 +711,8 @@ export interface FeedQuery {
   cursor?: string;
   limit?: number;
   day?: SeasonDay;
+  /** A handle: only that player's posts (their profile). */
+  player?: string;
 }
 
 export interface LeaderboardQuery {
