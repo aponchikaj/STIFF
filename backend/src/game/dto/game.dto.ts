@@ -182,6 +182,12 @@ export class FeedQueryDto {
   @Min(1)
   @Max(3)
   day?: number;
+
+  /** One player's posts, by handle (case-insensitive) — their profile. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  player?: string;
 }
 
 export class AddCommentDto {
