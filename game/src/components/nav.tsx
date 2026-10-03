@@ -21,11 +21,12 @@
  * what a watcher *does* is vote on players' hand-ins, so their button is
  * VOTE. Same position, same weight, the verb that applies to them.
  *
- * **"You" is not a tab.** The identity in the status strip is the way to
- * the profile, and the profile is where the rest lives — votes (for a
- * watcher), purchases, reports. Clans and wars were archived (see
- * src/archive/), which leaves three places; the tab bar sizes itself to
- * however many there are.
+ * **"You" is a tab on a phone only.** From `md` the identity in the status
+ * strip is the way to the profile; on a phone there is no room for it, so
+ * the tab bar ends with your initial (`MeTab`). The profile is where the
+ * rest lives — votes (for a watcher), purchases, reports. Clans and wars
+ * were archived (see src/archive/); the tab bar sizes itself to the places
+ * there are, plus the action and Me.
  *
  * Every bar is borderless: held off the content by a scanline band and the
  * shared `Rule`, with the current place marked by light — a lit label and
@@ -673,7 +674,7 @@ function HudCell({
 /* ============================================================== bottom */
 
 /**
- * The phone tab bar: Feed, Board, [action], Shop.
+ * The phone tab bar: Feed, Board, [action], Shop, Me.
  *
  * One equal column per place plus one for the action — the places split
  * either side of it, the larger half first — and the action raised half out of the
@@ -685,11 +686,14 @@ export function TabBar() {
   const pathname = usePathname();
   const { data } = useDashboard();
   const action = actionFor(data?.enrolment);
-  const half = Math.ceil(PLACES.length / 2);
+  // The places, then Me at the end — split evenly either side of the
+  // action, the larger half first.
+  const slots = PLACES.length + 1;
+  const half = Math.ceil(slots / 2);
   const [left, right] = [PLACES.slice(0, half), PLACES.slice(half)];
   // A literal per count, so Tailwind can see every class it must generate.
-  const cols = ["grid-cols-3", "grid-cols-4", "grid-cols-5", "grid-cols-6"][
-    Math.min(Math.max(PLACES.length - 2, 0), 3)
+  const cols = ["grid-cols-3", "grid-cols-4", "grid-cols-5", "grid-cols-6", "grid-cols-7"][
+    Math.min(Math.max(slots + 1 - 3, 0), 4)
   ];
 
   return (
@@ -720,8 +724,68 @@ export function TabBar() {
             active={isActive(pathname, place.href)}
           />
         ))}
+        <MeTab active={isActive(pathname, "/me")} />
       </div>
     </nav>
+  );
+}
+
+/**
+ * You, on the phone tab bar: your initial on a notched plate, the same mark
+ * the feed puts beside your posts. On a phone the status strip has no room
+ * for the full identity, so this is the way to /me there; from `md` the
+ * strip carries it and the tab bar is hidden anyway. Signed out, it is a
+ * plain profile glyph that asks you to sign in.
+ */
+function MeTab({ active }: { active: boolean }) {
+  const { user, isSignedIn } = useAuthState();
+  const { data } = useDashboard();
+  const name = data?.enrolment?.handle ?? user?.username ?? "";
+  const cheater = data?.enrolment?.status === "cheater";
+  const href = isSignedIn ? "/me" : "/login?next=/me";
+
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      aria-label={isSignedIn ? `Your profile, ${name}` : "Sign in"}
+      className="group relative flex min-w-0 flex-col items-center gap-1.5 pt-3 pb-2.5"
+    >
+      {isSignedIn && name ? (
+        <span className={cn("block", active ? (cheater ? "bloom-danger" : "bloom-cyan") : "")}>
+          <span
+            className={cn(
+              "flex size-6 items-center justify-center font-pixel text-[11px] uppercase leading-none frame-notch transition-colors",
+              cheater
+                ? "bg-heart-dim text-ink"
+                : active
+                  ? "bg-blue text-ink"
+                  : "bg-blue-deep text-ink-muted group-hover:bg-blue group-hover:text-ink",
+            )}
+          >
+            {name.slice(0, 1)}
+          </span>
+        </span>
+      ) : (
+        <Icon
+          name="profile"
+          size="sm"
+          glow={active}
+          dim={!active}
+          className={active ? "" : "opacity-70 transition-opacity group-hover:opacity-100"}
+        />
+      )}
+      <span
+        className={cn(
+          "font-pixel text-[9px] uppercase tracking-[0.08em]",
+          active
+            ? "text-cyan text-glow-cyan"
+            : "text-ink-muted transition-colors group-hover:text-ink",
+        )}
+      >
+        {isSignedIn ? "Me" : "Sign in"}
+      </span>
+    </Link>
   );
 }
 
