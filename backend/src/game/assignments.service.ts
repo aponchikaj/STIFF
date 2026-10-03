@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  GoneException,
   Injectable,
   Logger,
   NotFoundException,
@@ -20,7 +21,13 @@ import {
 import { GameTaskTemplate } from './entities/game-task-template.entity';
 import { EnrolmentsService } from './enrolments.service';
 import { isSeasonDay, type SeasonDay } from './media-rules';
-import { clampPenalty, opalWindows, openOpal } from './rules';
+import {
+  CLANS_ARCHIVED,
+  CLANS_ARCHIVED_MESSAGE,
+  clampPenalty,
+  opalWindows,
+  openOpal,
+} from './rules';
 import { SeasonsService } from './seasons.service';
 import type { PlayableTask } from './task-templates.service';
 
@@ -147,6 +154,8 @@ export class AssignmentsService {
    * leader, which for a clan that cannot change is per clan.
    */
   async drawForClan(user: User, day: number): Promise<AssignmentView> {
+    // Clans are archived: no new team task. One already held still plays out.
+    if (CLANS_ARCHIVED) throw new GoneException(CLANS_ARCHIVED_MESSAGE);
     const season = await this.startedSeason();
     const enrolment = await this.enrolmentsService.require(user, 'player');
     if (!isSeasonDay(day)) throw new ConflictException('There are three days.');
