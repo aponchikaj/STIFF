@@ -2,517 +2,253 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useState } from "react";
+import { useSyncExternalStore } from "react";
+import { Haze } from "@/components/crt";
 import { Icon } from "@/components/icon";
-import {
-  Body,
-  Button,
-  Dialog,
-  Display,
-  Empty,
-  ErrorNote,
-  Label,
-  Loading,
-  Rule,
-  Screen,
-} from "@/components/ui";
-import type {
-  ApiError,
-  OpalCheckoutResult,
-  OpalMethodView,
-  OpalPackView,
-  OpalPaymentMethod,
-  ShopItemView,
-} from "@/lib/api";
-import {
-  useAuthState,
-  useBuy,
-  useBuyOpals,
-  useDashboard,
-  useMyPurchases,
-  useOpals,
-  useShopItems,
-} from "@/lib/queries";
-import { cn, formatAgo, formatNumber } from "@/lib/utils";
+import { History } from "@/components/shop/history";
+import { OpalPacks } from "@/components/shop/opal-packs";
+import { Rewards } from "@/components/shop/rewards";
+import { Screen } from "@/components/ui";
+import { useAuthState, useDashboard } from "@/lib/queries";
+import { useChromeInsets } from "@/lib/reel-state";
+import { cn, formatNumber } from "@/lib/utils";
 
 /**
- * `/shop` — spend coins.
+ * `/shop` — where opals go, and where they come from.
  *
- * Public to browse, which is the point: the shop is a reason to want an
- * account. Buying needs a session and an enrolment of either side —
- * players and watchers hold coins alike, and a watcher who votes all week
- * can outspend a player.
+ * The wallet first, because every decision below it is "can I afford
+ * this": the balance, large and lit, and a way to top it up. Then three
+ * tabs, each one job:
  *
- * The purchase is confirmed in a dialog rather than bought on tap. Coins
- * are earned slowly and can be bought with real money; a mis-tap that
- * spends 400 of them is not recoverable from the client.
+ *   Rewards  what opals buy — cards that say whether *you* can have it
+ *   Opals    buying opals with money
+ *   Yours    what you bought, and its status
  *
- * Opals — the coins — can be bought here too, above the items: the top
- * bar's Opals cell links to `#opals`, so "I'm short" is one tap from
- * "top up".
+ * The tab lives in the URL hash (`/shop#opals`) — the top bar's opal
+ * counter links straight to the Opals tab, and a reload keeps your place.
+ * Browsing is public: the shop is a reason to want an account.
  */
-export default function ShopPage() {
-  const items = useShopItems();
-  const purchases = useMyPurchases();
-  const dashboard = useDashboard();
-  const buy = useBuy();
 
-  const [confirming, setConfirming] = useState<ShopItemView | null>(null);
-  const balance = dashboard.data?.enrolment?.coins ?? null;
-  const error = buy.error as ApiError | null;
+const TABS = [
+  { id: "rewards", label: "Rewards", icon: "gift" },
+  { id: "opals", label: "Opals", icon: "opal" },
+  { id: "yours", label: "Yours", icon: "cart" },
+] as const;
+
+type Tab = (typeof TABS)[number]["id"];
+
+/* -------------------------------------------------- the tab, in the hash */
+
+/**
+ * Every way the hash can change. `hashchange` alone misses one: Next.js's
+ * `<Link href="/shop#opals">` — the top bar's opal counter — updates the
+ * URL with `pushState`, which fires no `hashchange`, so clicking it while
+ * already on /shop would not switch tabs. A click on any in-page link is
+ * re-read once the router has moved; `popstate` covers back and forward.
+ */
+function subscribeHash(onChange: () => void) {
+  const later = () => window.setTimeout(onChange, 0);
+  const onClick = (event: MouseEvent) => {
+    const link = (event.target as Element | null)?.closest?.("a[href]");
+    if (link?.getAttribute("href")?.includes("#")) later();
+  };
+  window.addEventListener("hashchange", onChange);
+  window.addEventListener("popstate", onChange);
+  document.addEventListener("click", onClick);
+  return () => {
+    window.removeEventListener("hashchange", onChange);
+    window.removeEventListener("popstate", onChange);
+    document.removeEventListener("click", onClick);
+  };
+}
+
+function readTab(): Tab {
+  const hash = window.location.hash.replace("#", "");
+  return (TABS.find((t) => t.id === hash)?.id ?? "rewards") as Tab;
+}
+
+function goTo(tab: Tab) {
+  // replaceState, then a synthetic hashchange: tabs should not each leave a
+  // back-button stop, but the store still has to hear about it.
+  const url = new URL(window.location.href);
+  url.hash = tab === "rewards" ? "" : tab;
+  window.history.replaceState(window.history.state, "", url);
+  window.dispatchEvent(new HashChangeEvent("hashchange"));
+}
+
+export default function ShopPage() {
+  const tab = useSyncExternalStore(subscribeHash, readTab, () => "rewards" as Tab);
+  const { isSignedIn } = useAuthState();
+  const dashboard = useDashboard();
+  // The tabs stick just under the app's top bar, whatever its height.
+  const insets = useChromeInsets();
+  const enrolment = dashboard.data?.enrolment ?? null;
+  const balance = enrolment?.coins ?? null;
 
   return (
-    <main>
-      <Screen width="md" className="flex flex-col gap-9 py-8">
-        <header className="flex flex-wrap items-end justify-between gap-5">
-          <div className="flex flex-col gap-3">
-            <Label>Opals in, rewards out</Label>
-            <Display size="title">Shop</Display>
-          </div>
+    <main className="relative overflow-hidden">
+      <Haze intensity="sm" />
 
-          {balance !== null ? (
-            <div className="flex items-center gap-3">
-              <Icon name="opal" size="md" glow="coin" />
-              <span className="font-pixel text-[22px] tabular-nums text-coin text-glow-coin">
-                {formatNumber(balance)}
-              </span>
-            </div>
-          ) : null}
-        </header>
+      <Screen width="lg" className="flex flex-col gap-8 py-6 sm:py-8">
+        <Wallet
+          signedIn={isSignedIn}
+          enrolled={enrolment !== null}
+          balance={balance}
+          onTopUp={() => goTo("opals")}
+        />
 
-        <OpalStore enrolled={dashboard.data?.enrolment != null} />
-
-        <Rule />
-
-        {error ? <ErrorNote>{error.message}</ErrorNote> : null}
-
-        {items.isLoading ? (
-          <Loading />
-        ) : (items.data?.length ?? 0) === 0 ? (
-          <Empty icon="cart" title="Nothing for sale yet">
-            Stock goes up during a season. Keep the coins.
-          </Empty>
-        ) : (
-          <ul className="flex flex-col">
-            {items.data?.map((item) => (
-              <ShopRow
-                key={item.id}
-                item={item}
-                balance={balance}
-                onBuy={() => setConfirming(item)}
-              />
-            ))}
-          </ul>
-        )}
-
-        {/* what you already own */}
-        {(purchases.data?.length ?? 0) > 0 ? (
-          <section className="flex flex-col gap-5 pt-6">
-            <Rule />
-            <Label>Yours</Label>
-            <ul className="flex flex-col gap-3.5">
-              {purchases.data?.map((purchase) => (
-                <li key={purchase.id} className="flex items-center gap-4">
-                  <Icon
-                    name={
-                      purchase.status === "fulfilled"
-                        ? "gift"
-                        : purchase.status === "cancelled"
-                          ? "close"
-                          : "cart"
-                    }
-                    size="xs"
-                    glow={purchase.status === "fulfilled"}
-                    dim={purchase.status === "cancelled"}
+        {/* tabs */}
+        <nav
+          aria-label="Shop"
+          role="tablist"
+          className="sticky z-20 -mx-4 grid grid-cols-3 bg-void/85 px-4 backdrop-blur-md sm:-mx-6 sm:px-6"
+          style={{ top: insets.top }}
+        >
+          {TABS.map((t) => {
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                aria-controls={`shop-${t.id}`}
+                onClick={() => goTo(t.id)}
+                className="relative flex min-h-12 items-center justify-center gap-2 py-3"
+              >
+                <Icon name={t.icon} size="xs" glow={active} dim={!active} />
+                <span
+                  className={cn(
+                    "font-pixel text-[10px] uppercase tracking-[0.12em] transition-colors",
+                    active ? "text-cyan text-glow-cyan-xs" : "text-ink-faint hover:text-ink-muted",
+                  )}
+                >
+                  {t.label}
+                </span>
+                {active ? (
+                  <motion.span
+                    layoutId="shop-tab"
+                    className="absolute inset-x-3 bottom-0 h-0.5 bg-cyan shadow-[var(--glow-cyan-sm)]"
+                    transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                   />
-                  <span className="min-w-0 flex-1 truncate font-pixel text-[10px] uppercase tracking-[0.08em] text-ink">
-                    {purchase.itemName}
-                  </span>
-                  <span
-                    className={cn(
-                      "shrink-0 font-body text-[10px] uppercase tracking-[0.12em]",
-                      purchase.status === "fulfilled"
-                        ? "text-good"
-                        : purchase.status === "cancelled"
-                          ? "text-ink-faint line-through"
-                          : "text-caution",
-                    )}
-                  >
-                    {purchase.status}
-                  </span>
-                  <Label tone="faint">{formatAgo(purchase.createdAt)}</Label>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-      </Screen>
+                ) : null}
+              </button>
+            );
+          })}
+          <span aria-hidden className="absolute inset-x-0 bottom-0 h-px bg-blue-dim/60" />
+        </nav>
 
-      <Dialog
-        open={Boolean(confirming)}
-        title={confirming ? `Buy ${confirming.name}?` : ""}
-        confirmLabel={confirming ? `Pay ${confirming.priceCoins}` : "Buy"}
-        cancelLabel="Keep coins"
-        busy={buy.isPending}
-        onCancel={() => setConfirming(null)}
-        onConfirm={() => {
-          if (!confirming) return;
-          buy.mutate(confirming.id, { onSettled: () => setConfirming(null) });
-        }}
-      >
-        {balance !== null && confirming
-          ? `Leaves you ${formatNumber(Math.max(0, balance - confirming.priceCoins))}. Purchases are not refundable.`
-          : "Purchases are not refundable."}
-      </Dialog>
+        <motion.div
+          key={tab}
+          id={`shop-${tab}`}
+          role="tabpanel"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          className="min-h-[40vh]"
+        >
+          {tab === "rewards" ? (
+            <Rewards
+              balance={balance}
+              canBuy={isSignedIn && enrolment !== null}
+              onTopUp={() => goTo("opals")}
+            />
+          ) : tab === "opals" ? (
+            <OpalPacks signedIn={isSignedIn} enrolled={enrolment !== null} />
+          ) : (
+            <History signedIn={isSignedIn} />
+          )}
+        </motion.div>
+      </Screen>
     </main>
   );
 }
 
-function ShopRow({
-  item,
+/**
+ * The wallet: what you hold, large, and the way to more. Signed out or
+ * outside the season it says what would put a balance here instead.
+ */
+function Wallet({
+  signedIn,
+  enrolled,
   balance,
-  onBuy,
+  onTopUp,
 }: {
-  item: ShopItemView;
+  signedIn: boolean;
+  enrolled: boolean;
   balance: number | null;
-  onBuy: () => void;
+  onTopUp: () => void;
 }) {
-  const affordable = balance === null || balance >= item.priceCoins;
-  const limitReached =
-    item.perPersonLimit !== null && item.bought >= item.perPersonLimit;
-  const blocked = item.soldOut || limitReached;
-
   return (
-    <motion.li
+    <motion.header
       initial={{ opacity: 0, y: 10 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className="flex items-center gap-5 py-5"
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+      className="bloom-coin"
     >
-      {/* the thing */}
-      <div className="scanlines relative size-20 shrink-0 overflow-hidden bg-surface-2">
-        {item.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={item.imageUrl}
-            alt=""
-            loading="lazy"
-            className={cn(
-              "size-full object-cover",
-              blocked && "opacity-30 grayscale",
-            )}
-          />
-        ) : (
-          <div className="flex size-full items-center justify-center">
-            <Icon name="gift" size="sm" dim={blocked} />
+      <div className="bg-coin/50 p-px frame-notch-lg">
+        <div
+          // `scanlines` here, not on an overlay span: the utility sets
+          // `position: relative`, which would pull an `absolute` overlay
+          // back into the flex row as an empty first item.
+          className="scanlines relative flex flex-wrap items-center justify-between gap-5 overflow-hidden px-5 py-6 frame-notch-lg sm:px-7"
+          style={{
+            background:
+              "radial-gradient(ellipse 70% 120% at 0% 0%, rgb(255 194 39 / 0.14), transparent 60%), var(--color-surface-2)",
+          }}
+        >
+          <div className="relative flex items-center gap-4">
+            <motion.span
+              animate={{ y: [0, -4, 0], rotate: [0, -4, 0] }}
+              transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <Icon name="opal" size="xl" glow="coin" priority />
+            </motion.span>
+            <div className="flex flex-col gap-2">
+              <span className="font-body text-[10px] uppercase tracking-[0.16em] text-ink-muted">
+                {signedIn && enrolled ? "Your opals" : "Shop"}
+              </span>
+              {signedIn && enrolled && balance !== null ? (
+                <span className="font-pixel text-[clamp(28px,9vw,44px)] leading-none tabular-nums text-coin text-glow-coin">
+                  {formatNumber(balance)}
+                </span>
+              ) : (
+                <span className="max-w-[16rem] font-body text-body-sm leading-[19px] text-ink">
+                  {!signedIn
+                    ? "Sign in to see your opals and spend them."
+                    : "Join the season to hold opals — players and watchers both earn them."}
+                </span>
+              )}
+            </div>
           </div>
-        )}
-      </div>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <span
-          className={cn(
-            "truncate font-pixel text-[12px] uppercase tracking-[0.08em]",
-            blocked ? "text-ink-faint" : "text-ink",
-          )}
-        >
-          {item.name}
-        </span>
-
-        {item.description ? (
-          <Body size="sm" className="line-clamp-2 text-ink-faint">
-            {item.description}
-          </Body>
-        ) : null}
-
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          {item.stock !== null ? (
-            <Label tone={item.stock === 0 ? "heart" : "faint"}>
-              {item.stock === 0 ? "Sold out" : `${item.stock} left`}
-            </Label>
-          ) : null}
-          {item.bought > 0 ? (
-            <Label tone="good">You own {item.bought}</Label>
-          ) : null}
-          {limitReached ? <Label tone="faint">Limit reached</Label> : null}
-        </div>
-      </div>
-
-      <div className="flex shrink-0 flex-col items-end gap-2">
-        <div className="flex items-center gap-2">
-          <Icon name="opal" size="xs" glow="coin" dim={blocked} />
-          <span
-            className={cn(
-              "font-pixel text-[13px] tabular-nums",
-              blocked
-                ? "text-ink-faint"
-                : affordable
-                  ? "text-coin text-glow-coin"
-                  : "text-ink-faint",
-            )}
-          >
-            {formatNumber(item.priceCoins)}
-          </span>
-        </div>
-
-        <Button
-          size="sm"
-          variant="coin"
-          marker={false}
-          disabled={blocked || !affordable}
-          onClick={onBuy}
-        >
-          {item.soldOut
-            ? "Gone"
-            : limitReached
-              ? "Limit"
-              : !affordable
-                ? "Short"
-                : "Buy"}
-        </Button>
-      </div>
-    </motion.li>
-  );
-}
-
-/* ================================================================ opals */
-
-/**
- * Tetri to "5 GEL" or "4.50 GEL" — whole lari drop the ".00", which in a
- * 1em-per-glyph pixel face is three characters of nothing. The face has no
- * ₾ glyph, so the code it is.
- */
-function formatGel(cents: number): string {
-  const lari = cents / 100;
-  return `${cents % 100 === 0 ? lari.toFixed(0) : lari.toFixed(2)} GEL`;
-}
-
-/**
- * Buy opals with money.
- *
- * A grid of packs, a card picker when more than one acquirer is live, and
- * a confirm step — this one spends lari, not coins, so it is never one tap.
- * Every state that cannot buy says why instead of hiding the packs:
- * signed out, not in the season, or card payment not switched on yet. The
- * price list is worth seeing either way.
- */
-function OpalStore({ enrolled }: { enrolled: boolean }) {
-  const { isSignedIn } = useAuthState();
-  const opals = useOpals();
-  const buy = useBuyOpals();
-
-  const methods = opals.data?.methods ?? [];
-  const live = methods.filter((m) => m.available);
-  const [picked, setMethod] = useState<OpalPaymentMethod | null>(null);
-  const [confirming, setConfirming] = useState<OpalPackView | null>(null);
-  const [done, setDone] = useState<OpalCheckoutResult | null>(null);
-
-  // The player's pick while it is still live, else the first card that
-  // works. Derived, not synced: an acquirer switching off mid-visit just
-  // moves the selection, with no effect to fall out of step.
-  const method: OpalPaymentMethod | null =
-    picked && live.some((m) => m.method === picked)
-      ? picked
-      : (live[0]?.method ?? null);
-
-  const chosen: OpalMethodView | undefined = live.find((m) => m.method === method);
-  const testMode = live.some((m) => m.testMode);
-  const packs = opals.data?.packs ?? [];
-  const error = buy.error as ApiError | null;
-
-  const blocker = !isSignedIn
-    ? "signed-out"
-    : !enrolled
-      ? "not-enrolled"
-      : live.length === 0
-        ? "no-card"
-        : null;
-
-  return (
-    <section id="opals" className="flex scroll-mt-48 flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex flex-col gap-2">
-          <Label>Top up</Label>
-          <Display size="hero">Get opals</Display>
-        </div>
-        {testMode ? (
-          <Label tone="caution" className="font-semibold">
-            Test mode · no money moves
-          </Label>
-        ) : null}
-      </div>
-
-      {live.length > 1 && blocker === null ? (
-        <div className="flex flex-wrap items-center gap-3" role="radiogroup" aria-label="Pay with">
-          <Label tone="muted">Pay with</Label>
-          {live.map((m) => {
-            const active = m.method === method;
-            return (
-              <button
-                key={m.method}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                onClick={() => setMethod(m.method)}
-                className={cn(
-                  "frame-notch px-3 py-2 font-pixel text-[10px] uppercase tracking-[0.1em] transition-colors",
-                  active
-                    ? "bg-blue-dim text-cyan text-glow-cyan-xs"
-                    : "bg-surface-2 text-ink-faint hover:text-ink",
-                )}
+          <div className="relative flex flex-wrap items-center gap-3">
+            {!signedIn ? (
+              <Link
+                href="/login?next=/shop"
+                className="bg-blue px-5 py-3 font-pixel text-[11px] uppercase tracking-[0.12em] text-void frame-notch hover:bg-cyan"
               >
-                {m.method === "card_tbc" ? "TBC card" : "BOG card"}
+                Sign in
+              </Link>
+            ) : !enrolled ? (
+              <Link
+                href="/join"
+                className="bg-blue px-5 py-3 font-pixel text-[11px] uppercase tracking-[0.12em] text-void frame-notch hover:bg-cyan"
+              >
+                Join the season
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={onTopUp}
+                className="bg-coin px-5 py-3 font-pixel text-[11px] uppercase tracking-[0.12em] text-void frame-notch hover:brightness-110"
+              >
+                + Top up
               </button>
-            );
-          })}
+            )}
+          </div>
         </div>
-      ) : null}
-
-      {done ? (
-        <div className="flex items-center gap-3" role="status">
-          <Icon name="opal" size="sm" glow="coin" />
-          <Body size="sm" className="text-good">
-            +{formatNumber(done.order.opals)} opals added
-            {done.coins !== null ? ` — you have ${formatNumber(done.coins)}` : ""}.
-            {done.order.testMode ? " Test mode: no money moved." : ""}
-          </Body>
-        </div>
-      ) : null}
-      {error ? <ErrorNote>{error.message}</ErrorNote> : null}
-
-      {opals.isLoading ? (
-        <Loading />
-      ) : packs.length === 0 ? (
-        <Empty icon="opal" title="No packs yet">
-          Opal packs go on sale here. Earn them by playing in the meantime.
-        </Empty>
-      ) : (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {packs.map((pack) => (
-            <li key={pack.id}>
-              <OpalPackCard
-                pack={pack}
-                disabled={blocker !== null}
-                onPick={() => {
-                  setDone(null);
-                  buy.reset();
-                  setConfirming(pack);
-                }}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {blocker === "signed-out" ? (
-        <Body size="sm" className="text-ink-muted">
-          <Link href="/login" className="text-cyan underline-offset-4 hover:underline">
-            Sign in
-          </Link>{" "}
-          to buy opals.
-        </Body>
-      ) : blocker === "not-enrolled" ? (
-        <Body size="sm" className="text-ink-muted">
-          Opals land on your season balance —{" "}
-          <Link href="/join" className="text-cyan underline-offset-4 hover:underline">
-            join the season
-          </Link>{" "}
-          first.
-        </Body>
-      ) : blocker === "no-card" && packs.length > 0 ? (
-        <Body size="sm" className="text-ink-muted">
-          Card payment is coming soon.
-        </Body>
-      ) : null}
-
-      <Dialog
-        open={Boolean(confirming)}
-        title={confirming ? `Buy ${confirming.name}?` : ""}
-        confirmLabel={confirming ? `Pay ${formatGel(confirming.priceCents)}` : "Pay"}
-        cancelLabel="Cancel"
-        busy={buy.isPending}
-        onCancel={() => setConfirming(null)}
-        onConfirm={() => {
-          if (!confirming || !method) return;
-          buy.mutate(
-            { packId: confirming.id, method },
-            {
-              onSuccess: (result) => {
-                if (result.next.kind === "redirect") {
-                  // The bank's page takes it from here; the order is
-                  // already on record as pending.
-                  window.location.assign(result.next.url);
-                  return;
-                }
-                setDone(result);
-              },
-              onSettled: () => setConfirming(null),
-            },
-          );
-        }}
-      >
-        {confirming
-          ? `${formatNumber(confirming.opals)} opals for ${formatGel(confirming.priceCents)}${
-              chosen ? ` by ${chosen.label}` : ""
-            }. They go on your season balance, and whatever you have not spent comes with you to the next season.${
-              testMode ? " Test mode: no card is charged." : ""
-            }`
-          : ""}
-      </Dialog>
-    </section>
-  );
-}
-
-/**
- * One pack. A whole-card button: the opal count is what someone is buying,
- * so it is the largest thing on it, and the price sits under it.
- *
- * Notched with the hairline trick (a 1px blue parent notch around a
- * surface child notch) and the hover bloom on the outermost element,
- * because a glow beside a clip-path is clipped away with the corners.
- */
-function OpalPackCard({
-  pack,
-  disabled,
-  onPick,
-}: {
-  pack: OpalPackView;
-  disabled: boolean;
-  onPick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onPick}
-      aria-label={`${pack.name}: ${pack.opals} opals for ${formatGel(pack.priceCents)}`}
-      className="group block w-full text-left transition-[filter] duration-200 enabled:hover:[filter:drop-shadow(0_0_2px_rgb(255_194_39/0.95))_drop-shadow(0_0_10px_rgb(255_194_39/0.5))] disabled:cursor-not-allowed disabled:opacity-50"
-    >
-      <span className="frame-notch block bg-blue-dim/70 p-px transition-colors group-enabled:group-hover:bg-coin">
-        <span className="frame-notch relative flex flex-col items-center gap-2.5 bg-surface-2 px-3 pt-6 pb-4 text-center">
-          {pack.badge ? (
-            <span className="absolute top-2 left-1/2 -translate-x-1/2 truncate font-body text-[10px] font-bold uppercase tracking-[0.14em] text-coin">
-              {pack.badge}
-            </span>
-          ) : null}
-          <Icon name="opal" size="md" glow="coin" />
-          <span className="flex flex-col items-center gap-1">
-            <span className="font-pixel text-[18px] leading-6 tabular-nums text-coin text-glow-coin sm:text-[20px]">
-              {formatNumber(pack.opals)}
-            </span>
-            <Label tone="muted" className="text-[11px] font-semibold">
-              Opals
-            </Label>
-          </span>
-          <span className="w-full truncate font-pixel text-[9px] uppercase tracking-[0.1em] text-ink-faint">
-            {pack.name}
-          </span>
-          <span className="font-pixel text-[12px] tabular-nums text-ink">
-            {formatGel(pack.priceCents)}
-          </span>
-        </span>
-      </span>
-    </button>
+      </div>
+    </motion.header>
   );
 }
