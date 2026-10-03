@@ -129,6 +129,29 @@ export const BOARD_NEIGHBOURS = 3;
 // ------------------------------------------------------------ clan wars --
 
 /**
+ * Clan wars are archived: no war can be started, accepted or bet on.
+ *
+ * Archived, not removed. The tables, the history and the code all stay, and
+ * everything that *unwinds* a war — decline, withdraw, settle, void, the
+ * minute tick — still works, so a war left over from before could always be
+ * finished and its stakes paid out or refunded. Flip this to bring them back.
+ */
+export const CLAN_WARS_ARCHIVED = true;
+
+export const WARS_ARCHIVED_MESSAGE = 'Clan wars are archived.';
+
+/**
+ * Clans are archived too: none can be made or joined, and no clan can draw
+ * a team task. Same terms as wars — the tables and history stay, and every
+ * way *out* still works: a member can still leave (a leader leaving still
+ * disbands), and a team task already in hand can still be accepted, handed
+ * in and judged. Flip this to bring clans back.
+ */
+export const CLANS_ARCHIVED = true;
+
+export const CLANS_ARCHIVED_MESSAGE = 'Clans are archived.';
+
+/**
  * A clan war runs for four hours. Long enough that a clan has to actually
  * play through it rather than sprint one task, short enough to be watchable
  * in an evening.

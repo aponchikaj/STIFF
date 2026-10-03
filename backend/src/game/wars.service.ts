@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  GoneException,
   Injectable,
   Logger,
   NotFoundException,
@@ -25,6 +26,7 @@ import {
 import { GameEnrolment } from './entities/game-enrolment.entity';
 import { EnrolmentsService } from './enrolments.service';
 import {
+  CLAN_WARS_ARCHIVED,
   settleWarBook,
   WAR_DURATION_HOURS,
   WAR_JUDGING_DEADLINE_HOURS,
@@ -33,11 +35,21 @@ import {
   WAR_MIN_STAKE_COINS,
   warMaxStake,
   warRakePercent,
+  WARS_ARCHIVED_MESSAGE,
   type WarSide,
 } from './rules';
 import { SeasonsService } from './seasons.service';
 
 const HOUR = 3_600_000;
+
+/**
+ * The archive switch, on every way *into* a war — proposing, organising,
+ * accepting, betting. Ways out are left alone on purpose. See
+ * `CLAN_WARS_ARCHIVED`.
+ */
+function assertWarsOpen(): void {
+  if (CLAN_WARS_ARCHIVED) throw new GoneException(WARS_ARCHIVED_MESSAGE);
+}
 const MINUTE = 60_000;
 
 /** A war as anyone may read it. No bettor is named. */
@@ -141,6 +153,7 @@ export class WarsService {
     user: User,
     input: { opponentClanId: string; startsAt?: string },
   ): Promise<WarView> {
+    assertWarsOpen();
     const me = await this.enrolments.require(user, 'player');
     const season = await this.seasons.requireCurrent();
     if (season.status !== 'running') {
@@ -195,6 +208,7 @@ export class WarsService {
 
   /** The opponent's leader agrees. The book opens now. */
   async accept(user: User, warId: string): Promise<WarView> {
+    assertWarsOpen();
     const me = await this.enrolments.require(user, 'player');
 
     await this.dataSource.transaction(async (m) => {
@@ -313,6 +327,7 @@ export class WarsService {
     opponentClanId: string;
     startsAt?: string;
   }): Promise<WarView> {
+    assertWarsOpen();
     if (input.challengerClanId === input.opponentClanId) {
       throw new BadRequestException('A clan cannot go to war with itself.');
     }
@@ -401,6 +416,7 @@ export class WarsService {
     warId: string,
     input: { side: WarSide; coins: number },
   ): Promise<WarView> {
+    assertWarsOpen();
     const me = await this.enrolments.require(user);
     const coins = Math.round(input.coins);
     const max = warMaxStake(this.config);
