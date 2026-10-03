@@ -193,10 +193,11 @@ export default function MePage() {
 
         {/* shortcuts */}
         <nav className="flex flex-col">
-          {enrolment?.role === "watcher" ? null : (
-            <RowLink href="/clan" icon="users" label="Clan" />
-          )}
-          <RowLink href="/vote" icon="eye" label="Vote" />
+          {/* Voting is the watchers' job — a player cannot vote, so the row is
+              theirs alone. Clans and wars are archived, so neither has a row. */}
+          {enrolment?.role === "watcher" ? (
+            <RowLink href="/vote" icon="eye" label="Vote" />
+          ) : null}
           <RowLink href="/shop" icon="cart" label="Purchases" />
           <RowLink
             href="/me/reports"

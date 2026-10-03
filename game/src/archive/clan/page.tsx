@@ -83,7 +83,7 @@ function WatchersHaveNoClan() {
       <Display size="title">Clan</Display>
       <Body size="sm">
         Clans are for players — two of them, one task between them.
-        Watchers can&apos;t start or join one, but you can bet on their wars.
+        Watchers can&apos;t start or join one.
       </Body>
     </header>
   );
@@ -150,7 +150,7 @@ function NoClan({ size }: { size: number }) {
             maxLength={24}
             required
             placeholder="NAME IT"
-            hint="Everyone sees this on the war board."
+            hint="Everyone sees this on the board."
           />
         ) : (
           <Field

@@ -5,7 +5,7 @@
  *
  * **From `md` (905px): one top bar and nothing else.**
  *
- *     FEED  BOARD  WARS  SHOP  |  ▶ PLAY  |  ♥♥♡ ★ 12.5K ◆ 3,820  [▣ HANDLE]
+ *     FEED  BOARD  ME  SHOP  |  ▶ PLAY  |  ♥♥♡ ★ 12.5K ◆ 3,820  [▣ HANDLE]
  *                                                              PLAYER · #14
  *
  * Places on the left, the one action in the middle, *you* on the right —
@@ -21,10 +21,11 @@
  * what a watcher *does* is vote on players' hand-ins, so their button is
  * VOTE. Same position, same weight, the verb that applies to them.
  *
- * **"You" is not a tab.** The identity in the status strip is the way to
- * the profile, and the profile is where the rest lives — clan, votes,
- * purchases, reports. Six tabs at 320px is six cramped tabs; five with a
- * raised middle is a layout.
+ * **"You" became a tab when clans and wars were archived.** It used to be
+ * reached only from the identity in the status strip — and still is — but
+ * with two of four places gone, the bar was two · action · one. Me fills
+ * the slot; the profile is where the rest lives — votes (for a watcher),
+ * purchases, reports. Five with a raised middle is still the layout.
  *
  * Every bar is borderless: held off the content by a scanline band and the
  * shared `Rule`, with the current place marked by light — a lit label and
@@ -58,7 +59,9 @@ interface Place {
 const PLACES: Place[] = [
   { href: "/feed", label: "Feed", icon: "live" },
   { href: "/board", label: "Board", icon: "trophy" },
-  { href: "/wars", label: "Wars", icon: "fire" },
+  // Clans and wars are archived (see src/archive/). Me holds their slot so
+  // the phone tab bar stays two · action · two.
+  { href: "/me", label: "Me", icon: "profile" },
   { href: "/shop", label: "Shop", icon: "cart" },
 ];
 
@@ -76,7 +79,7 @@ function actionFor(enrolment: EnrolmentView | null | undefined): Action {
 }
 
 function isActive(pathname: string, href: string): boolean {
-  // Prefix match so /wars/<id> keeps Wars lit, but "/" never matches all.
+  // Prefix match so /feed/<id> keeps Feed lit, but "/" never matches all.
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -671,7 +674,7 @@ function HudCell({
 /* ============================================================== bottom */
 
 /**
- * The phone tab bar: Feed, Board, [action], Wars, Shop.
+ * The phone tab bar: Feed, Board, [action], Me, Shop.
  *
  * Five equal columns with the action in the third, raised half out of the
  * bar on a notched, lit plate — the only control in the bar with a fill,

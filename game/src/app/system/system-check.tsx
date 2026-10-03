@@ -253,7 +253,6 @@ export function SystemCheck() {
             run={() => gameApi.leaderboard({ pageSize: 1 })}
           />
           <Probe name="/game/shop" method="GET" run={() => import("@/lib/api").then((m) => m.shopApi.list())} />
-          <Probe name="/game/wars" method="GET" run={() => import("@/lib/api").then((m) => m.warsApi.list())} />
           <Probe
             name="/game/reports/reasons"
             method="GET"
@@ -272,11 +271,6 @@ export function SystemCheck() {
             name="/game/votes/open"
             method="GET"
             run={() => import("@/lib/api").then((m) => m.votingApi.open())}
-          />
-          <Probe
-            name="/game/clans/mine"
-            method="GET"
-            run={() => import("@/lib/api").then((m) => m.clansApi.mine())}
           />
           <Probe
             name="/game/shop/purchases/mine"
