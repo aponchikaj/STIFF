@@ -1,353 +1,117 @@
 "use client";
 
+import { motion } from "framer-motion";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Fragment, useState, type CSSProperties, type ReactNode } from "react";
+import { Haze } from "@/components/crt";
 import { Icon } from "@/components/icon";
-import {
-  Body,
-  Button,
-  Dialog,
-  Display,
-  Empty,
-  Hearts,
-  Label,
-  Loading,
-  Rule,
-  Screen,
-  Stat,
-} from "@/components/ui";
-import type { AttemptView, DemotionReason } from "@/lib/api";
-import {
-  useAuthState,
-  useDashboard,
-  useLogout,
-  useMyAttempts,
-  useMyReports,
-  useStanding,
-} from "@/lib/queries";
-import { cn, formatAgo, formatNumber } from "@/lib/utils";
+import { Account } from "@/components/me/account";
+import { HandIns, Inbox, Shortcuts } from "@/components/me/activity";
+import { IdentityCard, SeasonCard } from "@/components/me/header";
+import { ErrorNote, Loading, Screen } from "@/components/ui";
+import { useAuthState, useDashboard, useStanding } from "@/lib/queries";
 
 /**
- * `/me` — the account, the season, and the way out.
+ * `/me` — you, your season, and your account.
  *
- * Two identities are shown and they are genuinely different things: the
- * **account** is the shop's and is permanent, the **enrolment** is this
- * season's and can be demoted or marked a cheater. Collapsing them into
- * one "profile" is how someone ends up thinking a cheating verdict deleted
- * their shop account.
+ * Read top to bottom in the order the questions come:
+ *
+ *   who am I here          the identity card — handle, side, account
+ *   how is my season       nerve, opals, rank, hearts, today — and the
+ *                          one thing to do next (play, or vote)
+ *   where do I go          four shortcuts
+ *   what happened          the inbox
+ *   what did I hand in     every upload, and where it is now
+ *   the account            sign-in name, email, password, sign out
+ *
+ * The account (permanent, shared with the shop) and the enrolment (this
+ * season's, demotable) stay visibly separate — a cheating verdict must not
+ * read as though it deleted someone's account.
  */
-
-const DEMOTION_COPY: Record<DemotionReason, string> = {
-  cheating: "Marked a cheater. Final for this season.",
-  missed_daily_minimum: "Missed the daily minimum.",
-  zero_balance: "Balance hit zero.",
-  out_of_hearts: "Ran out of hearts.",
-};
-
 export default function MePage() {
-  const router = useRouter();
   const { isSignedIn, isResolved } = useAuthState();
   const dashboard = useDashboard();
   const standing = useStanding();
-  const attempts = useMyAttempts();
-  const reports = useMyReports();
-  const logout = useLogout();
 
-  const [confirmingOut, setConfirmingOut] = useState(false);
-
-  if (!isResolved || dashboard.isLoading) {
+  if (!isResolved || (isSignedIn && dashboard.isLoading)) {
     return (
-      <Screen width="md">
-        <Loading />
+      <Screen width="md" className="flex min-h-[60dvh] items-center justify-center">
+        <Loading label="LOADING YOU" />
       </Screen>
     );
   }
 
-  if (!isSignedIn) {
-    return (
-      <Screen width="sm" className="flex min-h-[70dvh] flex-col justify-center gap-8">
-        <Empty icon="profile" title="Not signed in">
-          Your coins, your hearts and your place on the board live on an
-          account.
-        </Empty>
-        <div className="flex justify-center gap-8">
-          <Link href="/login">
-            <Button size="lg">Sign in</Button>
-          </Link>
-          <Link href="/join">
-            <Button variant="quiet" size="lg">
-              Join
-            </Button>
-          </Link>
-        </div>
-      </Screen>
-    );
-  }
+  if (!isSignedIn) return <SignedOut />;
 
   const data = dashboard.data;
-  const user = data?.user;
-  const enrolment = data?.enrolment ?? null;
-  const name = enrolment?.handle ?? user?.username ?? "You";
+  if (!data) {
+    return (
+      <Screen width="md" className="py-10">
+        <ErrorNote>Your profile could not be loaded. Try again in a moment.</ErrorNote>
+      </Screen>
+    );
+  }
+
+  const enrolment = data.enrolment;
+  const playing = enrolment?.role === "player" && enrolment.status === "active";
 
   return (
-    <main>
-      <Screen width="md" className="flex flex-col gap-10 py-8">
-        {/* who */}
-        <header
-          className="flex flex-col gap-3 [container-type:inline-size]"
-          style={{ "--handle-chars": name.length + 1 } as CSSProperties}
-        >
-          <Label>{enrolment ? enrolment.role : "No side this season"}</Label>
-          {/* A handle is up to 24 characters with no spaces, so the browser has
-              nowhere to wrap it, and at 48px in a monospaced pixel face it is
-              over 1100px wide. The size is the smaller of the title size and
-              "one line exactly fills the column" — the face is 1em per glyph,
-              so the column divided by the glyph count is that size. Below
-              20px it stops shrinking and wraps instead, after an underscore
-              where there is one, anywhere where there is not. */}
-          <Display
-            size="title"
-            className="block max-w-full text-[length:min(clamp(24px,5.5vw,48px),max(20px,calc(100cqw/var(--handle-chars))))] leading-[1.25] [overflow-wrap:anywhere]"
-          >
-            {breakAfterUnderscores(name)}
-          </Display>
-          {user?.email ? (
-            <Label tone="faint">{user.email}</Label>
-          ) : (
-            <Label tone="caution">No email — no password resets</Label>
-          )}
-        </header>
+    <main className="relative overflow-hidden">
+      <Haze intensity="md" />
 
-        {/* this season */}
-        {enrolment ? (
-          <>
-            <section className="flex flex-wrap items-center gap-8">
-              {enrolment.role === "player" ? (
-                <div className="flex flex-col gap-2">
-                  <Label tone="faint">Hearts</Label>
-                  <Hearts
-                    remaining={enrolment.heartsRemaining}
-                    total={enrolment.heartsTotal}
-                    size={20}
-                  />
-                </div>
-              ) : null}
-
-              <Stat
-                icon="star"
-                value={formatNumber(enrolment.nerve)}
-                label="Nerve"
-                tone="cyan"
-                size="lg"
-              />
-              <Stat
-                icon="opal"
-                value={formatNumber(enrolment.coins)}
-                label="Coins"
-                tone="coin"
-                size="lg"
-              />
-              {standing.data?.onBoard ? (
-                <Stat
-                  icon="trophy"
-                  value={`#${standing.data.rank}`}
-                  label={`of ${standing.data.total}`}
-                  size="lg"
-                />
-              ) : null}
-            </section>
-
-            {enrolment.status !== "active" ? (
-              <div className="flex flex-col gap-2">
-                <Label tone={enrolment.status === "cheater" ? "heart" : "caution"}>
-                  {enrolment.status === "cheater" ? "Cheater" : "Watcher now"}
-                </Label>
-                <Body size="sm">
-                  {enrolment.demotionReason
-                    ? DEMOTION_COPY[enrolment.demotionReason]
-                    : "Your season as a player is over."}
-                  {enrolment.demotedAt
-                    ? ` ${formatAgo(enrolment.demotedAt)} ago.`
-                    : ""}
-                </Body>
-              </div>
-            ) : null}
-
-            <Rule />
-          </>
-        ) : (
-          <>
-            <Body size="sm">
-              You have not picked a side this season.
-              {data?.rememberedRole
-                ? ` We kept your choice of ${data.rememberedRole}.`
-                : ""}
-            </Body>
-            <Link href="/join">
-              <Button size="lg">Pick a side</Button>
-            </Link>
-            <Rule />
-          </>
-        )}
-
-        {/* shortcuts */}
-        <nav className="flex flex-col">
-          {/* Voting is the watchers' job — a player cannot vote, so the row is
-              theirs alone. Clans and wars are archived, so neither has a row. */}
-          {enrolment?.role === "watcher" ? (
-            <RowLink href="/vote" icon="eye" label="Vote" />
-          ) : null}
-          <RowLink href="/shop" icon="cart" label="Purchases" />
-          <RowLink
-            href="/me/reports"
-            icon="warning"
-            label="Reports you filed"
-            note={reports.data?.length ? String(reports.data.length) : undefined}
-          />
-        </nav>
-
-        <Rule />
-
-        {/* hand-ins */}
-        <section className="flex flex-col gap-5">
-          <Label>Your hand-ins</Label>
-          {attempts.isLoading ? (
-            <Loading />
-          ) : (attempts.data?.length ?? 0) === 0 ? (
-            <Body size="sm" className="text-ink-faint">
-              Nothing handed in yet.
-            </Body>
-          ) : (
-            <ul className="flex flex-col gap-4">
-              {attempts.data?.map((attempt) => (
-                <AttemptRow key={attempt.id} attempt={attempt} />
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <Rule />
-
-        {/* out */}
-        <div className="flex items-center justify-between gap-4 pb-6">
-          <Label tone="faint">
-            Account since{" "}
-            {user?.createdAt ? new Date(user.createdAt).getFullYear() : "—"}
-          </Label>
-          <Button variant="quiet" marker={false} onClick={() => setConfirmingOut(true)}>
-            Sign out
-          </Button>
-        </div>
+      <Screen width="md" className="flex flex-col gap-5 pb-10 pt-2 sm:gap-6">
+        <IdentityCard data={data} />
+        <SeasonCard data={data} standing={standing.data} />
+        <Shortcuts handle={enrolment?.handle ?? null} coins={enrolment?.coins ?? null} />
+        <Inbox />
+        <HandIns playing={playing} />
+        <Account user={data.user} handle={enrolment?.handle ?? null} />
       </Screen>
-
-      <Dialog
-        open={confirmingOut}
-        title="Sign out?"
-        confirmLabel="Sign out"
-        cancelLabel="Stay"
-        busy={logout.isPending}
-        onCancel={() => setConfirmingOut(false)}
-        onConfirm={() =>
-          logout.mutate(undefined, {
-            onSettled: () => {
-              setConfirmingOut(false);
-              router.push("/");
-            },
-          })
-        }
-      >
-        Your clock keeps running while you are signed out.
-      </Dialog>
     </main>
   );
 }
 
-/* ---------------------------------------------------------------- parts */
-
-function RowLink({
-  href,
-  icon,
-  label,
-  note,
-}: {
-  href: string;
-  icon: Parameters<typeof Icon>[0]["name"];
-  label: string;
-  note?: string;
-}) {
+/** Signed out: what an account holds, and the two ways in. */
+function SignedOut() {
   return (
-    <Link href={href} className="group flex items-center gap-4 py-4">
-      <Icon
-        name={icon}
-        size="sm"
-        className="opacity-50 transition-opacity group-hover:opacity-100"
-      />
-      <span className="flex-1 font-pixel text-[11px] uppercase tracking-[0.1em] text-ink-muted transition-colors group-hover:text-cyan">
-        {label}
-      </span>
-      {note ? <Label tone="faint">{note}</Label> : null}
-      <Icon
-        name="arrow-right"
-        size="xs"
-        className="opacity-30 transition-all group-hover:translate-x-1 group-hover:opacity-80"
-      />
-    </Link>
+    <main className="relative overflow-hidden">
+      <Haze intensity="lg" />
+      <Screen width="sm" className="flex min-h-[72dvh] flex-col items-center justify-center gap-8 text-center">
+        <motion.span
+          initial={{ scale: 0.7, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 220, damping: 16 }}
+          className="bloom-cyan-lg block"
+        >
+          <span className="flex size-24 items-center justify-center bg-blue-deep frame-notch-lg scanlines">
+            <Icon name="profile" size="xl" />
+          </span>
+        </motion.span>
+
+        <div className="flex flex-col gap-3">
+          <p className="font-pixel text-[15px] uppercase tracking-[0.1em] text-ink text-glow">
+            You are not signed in
+          </p>
+          <p className="mx-auto max-w-xs font-body text-body-sm leading-[20px] text-ink-muted">
+            Your opals, your hearts, your hand-ins and your place on the board
+            all live on an account.
+          </p>
+        </div>
+
+        <div className="flex w-full max-w-xs flex-col gap-3">
+          <Link
+            href="/login?next=/me"
+            className="block bg-blue py-3.5 font-pixel text-[12px] uppercase tracking-[0.12em] text-void frame-notch hover:bg-cyan"
+          >
+            Sign in
+          </Link>
+          <Link
+            href="/join"
+            className="block bg-surface-3 py-3.5 font-pixel text-[12px] uppercase tracking-[0.12em] text-ink frame-notch hover:bg-surface-2 hover:text-cyan"
+          >
+            Make an account
+          </Link>
+        </div>
+      </Screen>
+    </main>
   );
-}
-
-const ATTEMPT_TONE: Record<AttemptView["status"], string> = {
-  awaiting_upload: "text-ink-faint",
-  submitted: "text-caution",
-  published: "text-good",
-  rejected: "text-danger",
-};
-
-function AttemptRow({ attempt }: { attempt: AttemptView }) {
-  const body = (
-    <>
-      <Icon
-        name={attempt.kind === "video" ? "video" : "camera"}
-        size="xs"
-        dim={attempt.status === "rejected"}
-      />
-      <span className="font-pixel text-[10px] uppercase tracking-[0.1em] text-ink">
-        Day {attempt.day}
-      </span>
-      <span
-        className={cn(
-          "flex-1 font-body text-[10px] uppercase tracking-[0.12em]",
-          ATTEMPT_TONE[attempt.status],
-        )}
-      >
-        {attempt.status.replace("_", " ")}
-      </span>
-      <Label tone="faint">{formatAgo(attempt.createdAt)}</Label>
-    </>
-  );
-
-  // Only a published attempt is on the feed; linking the others would be a
-  // link to a 404 wearing the clothes of a link to your own work.
-  return attempt.status === "published" ? (
-    <li>
-      <Link
-        href={`/feed/${attempt.id}`}
-        className="flex items-center gap-4 py-1 transition-opacity hover:opacity-80"
-      >
-        {body}
-      </Link>
-    </li>
-  ) : (
-    <li className="flex items-center gap-4 py-1">{body}</li>
-  );
-}
-
-/** `NIGHT_RUNNER` → `NIGHT_<wbr>RUNNER`: a polite place to wrap a handle. */
-function breakAfterUnderscores(handle: string): ReactNode {
-  return handle.split(/(?<=_)/).map((part, index) => (
-    <Fragment key={index}>
-      {index > 0 ? <wbr /> : null}
-      {part}
-    </Fragment>
-  ));
 }

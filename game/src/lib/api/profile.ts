@@ -25,7 +25,8 @@ export function updateSettings(patch: Partial<UserSettings>) {
 
 /** Username and/or email. A new address is unverified until proven. */
 export function updateProfile(patch: { username?: string; email?: string }) {
-  return apiFetch<{ user: SafeUser }>("/users/me", { method: "PATCH", body: patch });
+  // Bare — the user itself, not `{ user }`.
+  return apiFetch<SafeUser>("/users/me", { method: "PATCH", body: patch });
 }
 
 export function changePassword(currentPassword: string, newPassword: string) {

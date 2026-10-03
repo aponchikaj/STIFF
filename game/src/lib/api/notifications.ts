@@ -9,11 +9,13 @@
 import { apiFetch } from "./client";
 import type { NotificationView } from "./types";
 
+/** As `GET /notifications` sends it: `items`, not `data`, plus the unread count. */
 export interface NotificationPage {
-  data: NotificationView[];
+  items: NotificationView[];
   total: number;
   page: number;
   pageSize: number;
+  unreadCount: number;
 }
 
 export function list(query: { page?: number; pageSize?: number; unreadOnly?: boolean } = {}) {
@@ -21,7 +23,8 @@ export function list(query: { page?: number; pageSize?: number; unreadOnly?: boo
 }
 
 export function markRead(id: string) {
-  return apiFetch<{ success: true }>(`/notifications/${id}/read`, { method: "PATCH" });
+  // The updated notification itself, not `{ success }`.
+  return apiFetch<NotificationView>(`/notifications/${id}/read`, { method: "PATCH" });
 }
 
 export function markAllRead() {
