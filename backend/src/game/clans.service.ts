@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  GoneException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -18,7 +19,7 @@ import {
 } from './entities/game-clan.entity';
 import { GameEnrolment } from './entities/game-enrolment.entity';
 import { EnrolmentsService } from './enrolments.service';
-import { CLAN_SIZE } from './rules';
+import { CLAN_SIZE, CLANS_ARCHIVED, CLANS_ARCHIVED_MESSAGE } from './rules';
 import { SeasonsService } from './seasons.service';
 
 export interface ClanMemberView {
@@ -83,6 +84,7 @@ export class ClansService {
 
   /** Makes a clan with the caller as leader. */
   async create(user: User, rawName: string): Promise<ClanView> {
+    if (CLANS_ARCHIVED) throw new GoneException(CLANS_ARCHIVED_MESSAGE);
     const season = await this.seasonsService.requireCurrent();
     const enrolment = await this.enrolmentsService.require(user, 'player');
     const name = normaliseName(rawName);
@@ -127,6 +129,7 @@ export class ClansService {
 
   /** Takes the member seat of a forming clan, by its invite code. */
   async join(user: User, rawCode: string): Promise<ClanView> {
+    if (CLANS_ARCHIVED) throw new GoneException(CLANS_ARCHIVED_MESSAGE);
     const season = await this.seasonsService.requireCurrent();
     const enrolment = await this.enrolmentsService.require(user, 'player');
     const code = rawCode.trim().toUpperCase();

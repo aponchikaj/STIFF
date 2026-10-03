@@ -1,3 +1,11 @@
+// Wars are archived in production (`CLAN_WARS_ARCHIVED`). This suite tests
+// what wars *do*, so it runs with them open; `wars.archived.spec.ts` pins
+// what the archive refuses.
+jest.mock('./rules', () => ({
+  ...jest.requireActual<typeof import('./rules')>('./rules'),
+  CLAN_WARS_ARCHIVED: false,
+}));
+
 import {
   BadRequestException,
   ConflictException,
