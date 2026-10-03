@@ -262,6 +262,22 @@ describe('FeedService', () => {
       expect(attemptQb.take).toHaveBeenCalledWith(MAX_FEED_PAGE_SIZE + 1);
     });
 
+    it("can be narrowed to one player's posts, whatever the case", async () => {
+      await service.list(null, { player: '  Asterisk ' });
+      expect(attemptQb.andWhere).toHaveBeenCalledWith(
+        'LOWER(enrolment.handle) = LOWER(:player)',
+        { player: 'Asterisk' },
+      );
+    });
+
+    it('ignores a blank player filter', async () => {
+      await service.list(null, { player: '   ' });
+      expect(attemptQb.andWhere).not.toHaveBeenCalledWith(
+        'LOWER(enrolment.handle) = LOWER(:player)',
+        expect.anything(),
+      );
+    });
+
     it('can be narrowed to one day', async () => {
       await service.list(null, { day: 2 });
       expect(attemptQb.andWhere).toHaveBeenCalledWith('attempt.day = :day', {

@@ -107,7 +107,13 @@ export class FeedService {
    */
   async list(
     user: User | null,
-    options: { cursor?: string; limit?: number; day?: number } = {},
+    options: {
+      cursor?: string;
+      limit?: number;
+      day?: number;
+      /** A handle: only that player's posts, for their profile. */
+      player?: string;
+    } = {},
   ): Promise<FeedPage> {
     const season = await this.seasonsService.current();
     if (!season) return { items: [], nextCursor: null };
@@ -130,6 +136,11 @@ export class FeedService {
 
     if (options.day !== undefined) {
       qb.andWhere('attempt.day = :day', { day: options.day });
+    }
+
+    const player = options.player?.trim();
+    if (player) {
+      qb.andWhere('LOWER(enrolment.handle) = LOWER(:player)', { player });
     }
 
     const cursor = decodeCursor(options.cursor);
