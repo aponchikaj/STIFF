@@ -1,3 +1,11 @@
+// Clans are archived in production (`CLANS_ARCHIVED`). This suite tests
+// what clans *do*, so it runs with them open; `clans.archived.spec.ts` pins
+// what the archive refuses.
+jest.mock('./rules', () => ({
+  ...jest.requireActual<typeof import('./rules')>('./rules'),
+  CLANS_ARCHIVED: false,
+}));
+
 import {
   BadRequestException,
   ConflictException,
