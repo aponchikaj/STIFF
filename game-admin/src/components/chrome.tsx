@@ -8,7 +8,6 @@ import { GAME_URL } from "@/lib/game-site";
 import { AsteriskMark } from "./asterisk-mark";
 import {
   IconBoard,
-  IconClans,
   IconClocks,
   IconHandIns,
   IconVotes,
@@ -22,7 +21,6 @@ import {
   IconShop,
   IconOpals,
   IconTasks,
-  IconWars,
 } from "./nav-icons";
 import { useSession } from "./providers";
 import { ThemeToggle } from "./theme-toggle";
@@ -75,8 +73,7 @@ const GROUPS: NavGroup[] = [
     items: [
       { href: "/hand-ins", label: "Hand-ins", icon: IconHandIns },
       { href: "/players", label: "Players", icon: IconPlayers },
-      { href: "/clans", label: "Clans", icon: IconClans },
-      { href: "/wars", label: "Clan wars", icon: IconWars },
+      // Clans and Clan wars are archived — see src/archive/README.md.
       { href: "/board", label: "Board", icon: IconBoard },
     ],
   },

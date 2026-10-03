@@ -56,7 +56,6 @@ export function OverviewTab() {
   const rules = useAsync(() => gameApi.getRules(), []);
   const deferred = useAsync(() => gameApi.listVotes("deferred"), []);
   const clocks = useAsync(() => gameApi.listClocks("running"), []);
-  const wars = useAsync(() => gameApi.listWars("live"), []);
 
   const { note, busy, act } = useAction(() => {
     enrolments.reload();
@@ -228,11 +227,6 @@ export function OverviewTab() {
               ).length
             : null
         }
-        stuckWars={
-          wars.data
-            ? wars.data.wars.filter((w) => w.status === "judging").length
-            : null
-        }
       />
 
       {/* --------------------------------------------------------- two lists */}
@@ -343,8 +337,8 @@ export function OverviewTab() {
  *
  * Every other number on this screen is a count to read. These are the ones
  * that get worse while nobody looks: a P3 report may be a person at risk, a
- * deferred vote is a player waiting to be paid, a war stuck in judging is
- * everyone's stake frozen. When all of them are zero, the panel says so in one
+ * deferred vote is a player waiting to be paid. (Wars stuck in judging used
+ * to be here; clan wars are archived.) When all of them are zero, the panel says so in one
  * line instead of showing five zeroes.
  */
 function NeedsAPerson({
@@ -352,13 +346,11 @@ function NeedsAPerson({
   deferredVotes,
   p3Reports,
   overdueClocks,
-  stuckWars,
 }: {
   waiting: number;
   deferredVotes: number | null;
   p3Reports: number | null;
   overdueClocks: number | null;
-  stuckWars: number | null;
 }) {
   const items: {
     href: string;
@@ -386,13 +378,6 @@ function NeedsAPerson({
       label: "Hand-ins to judge",
       count: waiting,
       detail: "oldest first",
-      tone: "caution",
-    },
-    {
-      href: "/wars?filter=live",
-      label: "Wars stuck in judging",
-      count: stuckWars,
-      detail: "every stake on them is frozen",
       tone: "caution",
     },
     {
