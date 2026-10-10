@@ -1,6 +1,14 @@
 import { defineCloudflareConfig } from "@opennextjs/cloudflare";
+import staticAssetsIncrementalCache from "@opennextjs/cloudflare/overrides/incremental-cache/static-assets-incremental-cache";
 
-// No incremental cache. Every game screen renders on the client from the
-// API, so there is nothing server-side worth caching — and leaving it out
-// means the deploy needs no R2 bucket.
-export default defineCloudflareConfig({});
+// Read-only cache served from the Worker's own static assets — no R2 bucket.
+//
+// It is not optional. The opal pages (`/play/001`–`003`) are prerendered with
+// `dynamicParams = false`, and with no incremental cache at all the prerender
+// is never found, so Next answers every one of them with its 404. Nothing
+// here revalidates, which is the case this cache is for: every game screen
+// still renders on the client from the API.
+export default defineCloudflareConfig({
+  incrementalCache: staticAssetsIncrementalCache,
+  enableCacheInterception: true,
+});
