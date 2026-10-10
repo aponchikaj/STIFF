@@ -1,0 +1,42 @@
+# Fly.io — the API, built with a buildpack (no Dockerfile; see CLAUDE.md).
+# Deploy from this directory: `fly deploy`.
+#
+# Exactly one machine, always running. The scheduled jobs (votes, wars,
+# assignments, discipline, abandoned-cart emails) fire on every process that
+# boots, and without Redis nothing elects a leader — see
+# src/common/redis/leader-lock.service.ts. Two machines would run every job
+# twice; a machine stopped for idleness would run none.
+
+app = "stiff-backend"
+primary_region = "lhr" # nearest to the Supabase project in eu-west-1
+
+[build]
+  builder = "heroku/builder:24" # installs, runs `npm run build`, prunes dev deps
+  ignorefile = ".flyignore"     # keeps .env and node_modules out of the image
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"
+
+[processes]
+  app = "node dist/main"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/api/health"
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "30s"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

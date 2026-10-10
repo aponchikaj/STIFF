@@ -1,0 +1,15 @@
+# What `fly deploy` must not upload. Secrets come from `fly secrets`, never
+# from a file baked into the image.
+#
+# For buildpack builds flyctl matches these anywhere in the tree, leading `/`
+# or not, so never list a name that also appears under src/ — `uploads` here
+# dropped src/uploads and broke the build. (The local uploads/ fallback folder
+# is empty and harmless to ship.)
+/.env
+/.env.*
+!/.env.example
+/node_modules
+/dist
+/coverage
+/test
+*.log

@@ -104,8 +104,11 @@ export class MediaStorageService {
     // R2 has one region and calls it `auto`; S3 callers set their own.
     const region = this.config.get<string>('GAME_MEDIA_REGION') ?? 'auto';
 
-    const host = new URL(endpoint).host;
-    const canonicalUri = `/${bucket}/${encodeKey(objectKey)}`;
+    // Supabase serves S3 under `/storage/v1/s3`; R2 and S3 at the root. The
+    // path is part of what gets signed, so it goes into the canonical URI.
+    const { host, pathname } = new URL(endpoint);
+    const basePath = pathname.replace(/\/+$/, '');
+    const canonicalUri = `${basePath}/${bucket}/${encodeKey(objectKey)}`;
 
     const amzDate = amzDateOf(now);
     const shortDate = amzDate.slice(0, 8);
@@ -150,7 +153,7 @@ export class MediaStorageService {
     ).toString('hex');
 
     return {
-      url: `${endpoint}${canonicalUri}?${canonicalQuery}&X-Amz-Signature=${signature}`,
+      url: `${new URL(endpoint).origin}${canonicalUri}?${canonicalQuery}&X-Amz-Signature=${signature}`,
       objectKey,
       expiresAt: new Date(now.getTime() + UPLOAD_URL_TTL_SECONDS * 1000),
     };
