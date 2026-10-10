@@ -8,9 +8,9 @@
     "start": "next start --port 3003",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "cf:build": "NEXT_PUBLIC_API_URL=https://stiff-i3nq.onrender.com/api opennextjs-cloudflare build",
-    "cf:preview": "NEXT_PUBLIC_API_URL=https://stiff-i3nq.onrender.com/api opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "cf:deploy": "NEXT_PUBLIC_API_URL=https://stiff-i3nq.onrender.com/api opennextjs-cloudflare build && opennextjs-cloudflare deploy"
+    "cf:build": "BACKEND_URL=https://stiff-backend.fly.dev NEXT_PUBLIC_API_URL=/api opennextjs-cloudflare build",
+    "cf:preview": "BACKEND_URL=https://stiff-backend.fly.dev NEXT_PUBLIC_API_URL=/api opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "cf:deploy": "BACKEND_URL=https://stiff-backend.fly.dev NEXT_PUBLIC_API_URL=/api opennextjs-cloudflare build && opennextjs-cloudflare deploy"
   },
   "dependencies": {
     "@formkit/auto-animate": "^0.10.0",
