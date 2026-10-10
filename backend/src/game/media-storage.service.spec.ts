@@ -152,6 +152,63 @@ describe('MediaStorageService', () => {
     });
   });
 
+  /**
+   * Supabase Storage serves S3 under a path, not at the host root. The path
+   * is part of what is signed: sign only `/bucket/key` and send the request
+   * to `/storage/v1/s3/bucket/key`, and Supabase answers 403
+   * SignatureDoesNotMatch. R2 has no path, which is why this went unnoticed.
+   */
+  describe('when the endpoint carries a path', () => {
+    const service = serviceWith({
+      ...ENV,
+      GAME_MEDIA_ENDPOINT: 'https://proj.storage.supabase.co/storage/v1/s3/',
+      GAME_MEDIA_BUCKET: 'stiff-media',
+      GAME_MEDIA_REGION: 'eu-west-1',
+    });
+
+    it('keeps the path in the URL', () => {
+      const result = service.presignPut(
+        'seasons/zero/day-1/abc.mp4',
+        'video/mp4',
+        AT,
+      );
+      expect(new URL(result.url).pathname).toBe(
+        '/storage/v1/s3/stiff-media/seasons/zero/day-1/abc.mp4',
+      );
+    });
+
+    /**
+     * The path is signed as part of the URI. Moving it from the endpoint into
+     * the bucket name changes nothing about the request on the wire, so it
+     * must change nothing about the signature either.
+     */
+    it('signs the path as part of the URI', () => {
+      const pathInBucket = serviceWith({
+        ...ENV,
+        GAME_MEDIA_ENDPOINT: 'https://proj.storage.supabase.co',
+        GAME_MEDIA_BUCKET: 'storage/v1/s3/stiff-media',
+        GAME_MEDIA_REGION: 'eu-west-1',
+      });
+      const key = 'seasons/zero/day-1/abc.mp4';
+      const a = service.presignPut(key, 'video/mp4', AT);
+      const b = pathInBucket.presignPut(key, 'video/mp4', AT);
+      expect(a.url).toBe(b.url);
+    });
+
+    it('signs differently from the same key at the host root', () => {
+      const atRoot = serviceWith({
+        ...ENV,
+        GAME_MEDIA_ENDPOINT: 'https://proj.storage.supabase.co',
+        GAME_MEDIA_BUCKET: 'stiff-media',
+        GAME_MEDIA_REGION: 'eu-west-1',
+      });
+      const key = 'seasons/zero/day-1/abc.mp4';
+      expect(sigOf(service.presignPut(key, 'video/mp4', AT).url)).not.toBe(
+        sigOf(atRoot.presignPut(key, 'video/mp4', AT).url),
+      );
+    });
+  });
+
   describe('mintObjectKey', () => {
     const service = serviceWith(ENV);
 
