@@ -205,7 +205,7 @@ function Scoreboard({
     >
       <div className={cn("flex items-center gap-2", align === "right" && "flex-row-reverse")}>
         {won ? <Icon name="crown" size="xs" glow /> : null}
-        <span className="w-full truncate font-pixel text-[11px] uppercase tracking-[0.08em] text-ink">
+        <span className="w-full truncate font-pixel text-[11px] uppercase tracking-[0.04em] text-ink">
           {name}
         </span>
       </div>
@@ -290,7 +290,7 @@ function MyBet({ war }: { war: WarView }) {
         <span className="font-pixel text-[20px] tabular-nums text-coin text-glow-coin">
           {formatNumber(bet.stake)}
         </span>
-        <span className="font-pixel text-[11px] uppercase tracking-[0.1em] text-ink">
+        <span className="font-pixel text-[11px] uppercase tracking-[0.04em] text-ink">
           on {side}
         </span>
       </div>
@@ -342,7 +342,7 @@ function BetForm({ war, balance }: { war: WarView; balance: number }) {
             onClick={() => setSide(value)}
             aria-pressed={side === value}
             className={cn(
-              "group flex items-center gap-2.5 py-2 font-pixel text-[12px] uppercase tracking-[0.1em] transition-all duration-200",
+              "group flex items-center gap-2.5 py-2 font-pixel text-[12px] uppercase tracking-[0.04em] transition-all duration-200",
               side === value
                 ? "text-cyan [text-shadow:var(--glow-cyan)]"
                 : "text-ink-faint hover:text-ink",
@@ -385,7 +385,7 @@ function BetForm({ war, balance }: { war: WarView; balance: number }) {
           <button
             type="button"
             onClick={() => setCoins(max)}
-            className="font-body text-[10px] uppercase tracking-[0.12em] text-ink-faint transition-colors hover:text-coin"
+            className="font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-faint transition-colors hover:text-coin"
           >
             All {formatNumber(max)}
           </button>

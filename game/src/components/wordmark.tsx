@@ -14,8 +14,8 @@ import { usePrefersReducedMotion } from "@/lib/hooks";
  *   1. **Bleed.** Two copies behind the mark, offset a pixel left and right
  *      and tinted red/cyan, blurred. This is beam misconvergence and it is
  *      what stops the letterforms looking vector-crisp.
- *   2. **Core.** The white mark itself, with a three-stage bloom — tight
- *      white, mid white, wide cyan — so the light falls off the way a
+ *   2. **Core.** The pale #A8F8FF mark itself, with a staged bloom — a
+ *      white-hot ring, then wide #43DFFF — so the light falls off the way a
  *      phosphor does rather than as one flat halo.
  *   3. **Bands.** Horizontal scanlines cut *through* the glyphs via a
  *      masked overlay, not laid over the whole box. The reference's most
@@ -27,11 +27,18 @@ import { usePrefersReducedMotion } from "@/lib/hooks";
  * breakpoint without a media query per step — a pixel face wants to be as
  * large as the screen allows and nothing else on this page competes.
  */
+/**
+ * Average advance of one capital in the display face, in em — Silkscreen
+ * Bold's ~0.85 at the 120% size-adjust. Re-measure when the CC Pixel Arcade
+ * files land.
+ */
+const GLYPH_ADVANCE = 0.98;
+
 export function Wordmark({
   children = "STIFF",
   className,
   vw = 0.78,
-  maxPx = 150,
+  maxPx = 190,
 }: {
   children?: string;
   className?: string;
@@ -42,10 +49,10 @@ export function Wordmark({
   const reduced = usePrefersReducedMotion();
 
   // Divide the target span by the character count rather than hardcoding a
-  // vw. Press Start 2P (the fallback until PPNeueBit is licensed) is roughly
-  // one em wide per glyph and much wider than the real face, so a figure
-  // tuned for one overflows with the other. This holds either way.
-  const perChar = vw / Math.max(1, children.length);
+  // vw. Silkscreen (the stand-in until CC Pixel Arcade is licensed) and the
+  // real face have different advance widths, so a figure tuned for one
+  // overflows with the other. This holds either way.
+  const perChar = vw / Math.max(1, children.length) / GLYPH_ADVANCE;
   const fontSize = `min(${(perChar * 100).toFixed(2)}vw, ${maxPx}px)`;
 
   const base: React.CSSProperties = {
@@ -71,14 +78,14 @@ export function Wordmark({
         {/* 1 — chromatic bleed */}
         <span
           aria-hidden
-          className="absolute inset-0 text-[rgb(255,0,60)] opacity-40 blur-[2px]"
+          className="absolute inset-0 text-[rgb(255,0,60)] opacity-25 blur-[2px]"
           style={{ ...base, transform: "translateX(-2px)" }}
         >
           {children}
         </span>
         <span
           aria-hidden
-          className="absolute inset-0 text-cyan opacity-55 blur-[2px]"
+          className="absolute inset-0 text-blue opacity-60 blur-[2px]"
           style={{ ...base, transform: "translateX(2px)" }}
         >
           {children}
@@ -86,11 +93,11 @@ export function Wordmark({
 
         {/* 2 — the core */}
         <span
-          className="relative block text-bone"
+          className="relative block text-cyan"
           style={{
             ...base,
             textShadow:
-              "0 0 6px rgb(255 255 255 / 1), 0 0 20px rgb(1 231 255 / 0.85), 0 0 52px rgb(1 163 255 / 0.6), 0 0 120px rgb(1 163 255 / 0.35)",
+              "0 0 5px rgb(228 253 255 / 0.95), 0 0 18px rgb(67 223 255 / 0.9), 0 0 52px rgb(67 223 255 / 0.6), 0 0 120px rgb(67 223 255 / 0.35)",
           }}
         >
           {children}

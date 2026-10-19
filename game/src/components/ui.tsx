@@ -19,7 +19,8 @@
  */
 
 import { motion, type HTMLMotionProps } from "framer-motion";
-import { forwardRef, type ReactNode } from "react";
+import Link from "next/link";
+import { forwardRef, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Icon } from "./icon";
 import type { IconName } from "@/lib/icons";
@@ -56,14 +57,17 @@ const displaySizes: Record<DisplaySize, string> = {
 /**
  * A heading in the display face.
  *
- * `scanlines` bakes the CRT banding into the letterforms the way the
- * wordmark does. It costs legibility, so it is off by default and belongs
- * on the biggest type only.
+ * `bone` is the GAME OVER treatment — pale core, electric bloom, and
+ * (with `scanlines`) the tube's bands cut through the glyphs. The bands
+ * are on by default from `title` up, where they read as texture; below
+ * that they eat the letterforms, so smaller sizes keep them off. They only
+ * apply to plain-string children, because `.phosphor` re-draws the text
+ * from `data-text`.
  */
 export function Display({
   children,
   size = "hero",
-  scanlines = false,
+  scanlines,
   tone = "bone",
   className,
 }: {
@@ -74,21 +78,26 @@ export function Display({
   className?: string;
 }) {
   const tones = {
-    bone: "text-ink text-glow",
+    bone: "phosphor",
     cyan: "text-cyan text-glow-cyan",
     blue: "text-blue text-glow-blue",
     muted: "text-ink-faint",
   } as const;
 
+  const banded =
+    (scanlines ?? (size === "title" || size === "mega" || size === "colossal")) &&
+    tone === "bone" &&
+    (typeof children === "string" || typeof children === "number");
+
   return (
     <span
+      data-text={banded ? String(children) : undefined}
       className={cn(
         // `text-balance` so a two-line heading splits evenly instead of
         // leaving one orphaned word on the second line.
         "inline-block text-balance font-display uppercase pixel-snap",
         displaySizes[size],
         tones[tone],
-        scanlines && "scanlines-coarse",
         className,
       )}
     >
@@ -120,7 +129,7 @@ export function Label({
   return (
     <span
       className={cn(
-        "font-body text-caption leading-4 uppercase tracking-[0.12em]",
+        "font-pixel text-caption leading-4 uppercase tracking-[0.04em]",
         tones[tone],
         className,
       )}
@@ -230,7 +239,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       transition={{ duration: 0.08 }}
       className={cn(
         "group relative inline-flex items-center justify-center",
-        "bg-transparent font-pixel uppercase tracking-[0.12em]",
+        "bg-transparent font-pixel uppercase tracking-[0.04em]",
         "transition-all duration-200",
         "disabled:opacity-30 disabled:pointer-events-none",
         buttonTones[variant],
@@ -306,6 +315,147 @@ export function IconButton({
   );
 }
 
+/* ========================================================== cabinet menu */
+
+export interface CabinetItem {
+  key: string;
+  label: ReactNode;
+  /** A link… */
+  href?: string;
+  /** …or an action. One of the two. */
+  onClick?: () => void;
+  disabled?: boolean;
+  /** `danger` for the destructive answer in a confirm. */
+  tone?: "blue" | "danger";
+}
+
+/**
+ * The DO YOU WANT TO CONTINUE? menu: answers on one line, one of them
+ * selected, a blinking ▶ on the selected one.
+ *
+ * This is the system's one selection device. The caret is always on
+ * something — the first item until the pointer, focus or ←/→ move it — so
+ * a row of these reads as a cabinet menu rather than a row of links, and
+ * a keyboard player steps through it the way they would with a stick.
+ * Unselected answers stay lit, only dimmer; nothing on the reference
+ * screen is dark.
+ */
+export function CabinetMenu({
+  items,
+  label,
+  size = "md",
+  busyKey,
+  className,
+}: {
+  items: CabinetItem[];
+  /** Accessible name for the group. */
+  label: string;
+  size?: "md" | "lg";
+  /** An item whose action is in flight shows the loading bar. */
+  busyKey?: string;
+  className?: string;
+}) {
+  const [selected, setSelected] = useState(items[0]?.key);
+  const refs = useRef<Record<string, HTMLElement | null>>({});
+
+  const step = (delta: number) => {
+    const live = items.filter((item) => !item.disabled);
+    if (live.length === 0) return;
+    const at = live.findIndex((item) => item.key === selected);
+    const next = live[(at + delta + live.length) % live.length];
+    setSelected(next.key);
+    refs.current[next.key]?.focus();
+  };
+
+  return (
+    <nav
+      aria-label={label}
+      className={cn(
+        "flex items-center justify-center",
+        size === "lg" ? "gap-14 sm:gap-24" : "gap-12 sm:gap-16",
+        className,
+      )}
+      onKeyDown={(event) => {
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          step(-1);
+        } else if (event.key === "ArrowRight") {
+          event.preventDefault();
+          step(1);
+        }
+      }}
+    >
+      {items.map((item) => {
+        const on = selected === item.key;
+        const danger = item.tone === "danger";
+        const busy = busyKey === item.key;
+        const classes = cn(
+          "relative inline-flex items-center font-pixel uppercase tracking-[0.04em] transition-all duration-200",
+          "disabled:pointer-events-none disabled:opacity-30",
+          size === "lg" ? "min-h-14 text-[16px] sm:text-[26px]" : "min-h-11 text-[14px] sm:text-[16px]",
+          danger
+            ? on
+              ? "text-heart [text-shadow:var(--glow-heart)]"
+              : "text-heart/70 [text-shadow:var(--glow-heart)]"
+            : on
+              ? "text-cyan [text-shadow:var(--glow-cyan)]"
+              : "text-blue/75 [text-shadow:var(--glow-blue-sm)]",
+        );
+        const caret = (
+          <span
+            aria-hidden
+            // Out of flow, so the caret cannot push the word sideways.
+            className={cn(
+              "absolute -left-[1.1em] text-[0.7em]",
+              danger ? "text-heart" : "text-cyan",
+              on ? "animate-[caret_1.1s_linear_infinite]" : "invisible",
+            )}
+          >
+            ▶
+          </span>
+        );
+        const content = busy ? (
+          <span className="animate-[blink_0.7s_steps(2,end)_infinite]">▮▮▮</span>
+        ) : (
+          item.label
+        );
+        const select = () => setSelected(item.key);
+        const ref = (node: HTMLElement | null) => {
+          refs.current[item.key] = node;
+        };
+
+        return item.href ? (
+          <Link
+            key={item.key}
+            ref={ref}
+            href={item.href}
+            onMouseEnter={select}
+            onFocus={select}
+            className={classes}
+          >
+            {caret}
+            {content}
+          </Link>
+        ) : (
+          <button
+            key={item.key}
+            ref={ref}
+            type="button"
+            disabled={item.disabled || busy}
+            onClick={item.onClick}
+            onMouseEnter={select}
+            onFocus={select}
+            className={classes}
+          >
+            {caret}
+            {content}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
 /* =============================================================== surface */
 
 /**
@@ -331,7 +481,7 @@ export function Panel({
       className={cn(
         "relative bg-surface-2/60",
         scanlines && "scanlines",
-        glow && "shadow-[inset_0_0_60px_rgb(1_163_255/0.08)]",
+        glow && "shadow-[inset_0_0_60px_rgb(67_223_255/0.08)]",
         className,
       )}
     >
@@ -591,9 +741,9 @@ interface DialogProps {
 /**
  * The ARE YOU SURE? box — without the box.
  *
- * The reference draws a bordered dialog. Here the backdrop does that job:
- * everything behind goes black and blurs, and the question is simply the
- * only lit thing left on the screen. Escape and the backdrop both cancel,
+ * Drawn like the GAME OVER screen: everything behind goes black and blurs,
+ * the question is the only lit thing left, and the answers are a cabinet
+ * menu with the caret on YES. Escape and the backdrop both cancel,
  * because a confirmation whose only exit is "No" traps anyone who opened
  * it by accident.
  */
@@ -633,26 +783,24 @@ export function Dialog({
         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
         className="relative flex w-full max-w-md flex-col items-center gap-6 text-center"
       >
-        <p className="font-pixel text-[16px] leading-6 uppercase tracking-[0.1em] text-ink text-glow">
-          {title}
-        </p>
+        <Display size="hero">{title}</Display>
 
         {children ? <Body size="sm" className="max-w-sm">{children}</Body> : null}
 
-        <div className="mt-2 flex items-center gap-10">
-          <Button
-            marker
-            size="md"
-            variant={destructive ? "danger" : "primary"}
-            loading={busy}
-            onClick={onConfirm}
-          >
-            {confirmLabel}
-          </Button>
-          <Button size="md" variant="quiet" disabled={busy} onClick={onCancel}>
-            {cancelLabel}
-          </Button>
-        </div>
+        <CabinetMenu
+          label={title}
+          className="mt-2"
+          busyKey={busy ? "confirm" : undefined}
+          items={[
+            {
+              key: "confirm",
+              label: confirmLabel,
+              onClick: onConfirm,
+              tone: destructive ? "danger" : "blue",
+            },
+            { key: "cancel", label: cancelLabel, onClick: onCancel, disabled: busy },
+          ]}
+        />
       </motion.div>
     </div>
   );
@@ -664,7 +812,7 @@ export function Dialog({
 export function Loading({ label = "LOADING" }: { label?: string }) {
   return (
     <div className="flex items-center gap-3 py-10">
-      <span className="font-pixel text-[10px] uppercase tracking-[0.12em] text-blue">
+      <span className="font-pixel text-[10px] uppercase tracking-[0.04em] text-blue">
         {label}
       </span>
       <span className="animate-[blink_0.7s_steps(2,end)_infinite] font-pixel text-[10px] text-cyan">
@@ -687,7 +835,7 @@ export function Empty({
   return (
     <div className="flex flex-col items-center gap-5 py-20 text-center">
       <Icon name={icon} size="xl" className="opacity-25" />
-      <p className="font-pixel text-[12px] uppercase tracking-[0.12em] text-ink-faint">
+      <p className="font-pixel text-[12px] uppercase tracking-[0.04em] text-ink-faint">
         {title}
       </p>
       {children ? <Body size="sm" className="max-w-xs">{children}</Body> : null}
@@ -700,7 +848,7 @@ export function ErrorNote({ children }: { children: ReactNode }) {
   return (
     <p
       role="alert"
-      className="font-body text-caption leading-4 uppercase tracking-[0.1em] text-danger [text-shadow:var(--glow-danger)]"
+      className="font-pixel text-caption leading-4 uppercase tracking-[0.04em] text-danger [text-shadow:var(--glow-danger)]"
     >
       {children}
     </p>

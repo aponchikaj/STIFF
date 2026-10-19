@@ -119,7 +119,7 @@ export default function ShopPage() {
                 <Icon name={t.icon} size="xs" glow={active} dim={!active} />
                 <span
                   className={cn(
-                    "font-pixel text-[10px] uppercase tracking-[0.12em] transition-colors",
+                    "font-pixel text-[10px] uppercase tracking-[0.04em] transition-colors",
                     active ? "text-cyan text-glow-cyan-xs" : "text-ink-faint hover:text-ink-muted",
                   )}
                 >
@@ -205,7 +205,7 @@ function Wallet({
               <Icon name="opal" size="xl" glow="coin" priority />
             </motion.span>
             <div className="flex flex-col gap-2">
-              <span className="font-body text-[10px] uppercase tracking-[0.16em] text-ink-muted">
+              <span className="font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-muted">
                 {signedIn && enrolled ? "Your opals" : "Shop"}
               </span>
               {signedIn && enrolled && balance !== null ? (
@@ -226,14 +226,14 @@ function Wallet({
             {!signedIn ? (
               <Link
                 href="/login?next=/shop"
-                className="bg-blue px-5 py-3 font-pixel text-[11px] uppercase tracking-[0.12em] text-void frame-notch hover:bg-cyan"
+                className="bg-blue px-5 py-3 font-pixel text-[11px] uppercase tracking-[0.04em] text-void frame-notch hover:bg-cyan"
               >
                 Sign in
               </Link>
             ) : !enrolled ? (
               <Link
                 href="/join"
-                className="bg-blue px-5 py-3 font-pixel text-[11px] uppercase tracking-[0.12em] text-void frame-notch hover:bg-cyan"
+                className="bg-blue px-5 py-3 font-pixel text-[11px] uppercase tracking-[0.04em] text-void frame-notch hover:bg-cyan"
               >
                 Join the season
               </Link>
@@ -241,7 +241,7 @@ function Wallet({
               <button
                 type="button"
                 onClick={onTopUp}
-                className="bg-coin px-5 py-3 font-pixel text-[11px] uppercase tracking-[0.12em] text-void frame-notch hover:brightness-110"
+                className="bg-coin px-5 py-3 font-pixel text-[11px] uppercase tracking-[0.04em] text-void frame-notch hover:brightness-110"
               >
                 + Top up
               </button>

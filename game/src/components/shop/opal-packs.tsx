@@ -71,7 +71,7 @@ export function OpalPacks({
   return (
     <section className="flex flex-col gap-5">
       {testMode ? (
-        <p className="bg-caution/10 px-3 py-2 font-body text-[11px] uppercase tracking-[0.12em] text-caution frame-notch">
+        <p className="bg-caution/10 px-3 py-2 font-pixel text-[11px] uppercase tracking-[0.04em] text-caution frame-notch">
           Test mode · no money moves
         </p>
       ) : null}
@@ -166,7 +166,7 @@ function PackCard({
       >
         <span className="relative flex flex-col items-center gap-3 bg-surface-2 px-3 pb-4 pt-7 text-center frame-notch">
           {badge ? (
-            <span className="absolute left-1/2 top-0 -translate-x-1/2 bg-coin px-2 py-1 font-pixel text-[7px] uppercase tracking-[0.12em] text-void frame-notch">
+            <span className="absolute left-1/2 top-0 -translate-x-1/2 bg-coin px-2 py-1 font-pixel text-[7px] uppercase tracking-[0.04em] text-void frame-notch">
               {badge}
             </span>
           ) : null}
@@ -180,11 +180,11 @@ function PackCard({
             <span className="font-pixel text-[clamp(18px,5vw,24px)] leading-none tabular-nums text-coin text-glow-coin">
               {formatNumber(pack.opals)}
             </span>
-            <span className="font-body text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+            <span className="font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-muted">
               opals
             </span>
           </span>
-          <span className="w-full truncate font-pixel text-[8px] uppercase tracking-[0.1em] text-ink-faint">
+          <span className="w-full truncate font-pixel text-[8px] uppercase tracking-[0.04em] text-ink-faint">
             {pack.name}
           </span>
           <span className="w-full bg-surface-3 py-2 font-pixel text-[11px] tabular-nums text-ink frame-notch group-hover:bg-coin group-hover:text-void">
@@ -241,7 +241,7 @@ function PackSheet({
           <div className="flex flex-col items-center gap-3 text-center">
             <Icon name="opal" size="xl" glow="coin" />
             <OpalPrice amount={pack.opals} size="lg" />
-            <span className="font-pixel text-[10px] uppercase tracking-[0.12em] text-ink-muted">
+            <span className="font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-muted">
               {pack.name}
             </span>
           </div>
@@ -255,7 +255,7 @@ function PackSheet({
 
           {live.length > 1 ? (
             <fieldset className="flex flex-col gap-2.5">
-              <legend className="mb-2.5 font-body text-[10px] uppercase tracking-[0.14em] text-ink-faint">
+              <legend className="mb-2.5 font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-faint">
                 Pay with
               </legend>
               {live.map((m) => {
@@ -280,7 +280,7 @@ function PackSheet({
                       aria-hidden
                       className={cn("size-2.5", active ? "bg-cyan shadow-[var(--glow-cyan-sm)]" : "bg-blue-dim")}
                     />
-                    <span className="font-pixel text-[10px] uppercase tracking-[0.08em] text-ink">
+                    <span className="font-pixel text-[10px] uppercase tracking-[0.04em] text-ink">
                       {m.label}
                     </span>
                   </label>
@@ -288,7 +288,7 @@ function PackSheet({
               })}
             </fieldset>
           ) : live.length === 1 ? (
-            <p className="text-center font-body text-[11px] uppercase tracking-[0.12em] text-ink-faint">
+            <p className="text-center font-pixel text-[11px] uppercase tracking-[0.04em] text-ink-faint">
               {live[0].label}
             </p>
           ) : null}
@@ -298,14 +298,14 @@ function PackSheet({
           {blocker === "signed-out" ? (
             <Link
               href="/login?next=/shop%23opals"
-              className="block bg-blue py-4 text-center font-pixel text-[13px] uppercase tracking-[0.12em] text-void frame-notch hover:bg-cyan"
+              className="block bg-blue py-4 text-center font-pixel text-[13px] uppercase tracking-[0.04em] text-void frame-notch hover:bg-cyan"
             >
               Sign in to buy
             </Link>
           ) : blocker === "not-enrolled" ? (
             <Link
               href="/join"
-              className="block bg-blue py-4 text-center font-pixel text-[13px] uppercase tracking-[0.12em] text-void frame-notch hover:bg-cyan"
+              className="block bg-blue py-4 text-center font-pixel text-[13px] uppercase tracking-[0.04em] text-void frame-notch hover:bg-cyan"
             >
               Join the season to buy
             </Link>

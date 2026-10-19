@@ -90,7 +90,7 @@ function OpalTaskScreen() {
               className="absolute inset-[-40%] -z-10"
               style={{
                 background:
-                  "radial-gradient(circle, rgb(1 231 255 / 0.35), transparent 65%)",
+                  "radial-gradient(circle, rgb(67 223 255 / 0.35), transparent 65%)",
               }}
             />
             <div className="animate-float">
@@ -103,7 +103,7 @@ function OpalTaskScreen() {
               Opal {opal.name}
             </span>
             {left !== null ? (
-              <span className="font-body text-caption uppercase tracking-[0.12em] text-ink-faint">
+              <span className="font-pixel text-caption uppercase tracking-[0.04em] text-ink-faint">
                 Closes in {short(left)}
               </span>
             ) : null}
@@ -138,7 +138,7 @@ function Arrival() {
       className="pointer-events-none fixed inset-0 z-40"
       style={{
         background:
-          "radial-gradient(circle at 50% 30%, #ffffff 0%, #9ff5ff 25%, rgb(1 163 255 / 0.6) 55%, transparent 85%)",
+          "radial-gradient(circle at 50% 30%, #ffffff 0%, #9ff5ff 25%, rgb(67 223 255 / 0.6) 55%, transparent 85%)",
       }}
       initial={{ opacity: 0.95 }}
       animate={{ opacity: 0 }}
@@ -162,7 +162,7 @@ function Away({
       <div className="flex justify-center">
         <Icon name="opal" size="xl" dim />
       </div>
-      <p className={cn("font-pixel text-[12px] uppercase tracking-[0.12em] text-ink-muted")}>
+      <p className={cn("font-pixel text-[12px] uppercase tracking-[0.04em] text-ink-muted")}>
         {title}
       </p>
       <Body size="sm" className="mx-auto max-w-xs">

@@ -51,7 +51,7 @@ function Probe({
   return (
     <div className="flex items-center justify-between gap-4 border-b border-blue-dim/40 py-2">
       <div className="flex min-w-0 items-center gap-3">
-        <span className="shrink-0 font-body text-[10px] uppercase tracking-[0.08em] text-ink-faint">
+        <span className="shrink-0 font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-faint">
           {method}
         </span>
         <span className="truncate font-mono text-[11px] text-ink-muted">{name}</span>
@@ -82,21 +82,21 @@ export function SystemCheck() {
         <Label>Typography</Label>
         <Panel scanlines={false} className="flex flex-col gap-6 p-6">
           <div>
-            <p className="mb-2 font-body text-[10px] uppercase tracking-[0.08em] text-ink-faint">
-              Hero / display — 32/28, PPNeueBit-Bold
+            <p className="mb-2 font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-faint">
+              Hero / display — CC Pixel Arcade Display
             </p>
             <Display size="hero">HAND IT IN</Display>
           </div>
           <div>
-            <p className="mb-2 font-body text-[10px] uppercase tracking-[0.08em] text-ink-faint">
-              Pixel — Press Start 2P, buttons and HUD
+            <p className="mb-2 font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-faint">
+              Pixel — CC Pixel Arcade, buttons and HUD
             </p>
-            <p className="font-pixel text-[12px] uppercase leading-5 tracking-[0.08em] text-ink">
+            <p className="font-pixel text-[12px] uppercase leading-5 tracking-[0.04em] text-ink">
               LEADERBOARD
             </p>
           </div>
           <div>
-            <p className="mb-2 font-body text-[10px] uppercase tracking-[0.08em] text-ink-faint">
+            <p className="mb-2 font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-faint">
               Body — 16/20, Helvetica Neue
             </p>
             <p className="max-w-prose font-body text-body text-ink-muted">
@@ -106,15 +106,15 @@ export function SystemCheck() {
             </p>
           </div>
           <div>
-            <p className="mb-2 font-body text-[10px] uppercase tracking-[0.08em] text-ink-faint">
+            <p className="mb-2 font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-faint">
               Caption — 12/16
             </p>
             <Label>Day 2 · Tier 3 · 30 minutes</Label>
           </div>
           <p className="border-t border-blue-dim/40 pt-4 font-body text-[10px] leading-4 text-caution">
-            If the hero line above looks identical to the pixel line,
-            PPNeueBit is not installed and the stack has fallen through to
-            Press Start 2P. See public/fonts/README.md.
+            If these lines are set in Silkscreen, the CC Pixel Arcade files
+            are not installed and the stack has fallen through to the free
+            stand-in. See public/fonts/README.md.
           </p>
         </Panel>
       </section>
@@ -124,9 +124,9 @@ export function SystemCheck() {
         <Label>Colour — nothing without blur</Label>
         <div className="flex flex-wrap gap-6">
           {[
-            { name: "ffffff", className: "bg-bone shadow-[var(--glow-bone)]" },
-            { name: "01a3ff", className: "bg-blue shadow-[var(--glow-blue-lg)]" },
-            { name: "01e7ff", className: "bg-cyan shadow-[var(--glow-cyan-lg)]" },
+            { name: "e4fdff", className: "bg-bone shadow-[var(--glow-bone)]" },
+            { name: "43dfff", className: "bg-blue shadow-[var(--glow-blue-lg)]" },
+            { name: "a8f8ff", className: "bg-cyan shadow-[var(--glow-cyan-lg)]" },
             { name: "ff4d5e", className: "bg-heart shadow-[var(--glow-heart)]" },
             { name: "ffc227", className: "bg-coin shadow-[var(--glow-coin)]" },
           ].map((swatch) => (
@@ -286,7 +286,7 @@ export function SystemCheck() {
 
         {rules.data ? (
           <Panel scanlines={false} className="p-6">
-            <p className="mb-3 font-body text-[10px] uppercase tracking-[0.08em] text-ink-faint">
+            <p className="mb-3 font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-faint">
               Rules, live from the server
             </p>
             <pre className="overflow-x-auto font-mono text-[11px] leading-5 text-ink-muted">

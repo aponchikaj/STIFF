@@ -197,7 +197,7 @@ function DesktopBar({ enrolment, rank, isSignedIn, isResolved }: BarProps) {
               href={place.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "group relative flex h-[68px] items-center px-2 font-pixel text-[10px] uppercase tracking-[0.12em] transition-colors lg:px-3 lg:text-[11px]",
+                "group relative flex h-[68px] items-center px-2 font-pixel text-[10px] uppercase tracking-[0.04em] transition-colors lg:px-3 lg:text-[11px]",
                 active
                   ? "text-cyan text-glow-cyan-xs"
                   : "text-ink-muted hover:text-ink",
@@ -246,7 +246,7 @@ function ActionButton({ action, active }: { action: Action; active: boolean }) {
     <Link
       href={action.href}
       aria-current={active ? "page" : undefined}
-      className="group bloom-blue-sm block transition-[filter] duration-200 hover:[filter:drop-shadow(0_0_3px_rgb(1_231_255/1))_drop-shadow(0_0_14px_rgb(1_231_255/0.7))_drop-shadow(0_0_30px_rgb(1_231_255/0.35))]"
+      className="group bloom-blue-sm block transition-[filter] duration-200 hover:[filter:drop-shadow(0_0_3px_rgb(67_223_255/1))_drop-shadow(0_0_14px_rgb(67_223_255/0.7))_drop-shadow(0_0_30px_rgb(67_223_255/0.35))]"
     >
       <span className="frame-notch block bg-blue p-px">
         <span
@@ -256,7 +256,7 @@ function ActionButton({ action, active }: { action: Action; active: boolean }) {
           )}
         >
           <Icon name={action.icon} size="xs" glow />
-          <span className="font-pixel text-[13px] uppercase tracking-[0.14em] text-ink text-glow-cyan-xs">
+          <span className="font-pixel text-[13px] uppercase tracking-[0.04em] text-ink text-glow-cyan-xs">
             {action.label}
           </span>
         </span>
@@ -401,7 +401,7 @@ function Identity({
           : "w-full",
       )}
     >
-      <span className="bloom-blue-sm shrink-0 transition-[filter] duration-200 group-hover:[filter:drop-shadow(0_0_2px_rgb(1_231_255/0.95))_drop-shadow(0_0_8px_rgb(1_231_255/0.65))_drop-shadow(0_0_22px_rgb(1_231_255/0.35))]">
+      <span className="bloom-blue-sm shrink-0 transition-[filter] duration-200 group-hover:[filter:drop-shadow(0_0_2px_rgb(67_223_255/0.95))_drop-shadow(0_0_8px_rgb(67_223_255/0.65))_drop-shadow(0_0_22px_rgb(67_223_255/0.35))]">
         <span className="frame-notch block bg-blue-dim p-px">
           <span
             className={cn(
@@ -427,7 +427,7 @@ function Identity({
       >
         <span
           className={cn(
-            "block truncate font-pixel leading-4 uppercase tracking-[0.06em] text-ink text-glow-xs transition-colors group-hover:text-cyan-pale",
+            "block truncate font-pixel leading-4 uppercase tracking-[0.04em] text-ink text-glow-xs transition-colors group-hover:text-cyan-pale",
             desktop
               ? "text-[length:min(13px,max(10px,calc(100cqw/var(--handle-em))))]"
               : "text-[length:min(14px,max(10px,calc(100cqw/var(--handle-em))))]",
@@ -442,7 +442,7 @@ function Identity({
           )}
         >
           {isCheater ? (
-            <span className="font-pixel text-[9px] leading-[14px] uppercase tracking-[0.1em] text-danger [text-shadow:var(--glow-danger)]">
+            <span className="font-pixel text-[9px] leading-[14px] uppercase tracking-[0.04em] text-danger [text-shadow:var(--glow-danger)]">
               Cheater
             </span>
           ) : (
@@ -481,13 +481,13 @@ function SignedOutActions({ isSignedIn }: { isSignedIn: boolean }) {
       <div className="flex items-center gap-5">
         <Link
           href="/me"
-          className="font-pixel text-[10px] uppercase tracking-[0.12em] text-ink-muted transition-colors hover:text-ink"
+          className="font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-muted transition-colors hover:text-ink"
         >
           Account
         </Link>
         <Link
           href="/join"
-          className="font-pixel text-[11px] uppercase tracking-[0.12em] text-cyan text-glow-cyan-xs transition-colors hover:text-cyan-pale"
+          className="font-pixel text-[11px] uppercase tracking-[0.04em] text-cyan text-glow-cyan-xs transition-colors hover:text-cyan-pale"
         >
           Join season
         </Link>
@@ -498,13 +498,13 @@ function SignedOutActions({ isSignedIn }: { isSignedIn: boolean }) {
     <div className="flex items-center gap-5">
       <Link
         href="/login"
-        className="font-pixel text-[10px] uppercase tracking-[0.12em] text-ink-muted transition-colors hover:text-ink"
+        className="font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-muted transition-colors hover:text-ink"
       >
         Sign in
       </Link>
       <Link
         href="/join"
-        className="font-pixel text-[11px] uppercase tracking-[0.12em] text-cyan text-glow-cyan-xs transition-colors hover:text-cyan-pale"
+        className="font-pixel text-[11px] uppercase tracking-[0.04em] text-cyan text-glow-cyan-xs transition-colors hover:text-cyan-pale"
       >
         Join
       </Link>
@@ -533,7 +533,7 @@ function MobileStrip({ enrolment, rank, isSignedIn, isResolved }: BarProps) {
       <div className="scanlines flex h-12 items-center justify-between px-4 md:hidden">
         <Link
           href="/"
-          className="font-pixel text-[13px] uppercase tracking-[0.18em] text-ink text-glow-xs"
+          className="font-pixel text-[13px] uppercase tracking-[0.08em] text-ink text-glow-xs"
         >
           Stiff
         </Link>
@@ -597,7 +597,7 @@ const HUD_TONES: Record<HudTone, { value: string; bloom: string }> = {
   cyan: {
     value: "text-cyan text-glow-cyan",
     bloom:
-      "group-hover:[filter:drop-shadow(0_0_2px_rgb(1_231_255/0.95))_drop-shadow(0_0_8px_rgb(1_231_255/0.6))]",
+      "group-hover:[filter:drop-shadow(0_0_2px_rgb(67_223_255/0.95))_drop-shadow(0_0_8px_rgb(67_223_255/0.6))]",
   },
   coin: {
     value: "text-coin text-glow-coin",
@@ -777,7 +777,7 @@ function MeTab({ active }: { active: boolean }) {
       )}
       <span
         className={cn(
-          "font-pixel text-[9px] uppercase tracking-[0.08em]",
+          "font-pixel text-[9px] uppercase tracking-[0.04em]",
           active
             ? "text-cyan text-glow-cyan"
             : "text-ink-muted transition-colors group-hover:text-ink",
@@ -807,7 +807,7 @@ function PlaceTab({ place, active }: { place: Place; active: boolean }) {
       />
       <span
         className={cn(
-          "font-pixel text-[9px] uppercase tracking-[0.08em]",
+          "font-pixel text-[9px] uppercase tracking-[0.04em]",
           active
             ? "text-cyan text-glow-cyan"
             : "text-ink-muted transition-colors group-hover:text-ink",
@@ -855,7 +855,7 @@ function ActionTab({ action, active }: { action: Action; active: boolean }) {
           </span>
         </span>
       </span>
-      <span className="font-pixel text-[9px] uppercase tracking-[0.1em] text-cyan text-glow-cyan">
+      <span className="font-pixel text-[9px] uppercase tracking-[0.04em] text-cyan text-glow-cyan">
         {action.label}
       </span>
     </Link>
@@ -875,7 +875,7 @@ export function BackLink({
   return (
     <Link
       href={href}
-      className="group inline-flex items-center gap-2 py-3 font-pixel text-[9px] uppercase tracking-[0.12em] text-ink-faint transition-colors hover:text-cyan"
+      className="group inline-flex items-center gap-2 py-3 font-pixel text-[9px] uppercase tracking-[0.04em] text-ink-faint transition-colors hover:text-cyan"
     >
       <Icon
         name="arrow-left"

@@ -187,7 +187,7 @@ export function Reel({
 
         {/* the end of the reel */}
         <div className="flex h-24 snap-end items-center justify-center">
-          <span className="font-pixel text-[9px] uppercase tracking-[0.16em] text-ink-faint">
+          <span className="font-pixel text-[9px] uppercase tracking-[0.08em] text-ink-faint">
             {loadingMore ? "Loading more ▮" : hasMore ? "" : "That is all of it"}
           </span>
         </div>
@@ -233,11 +233,11 @@ export function Reel({
           >
             <div className="flex items-start justify-between gap-4 px-5 pb-3 pt-5">
               <div className="flex min-w-0 flex-col gap-1.5">
-                <span className="truncate font-pixel text-[11px] uppercase tracking-[0.1em] text-ink">
+                <span className="truncate font-pixel text-[11px] uppercase tracking-[0.04em] text-ink">
                   @{panelItem.player.handle}
                 </span>
                 {panelItem.task ? (
-                  <span className="truncate font-body text-caption uppercase tracking-[0.12em] text-ink-faint">
+                  <span className="truncate font-pixel text-caption uppercase tracking-[0.04em] text-ink-faint">
                     {panelItem.task.title}
                   </span>
                 ) : null}

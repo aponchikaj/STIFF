@@ -39,7 +39,7 @@ export function Account({ user, handle }: { user: SafeUser; handle: string | nul
       <div className="flex flex-col">
         <div className="flex items-center gap-2.5 px-5 pb-2 pt-5 sm:px-6">
           <Icon name="settings" size="sm" />
-          <span className="font-pixel text-[11px] uppercase tracking-[0.1em] text-ink">Account</span>
+          <span className="font-pixel text-[11px] uppercase tracking-[0.04em] text-ink">Account</span>
         </div>
 
         <Row
@@ -106,7 +106,7 @@ function Row({
         className="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-surface-3/60 sm:px-6"
       >
         <span className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="font-body text-[10px] uppercase tracking-[0.14em] text-ink-faint">{label}</span>
+          <span className="font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-faint">{label}</span>
           <span
             className={cn(
               "truncate font-body text-[15px]",
@@ -116,7 +116,7 @@ function Row({
             {value}
           </span>
         </span>
-        <span className="font-pixel text-[9px] uppercase tracking-[0.12em] text-blue">
+        <span className="font-pixel text-[9px] uppercase tracking-[0.04em] text-blue">
           {open ? "Close" : "Change"}
         </span>
       </button>
@@ -357,7 +357,7 @@ function SignOut() {
       <button
         type="button"
         onClick={() => setConfirming(true)}
-        className="font-pixel text-[10px] uppercase tracking-[0.12em] text-heart transition-[text-shadow] hover:[text-shadow:var(--glow-heart)]"
+        className="font-pixel text-[10px] uppercase tracking-[0.04em] text-heart transition-[text-shadow] hover:[text-shadow:var(--glow-heart)]"
       >
         Sign out
       </button>

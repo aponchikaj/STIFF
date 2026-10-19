@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Haze } from "@/components/crt";
+import { CabinetMenu } from "@/components/ui";
 import { Wordmark } from "@/components/wordmark";
 import { usePrefersReducedMotion } from "@/lib/hooks";
 import { useSignedInRedirect } from "@/lib/queries";
@@ -13,9 +14,12 @@ import { cn } from "@/lib/utils";
 /**
  * The title screen.
  *
- * One question, asked as a layout: the mark, "are you a", and the two
- * answers either side of it. Picking one is the whole sign-up decision, so
- * each answer links straight into `/join` with the side already chosen.
+ * One question, asked the way an arcade cabinet asks DO YOU WANT TO
+ * CONTINUE?: the mark, the question under it, and two answers on one line
+ * with a ▶ caret on the selected one. The caret follows the pointer, focus
+ * and the arrow keys, so it reads as a cabinet menu rather than two links.
+ * Picking one is the whole sign-up decision, so each answer links straight
+ * into `/join` with the side already chosen.
  *
  * The footer is for the people who already answered it. The role in it
  * cycles because a returning visitor could be either, and naming both in
@@ -55,19 +59,29 @@ export default function TitleScreen() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5, duration: 0.6 }}
-          className="mt-10 font-pixel text-[10px] uppercase tracking-[0.3em] text-ink-muted sm:text-[12px]"
+          className="mt-8 font-pixel text-[13px] uppercase tracking-[0.04em] text-cyan text-glow-cyan-xs sm:mt-10 sm:text-[18px]"
         >
-          Are you a
+          Are you a?
         </motion.p>
 
-        <nav
-          aria-label="Pick a side"
-          className="mt-8 flex w-full max-w-2xl items-center justify-between gap-3 sm:gap-6 sm:px-8"
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7, duration: 0.5, ease }}
+          className="mt-8 sm:mt-10"
         >
-          <SideLink side="watcher" delay={0.7} />
-          <span aria-hidden className="h-8 w-px bg-blue-dim" />
-          <SideLink side="player" delay={0.8} />
-        </nav>
+          <CabinetMenu
+            label="Pick a side"
+            size="lg"
+            items={SIDES.map((side) => ({
+              key: side,
+              label: side,
+              href: `/join?side=${side}`,
+              // Player is the heart red: a player is the one with hearts to lose.
+              tone: side === "player" ? "danger" : "blue",
+            }))}
+          />
+        </motion.div>
       </div>
 
       {/* For people who already answered — but not someone signed in who is
@@ -79,13 +93,13 @@ export default function TitleScreen() {
           transition={{ delay: 1.1, duration: 0.5, ease }}
           className="flex flex-col items-center gap-4 pb-10"
         >
-          <p className="flex items-baseline gap-2 font-body text-caption uppercase tracking-[0.15em] text-ink-faint">
+          <p className="flex items-baseline gap-2 font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-faint">
             If you already are a <CyclingRole />
           </p>
 
           <Link
             href="/login"
-            className="group inline-flex min-h-11 items-center gap-2.5 px-1 font-pixel text-[12px] uppercase tracking-[0.12em] text-ink transition-all duration-200 [text-shadow:var(--glow-blue)] hover:text-cyan hover:[text-shadow:var(--glow-cyan-lg)]"
+            className="group inline-flex min-h-11 items-center gap-2.5 px-1 font-pixel text-[12px] uppercase tracking-[0.04em] text-ink transition-all duration-200 [text-shadow:var(--glow-blue)] hover:text-cyan hover:[text-shadow:var(--glow-cyan-lg)]"
           >
             <span
               aria-hidden
@@ -98,45 +112,6 @@ export default function TitleScreen() {
         </motion.footer>
       )}
     </main>
-  );
-}
-
-/**
- * One answer to "are you a". Watcher is blue; player is red — the heart
- * colour, because a player is the one with hearts to lose.
- */
-function SideLink({ side, delay }: { side: EnrolmentRole; delay: number }) {
-  const watcher = side === "watcher";
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: watcher ? -12 : 12 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay, duration: 0.5, ease }}
-      className="flex flex-1 justify-center"
-    >
-      <Link
-        href={`/join?side=${side}`}
-        className={cn(
-          "group relative inline-flex min-h-14 items-center px-2 font-pixel text-[14px] uppercase tracking-[0.14em] transition-all duration-200 sm:text-[24px]",
-          watcher
-            ? "text-blue [text-shadow:var(--glow-blue)] hover:text-cyan hover:[text-shadow:var(--glow-cyan-lg)]"
-            : "text-heart [text-shadow:var(--glow-heart)] hover:text-danger hover:[text-shadow:0_0_6px_rgb(255_59_48/1),0_0_22px_rgb(255_59_48/0.7)]",
-        )}
-      >
-        <span
-          aria-hidden
-          // Out of flow, so the arrow cannot push the word off a phone screen.
-          className={cn(
-            "absolute -left-3 -translate-x-1 text-[0.6em] opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100",
-            watcher ? "text-cyan" : "text-heart",
-          )}
-        >
-          ▶
-        </span>
-        {side}
-      </Link>
-    </motion.div>
   );
 }
 

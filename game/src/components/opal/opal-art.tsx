@@ -72,7 +72,7 @@ const SHARDS = Array.from({ length: 16 }, (_, i) => {
     x: r2(Math.cos(angle) * reach),
     y: r2(Math.sin(angle) * reach),
     size: i % 4 === 0 ? 6 : 4,
-    fill: i % 5 === 0 ? "#ffffff" : i % 2 ? "#01e7ff" : "#9ff5ff",
+    fill: i % 5 === 0 ? "#ffffff" : i % 2 ? "#a8f8ff" : "#a8f8ff",
   };
 });
 
@@ -275,9 +275,9 @@ export const OpalArt = forwardRef(function OpalArt(
       >
         <defs>
           <radialGradient id="opal-halo" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#01e7ff" stopOpacity="0.5" />
-            <stop offset="45%" stopColor="#01a3ff" stopOpacity="0.2" />
-            <stop offset="100%" stopColor="#01a3ff" stopOpacity="0" />
+            <stop offset="0%" stopColor="#a8f8ff" stopOpacity="0.5" />
+            <stop offset="45%" stopColor="#43dfff" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#43dfff" stopOpacity="0" />
           </radialGradient>
         </defs>
 
@@ -353,8 +353,8 @@ export const OpalArt = forwardRef(function OpalArt(
         <defs>
           <radialGradient id="opal-flash" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
-            <stop offset="40%" stopColor="#9ff5ff" stopOpacity="0.8" />
-            <stop offset="100%" stopColor="#01e7ff" stopOpacity="0" />
+            <stop offset="40%" stopColor="#a8f8ff" stopOpacity="0.8" />
+            <stop offset="100%" stopColor="#a8f8ff" stopOpacity="0" />
           </radialGradient>
         </defs>
 
@@ -386,7 +386,7 @@ export const OpalArt = forwardRef(function OpalArt(
           cy={CENTER.y}
           r={44}
           fill="none"
-          stroke="#9ff5ff"
+          stroke="#a8f8ff"
           strokeWidth={3}
           opacity={0}
           style={{ transformOrigin: `${CENTER.x}px ${CENTER.y}px` }}
@@ -481,7 +481,7 @@ function Chain({
 
 function Padlock({ closed }: { closed: boolean }) {
   const body = closed ? "#4a5560" : "#6f8496";
-  const rim = closed ? "#ff4d5e" : "#01e7ff";
+  const rim = closed ? "#ff4d5e" : "#a8f8ff";
   return (
     <g data-lock style={{ transformOrigin: "100px 104px" }}>
       {/* shackle: a squared arch, two legs and a bar */}

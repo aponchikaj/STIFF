@@ -44,7 +44,6 @@ and tells you which half of the stack is broken.
 src/
   app/
     globals.css      every design token — colour, type, grid, glow, CRT
-    fonts.ts         Press Start 2P via next/font
     layout.tsx       providers + the root <html>
     page.tsx         placeholder front door
     system/          the reference page: tokens, icons, live API probes
@@ -60,7 +59,7 @@ src/
     utils.ts         cn, formatClock, formatNumber, formatAgo, …
 public/
   icons/             44 glyphs + 6 button faces
-  fonts/             PPNeueBit goes here — see its README
+  fonts/             Silkscreen stand-in; CC Pixel Arcade goes here — see its README
 ```
 
 ## The API layer
@@ -105,17 +104,24 @@ clock at 00:40 needs a bar, not a spinner.
 
 ## The design system
 
-Three spec boards fix four things, and `globals.css` encodes exactly those.
+The whole app is a phosphor tube showing an arcade GAME OVER screen: pale
+electric-blue letterforms emitting a bloom, sliced by scanlines, on pure
+black. `globals.css` encodes it.
 
-**Colour** — `#ffffff`, `#01a3ff`, `#01e7ff` on pure black, plus a heart red
-and a coin amber sampled off the icon sheet. The board's rule is literal:
-*"nothing without blur."* Every blue ships with a matching glow token. A
-flat blue is off-brand.
+**Colour** — the glow `#43DFFF` and the core `#A8F8FF` on pure black, with
+a white-hot `#E4FDFF` at the centre of lit type. Heart red and coin amber
+exist only for lives and currency. *Nothing without blur*: every blue ships
+with a matching glow token, and a flat blue is off-brand.
 
-**Type** — three roles. `font-display` (PPNeueBit-Bold, 32/28) for
-headlines, `font-pixel` (Press Start 2P) for labels, buttons and the HUD,
-`font-body` (Helvetica Neue, 16/20, caption 12/16) for anything read as a
-sentence.
+**Type** — three roles. `font-display` (CC Pixel Arcade Display) for
+headlines, `font-pixel` (CC Pixel Arcade) for labels, buttons, the HUD and
+every all-caps caption, `font-body` (Helvetica Neue, 16/20) for anything
+read as a sentence.
+
+**Signature** — `.phosphor`: lit display type with scanlines cut through
+the glyphs, the way the tube draws GAME OVER. `<Display>` applies it from
+`title` up. And `<CabinetMenu>`, the `▶ YES  NO` row with the blinking
+caret, is the one selection device — title screen, 404, confirm dialogs.
 
 **Grid** — the board specifies 320–599px / 4 columns / 16px margins / 16px
 gutter. The ladder extends that to 8 columns at 600px and 12 at 905px, with
@@ -152,12 +158,14 @@ there is no coin icon. `ICON_ASPECT` keeps it from being squashed.
 
 ### Fonts
 
-Press Start 2P is installed. **PPNeueBit is not** — it is a commercial
-Pangram Pangram licence and the files are not in the repo. `public/fonts/`
-has the instructions; until the files are dropped in, `--font-display` falls
-through to Press Start 2P, which keeps the pixel character but is much wider
-per character. Do not sign off headline line-breaks before the real file
-lands.
+**CC Pixel Arcade is not installed** — it is a commercial Comicraft licence
+and the files are not in the repo. `public/fonts/README.md` has the exact
+filenames; until they are dropped in, both pixel roles fall through to
+Silkscreen (OFL, self-hosted with `size-adjust: 120%` so sizes hold). Do not
+sign off headline line-breaks before the real files land.
+
+The icon rasters were recoloured from the old `#01A3FF` sheet to this
+palette; a new glyph off that sheet needs the same pass.
 
 ## Animation
 

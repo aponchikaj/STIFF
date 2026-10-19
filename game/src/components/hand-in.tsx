@@ -271,7 +271,7 @@ export function HandInSheet({
                   size="2xl"
                   className="opacity-40 transition-all duration-300 group-hover:opacity-100"
                 />
-                <span className="font-pixel text-[13px] uppercase tracking-[0.12em] text-ink-muted transition-all group-hover:text-cyan group-hover:[text-shadow:var(--glow-cyan)]">
+                <span className="font-pixel text-[13px] uppercase tracking-[0.04em] text-ink-muted transition-all group-hover:text-cyan group-hover:[text-shadow:var(--glow-cyan)]">
                   {proof === "photo"
                     ? "Take a photo"
                     : proof === "video"
@@ -310,7 +310,7 @@ export function HandInSheet({
                   maxLength={280}
                   placeholder="SAY SOMETHING"
                   disabled={busy}
-                  className="w-full border-b border-blue-dim bg-transparent pb-2.5 font-pixel text-[12px] uppercase tracking-[0.08em] text-ink outline-none transition-all placeholder:text-ink-faint/50 focus:border-cyan focus:[box-shadow:0_1px_0_0_rgb(1_231_255/0.6)]"
+                  className="w-full border-b border-blue-dim bg-transparent pb-2.5 font-pixel text-[12px] uppercase tracking-[0.04em] text-ink outline-none transition-all placeholder:text-ink-faint/50 focus:border-cyan focus:[box-shadow:0_1px_0_0_rgb(67_223_255/0.6)]"
                 />
               </div>
             ) : null}
@@ -388,7 +388,7 @@ function Preview({
       <div className="flex items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
           {measured.originalBytes !== measured.file.size ? (
-            <span className="font-pixel text-[9px] uppercase tracking-[0.12em] text-good">
+            <span className="font-pixel text-[9px] uppercase tracking-[0.04em] text-good">
               Shrunk {formatBytes(measured.originalBytes)} → {formatBytes(measured.file.size)}
               {" · "}−
               {Math.max(1, Math.round((1 - measured.file.size / measured.originalBytes) * 100))}%
@@ -427,7 +427,7 @@ function Shrinking({
   return (
     <div className="flex flex-col items-center gap-5 py-14 text-center">
       <Icon name={video ? "video" : "camera"} size="2xl" glow className="animate-pulse" />
-      <span className="font-pixel text-[12px] uppercase tracking-[0.12em] text-cyan text-glow-cyan">
+      <span className="font-pixel text-[12px] uppercase tracking-[0.04em] text-cyan text-glow-cyan">
         {video ? "Shrinking your clip" : "Shrinking your photo"}
         {video ? ` ${formatPercent(fraction)}` : ""}
       </span>

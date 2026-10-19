@@ -80,7 +80,7 @@ function ReportRow({ report }: { report: ReportView }) {
       <div className="flex items-center justify-between gap-4">
         <span
           className={cn(
-            "font-pixel text-[9px] uppercase tracking-[0.14em]",
+            "font-pixel text-[9px] uppercase tracking-[0.04em]",
             STATUS_TONE[report.status],
           )}
         >
@@ -92,7 +92,7 @@ function ReportRow({ report }: { report: ReportView }) {
       <div className="flex items-start gap-3">
         <Icon name="warning" size="xs" className="mt-0.5 opacity-50" />
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <span className="font-pixel text-[11px] uppercase tracking-[0.08em] text-ink">
+          <span className="font-pixel text-[11px] uppercase tracking-[0.04em] text-ink">
             {report.reasonLabel}
           </span>
           <Label tone="faint">

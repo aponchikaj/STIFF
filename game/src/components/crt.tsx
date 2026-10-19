@@ -60,7 +60,7 @@ export function CrtOverlay() {
             className="absolute inset-x-0 h-[22%] animate-[scanline-roll_9s_linear_infinite]"
             style={{
               background:
-                "linear-gradient(to bottom, rgb(1 231 255 / 0) 0%, rgb(1 231 255 / 0.045) 50%, rgb(1 231 255 / 0) 100%)",
+                "linear-gradient(to bottom, rgb(67 223 255 / 0) 0%, rgb(67 223 255 / 0.045) 50%, rgb(67 223 255 / 0) 100%)",
             }}
           />
         </div>
@@ -91,7 +91,7 @@ export function Haze({
       aria-hidden
       className={className ?? "pointer-events-none absolute inset-0 -z-10"}
       style={{
-        background: `radial-gradient(ellipse 70% 55% at 50% 45%, rgb(1 163 255 / ${alpha}) 0%, transparent 70%)`,
+        background: `radial-gradient(ellipse 70% 55% at 50% 45%, rgb(67 223 255 / ${alpha}) 0%, transparent 70%)`,
       }}
     />
   );

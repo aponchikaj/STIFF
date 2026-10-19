@@ -52,13 +52,13 @@ export function Field({ label, hint, error, className, id, ...props }: FieldProp
         aria-describedby={error ? errorId : hint ? hintId : undefined}
         className={cn(
           "w-full bg-transparent pb-2.5 outline-none",
-          "font-pixel text-[13px] uppercase tracking-[0.08em] text-ink",
+          "font-pixel text-[13px] uppercase tracking-[0.04em] text-ink",
           "placeholder:text-ink-faint/50 placeholder:tracking-[0.1em]",
           // The rule *is* the field. Focus brightens and thickens it.
           "border-b transition-all duration-200",
           error
             ? "border-danger [box-shadow:0_1px_0_0_rgb(255_59_48/0.5)]"
-            : "border-blue-dim focus:border-cyan focus:[box-shadow:0_1px_0_0_rgb(1_231_255/0.6),0_2px_12px_-2px_rgb(1_231_255/0.5)]",
+            : "border-blue-dim focus:border-cyan focus:[box-shadow:0_1px_0_0_rgb(67_223_255/0.6),0_2px_12px_-2px_rgb(67_223_255/0.5)]",
           // Browsers draw their own focus ring; ours is the rule.
           "focus-visible:outline-none focus-visible:shadow-none",
           className,
@@ -70,7 +70,7 @@ export function Field({ label, hint, error, className, id, ...props }: FieldProp
         <p
           id={errorId}
           role="alert"
-          className="font-body text-[11px] uppercase tracking-[0.1em] text-danger"
+          className="font-pixel text-[11px] uppercase tracking-[0.04em] text-danger"
         >
           {error}
         </p>
@@ -147,7 +147,7 @@ export function ChoiceGroup<T extends string>({
               <span className="flex min-w-0 flex-col gap-1.5">
                 <span
                   className={cn(
-                    "font-pixel text-[16px] uppercase tracking-[0.12em] transition-all duration-200",
+                    "font-pixel text-[16px] uppercase tracking-[0.04em] transition-all duration-200",
                     checked
                       ? "text-ink [text-shadow:var(--glow-cyan)]"
                       : "text-ink-faint group-hover:text-ink-muted",

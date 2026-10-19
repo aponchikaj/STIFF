@@ -75,7 +75,7 @@ export function History({ signedIn }: { signedIn: boolean }) {
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <span
                     className={cn(
-                      "truncate font-pixel text-[10px] uppercase tracking-[0.06em]",
+                      "truncate font-pixel text-[10px] uppercase tracking-[0.04em]",
                       p.status === "cancelled" ? "text-ink-faint line-through" : "text-ink",
                     )}
                   >
@@ -104,7 +104,7 @@ export function History({ signedIn }: { signedIn: boolean }) {
               <li key={o.id} className="flex items-center gap-4 py-3.5">
                 <Icon name="opal" size="sm" glow={o.status === "paid" ? "coin" : undefined} dim={o.status === "failed"} />
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span className="truncate font-pixel text-[10px] uppercase tracking-[0.06em] text-ink">
+                  <span className="truncate font-pixel text-[10px] uppercase tracking-[0.04em] text-ink">
                     +{o.opals} opals
                   </span>
                   <span className="font-body text-[11px] text-ink-faint">
@@ -126,7 +126,7 @@ function Chip({ tone, children }: { tone: Tone; children: React.ReactNode }) {
   return (
     <span
       className={cn(
-        "max-w-[42%] shrink-0 px-2 py-1 text-right font-body text-[10px] uppercase leading-[13px] tracking-[0.1em] frame-notch",
+        "max-w-[42%] shrink-0 px-2 py-1 text-right font-pixel text-[10px] uppercase leading-[13px] tracking-[0.04em] frame-notch",
         tone === "good" && "bg-good/15 text-good",
         tone === "caution" && "bg-caution/15 text-caution",
         tone === "heart" && "bg-heart/15 text-heart",

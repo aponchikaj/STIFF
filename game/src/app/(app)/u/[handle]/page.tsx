@@ -69,7 +69,7 @@ export default function PlayerPage() {
               <div className="flex flex-col items-center gap-2">
                 <span
                   className={cn(
-                    "font-pixel text-[16px] uppercase tracking-[0.08em]",
+                    "font-pixel text-[16px] uppercase tracking-[0.04em]",
                     cheater ? "text-danger" : "text-ink text-glow",
                   )}
                 >
@@ -110,7 +110,7 @@ export default function PlayerPage() {
                 type="button"
                 onClick={() => void posts.fetchNextPage()}
                 disabled={posts.isFetchingNextPage}
-                className="self-center py-3 font-pixel text-[10px] uppercase tracking-[0.14em] text-blue hover:text-cyan disabled:opacity-40"
+                className="self-center py-3 font-pixel text-[10px] uppercase tracking-[0.04em] text-blue hover:text-cyan disabled:opacity-40"
               >
                 {posts.isFetchingNextPage ? "Loading ▮" : "More"}
               </button>
@@ -133,7 +133,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: "cy
       >
         {value}
       </span>
-      <span className="font-body text-[10px] uppercase tracking-[0.14em] text-ink-faint">
+      <span className="font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-faint">
         {label}
       </span>
     </div>
@@ -176,7 +176,7 @@ function Tile({ item, handle, index }: { item: FeedItem; handle: string; index: 
         ) : null}
         <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1 bg-gradient-to-t from-void/90 to-transparent p-2 pt-8">
           {item.task ? (
-            <span className="line-clamp-2 font-pixel text-[8px] uppercase leading-[11px] tracking-[0.06em] text-ink">
+            <span className="line-clamp-2 font-pixel text-[8px] uppercase leading-[11px] tracking-[0.04em] text-ink">
               {item.task.title}
             </span>
           ) : null}

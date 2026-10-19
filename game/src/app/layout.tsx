@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { CrtOverlay } from "@/components/crt";
 import { Providers } from "@/components/providers";
-import { pressStart } from "./fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -30,7 +29,14 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={pressStart.variable}>
+    <html lang="en">
+      <head>
+        {/* The pixel stand-in is self-hosted (see globals.css for why it
+            is not next/font). Preloaded so the title screen does not flash
+            in Courier while it arrives. */}
+        <link rel="preload" href="/fonts/Silkscreen-Bold.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/Silkscreen-Regular.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+      </head>
       <body className="bg-void text-ink antialiased">
         <Providers>
           {children}

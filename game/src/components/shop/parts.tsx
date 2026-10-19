@@ -105,7 +105,7 @@ export function ConfirmButton({
         disabled={disabled || busy}
         aria-live="polite"
         className={cn(
-          "relative block w-full overflow-hidden py-4 font-pixel text-[13px] uppercase tracking-[0.12em] frame-notch transition-colors duration-200",
+          "relative block w-full overflow-hidden py-4 font-pixel text-[13px] uppercase tracking-[0.04em] frame-notch transition-colors duration-200",
           disabled
             ? "cursor-not-allowed bg-surface-3 text-ink-faint"
             : armed
@@ -144,7 +144,7 @@ export function useCelebrate(): () => void {
       spread: 75,
       startVelocity: 38,
       origin: { y: 0.65 },
-      colors: ["#01e7ff", "#01a3ff", "#9ff5ff", "#ffc227", "#ffffff"],
+      colors: ["#a8f8ff", "#43dfff", "#a8f8ff", "#ffc227", "#ffffff"],
       shapes: ["square"],
       scalar: 0.9,
       disableForReducedMotion: true,
@@ -177,14 +177,14 @@ export function Bought({
       >
         <Icon name="gift" size="2xl" glow="lg" />
       </motion.span>
-      <span className="font-pixel text-[18px] uppercase tracking-[0.1em] text-good [text-shadow:0_0_4px_rgb(47_217_107/0.9),0_0_16px_rgb(47_217_107/0.5)]">
+      <span className="font-pixel text-[18px] uppercase tracking-[0.04em] text-good [text-shadow:0_0_4px_rgb(47_217_107/0.9),0_0_16px_rgb(47_217_107/0.5)]">
         {title}
       </span>
       <p className="max-w-xs font-body text-body-sm leading-[20px] text-ink-muted">{detail}</p>
       <button
         type="button"
         onClick={onDone}
-        className="mt-2 font-pixel text-[11px] uppercase tracking-[0.14em] text-blue hover:text-cyan"
+        className="mt-2 font-pixel text-[11px] uppercase tracking-[0.04em] text-blue hover:text-cyan"
       >
         ▶ Back to the shop
       </button>

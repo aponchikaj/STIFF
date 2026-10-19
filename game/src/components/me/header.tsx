@@ -86,7 +86,7 @@ export function IdentityCard({ data }: { data: Dashboard }) {
       >
         <span
           className={cn(
-            "px-2 py-1 font-pixel text-[8px] uppercase tracking-[0.16em] frame-notch",
+            "px-2 py-1 font-pixel text-[8px] uppercase tracking-[0.08em] frame-notch",
             tone === "danger" && "bg-danger text-void",
             tone === "heart" && "bg-heart text-void",
             tone === "blue" && "bg-blue text-void",
@@ -110,17 +110,17 @@ export function IdentityCard({ data }: { data: Dashboard }) {
 
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 sm:justify-start">
           {data.season ? (
-            <span className="font-body text-[11px] uppercase tracking-[0.12em] text-ink-muted">
+            <span className="font-pixel text-[11px] uppercase tracking-[0.04em] text-ink-muted">
               {data.season.title}
             </span>
           ) : null}
-          <span className="font-body text-[11px] uppercase tracking-[0.12em] text-ink-faint">
+          <span className="font-pixel text-[11px] uppercase tracking-[0.04em] text-ink-faint">
             Since {new Date(user.createdAt).getFullYear()}
           </span>
           {enrolment ? (
             <Link
               href={`/u/${encodeURIComponent(enrolment.handle)}`}
-              className="font-pixel text-[9px] uppercase tracking-[0.12em] text-blue hover:text-cyan"
+              className="font-pixel text-[9px] uppercase tracking-[0.04em] text-blue hover:text-cyan"
             >
               Public profile ▶
             </Link>
@@ -184,7 +184,7 @@ export function SeasonCard({
       <Card tone="blue" delay={0.1}>
         <div className="flex flex-col items-center gap-4 px-5 py-7 text-center">
           <Icon name="game" size="xl" glow />
-          <p className="font-pixel text-[13px] uppercase tracking-[0.1em] text-ink">
+          <p className="font-pixel text-[13px] uppercase tracking-[0.04em] text-ink">
             Pick a side to play
           </p>
           <p className="max-w-sm font-body text-body-sm leading-[20px] text-ink-muted">
@@ -244,7 +244,7 @@ export function SeasonCard({
         {player ? (
           <div className="flex flex-col gap-4 border-t border-blue-dim/40 pt-5">
             <div className="flex items-center justify-between gap-4">
-              <span className="font-body text-[10px] uppercase tracking-[0.14em] text-ink-faint">
+              <span className="font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-faint">
                 Hearts
               </span>
               <Hearts remaining={enrolment.heartsRemaining} total={enrolment.heartsTotal} size={22} />
@@ -274,7 +274,7 @@ function TodayBar({ done, needed }: { done: number; needed: number }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="font-body text-[10px] uppercase tracking-[0.14em] text-ink-faint">
+        <span className="font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-faint">
           Today
         </span>
         <span className={cn("font-pixel text-[10px] tabular-nums", met ? "text-good" : "text-caution")}>
@@ -342,7 +342,7 @@ function CardLink({ href, tone, children }: { href: string; tone: Tone; children
     <Link
       href={href}
       className={cn(
-        "block py-3.5 text-center font-pixel text-[12px] uppercase tracking-[0.12em] text-void frame-notch transition-[filter] hover:brightness-110",
+        "block py-3.5 text-center font-pixel text-[12px] uppercase tracking-[0.04em] text-void frame-notch transition-[filter] hover:brightness-110",
         tone === "heart" ? "bg-heart" : tone === "danger" ? "bg-danger" : "bg-blue",
       )}
     >
@@ -375,7 +375,7 @@ function Number({
       >
         {value}
       </span>
-      <span className="font-body text-[9px] uppercase tracking-[0.14em] text-ink-faint">{label}</span>
+      <span className="font-pixel text-[9px] uppercase tracking-[0.04em] text-ink-faint">{label}</span>
     </>
   );
   const cls = "flex flex-col items-center gap-2 bg-surface-3/60 px-2 py-4 text-center frame-notch";

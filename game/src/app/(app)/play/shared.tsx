@@ -197,7 +197,7 @@ export function OpenOpal({ day, dashboard }: { day: SeasonDay; dashboard: Dashbo
 export function Gate({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="flex flex-col items-center gap-5 py-6 text-center">
-      <span className="font-pixel text-[11px] uppercase tracking-[0.14em] text-ink-muted">
+      <span className="font-pixel text-[11px] uppercase tracking-[0.04em] text-ink-muted">
         {title}
       </span>
       <div className="flex flex-wrap items-center justify-center gap-6">{children}</div>

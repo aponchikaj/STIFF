@@ -132,7 +132,7 @@ function JoinFlow() {
             <button
               type="button"
               onClick={() => setStep("side")}
-              className="group inline-flex items-center gap-2 py-3 font-pixel text-[9px] uppercase tracking-[0.12em] text-ink-faint transition-colors hover:text-cyan"
+              className="group inline-flex items-center gap-2 py-3 font-pixel text-[9px] uppercase tracking-[0.04em] text-ink-faint transition-colors hover:text-cyan"
             >
               <Icon name="arrow-left" size="xs" className="opacity-60" />
               Side
@@ -292,7 +292,7 @@ function JoinFlow() {
                   {!isSignedIn ? (
                     <Link
                       href="/login"
-                      className="font-body text-[11px] uppercase tracking-[0.12em] text-ink-faint transition-colors hover:text-cyan"
+                      className="font-pixel text-[11px] uppercase tracking-[0.04em] text-ink-faint transition-colors hover:text-cyan"
                     >
                       Have an account?
                     </Link>

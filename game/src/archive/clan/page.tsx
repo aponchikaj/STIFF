@@ -122,8 +122,8 @@ function NoClan({ size }: { size: number }) {
             aria-pressed={mode === value}
             className={
               mode === value
-                ? "font-pixel text-[11px] uppercase tracking-[0.12em] text-cyan [text-shadow:var(--glow-cyan)]"
-                : "font-pixel text-[11px] uppercase tracking-[0.12em] text-ink-faint transition-colors hover:text-ink"
+                ? "font-pixel text-[11px] uppercase tracking-[0.04em] text-cyan [text-shadow:var(--glow-cyan)]"
+                : "font-pixel text-[11px] uppercase tracking-[0.04em] text-ink-faint transition-colors hover:text-ink"
             }
           >
             {value === "create" ? "Start one" : "Join one"}
@@ -218,7 +218,7 @@ function ClanDetail({ clan }: { clan: ClanView }) {
             }}
             className="group flex items-center gap-4 py-2 text-left"
           >
-            <span className="font-pixel text-[26px] tracking-[0.2em] text-cyan text-glow-lg">
+            <span className="font-pixel text-[26px] tracking-[0.08em] text-cyan text-glow-lg">
               {clan.inviteCode}
             </span>
             <Icon
@@ -250,7 +250,7 @@ function ClanDetail({ clan }: { clan: ClanView }) {
                 glow
               />
               <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <span className="truncate font-pixel text-[12px] uppercase tracking-[0.08em] text-ink">
+                <span className="truncate font-pixel text-[12px] uppercase tracking-[0.04em] text-ink">
                   {member.handle}
                 </span>
                 <Label tone="faint">{member.role}</Label>
@@ -267,7 +267,7 @@ function ClanDetail({ clan }: { clan: ClanView }) {
           {clan.size < 2 ? (
             <li className="flex items-center gap-4 opacity-40">
               <Icon name="users" size="sm" dim />
-              <span className="font-pixel text-[12px] uppercase tracking-[0.08em] text-ink-faint">
+              <span className="font-pixel text-[12px] uppercase tracking-[0.04em] text-ink-faint">
                 Empty seat
               </span>
             </li>

@@ -49,18 +49,18 @@ export function CommentSheet({ item, onClose }: { item: FeedItem; onClose: () =>
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
         transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-        className="relative flex max-h-[82dvh] w-full max-w-xl flex-col border-t border-blue-dim bg-surface shadow-[0_-12px_60px_rgb(1_163_255/0.15)] sm:border"
+        className="relative flex max-h-[82dvh] w-full max-w-xl flex-col border-t border-blue-dim bg-surface shadow-[0_-12px_60px_rgb(67_223_255/0.15)] sm:border"
       >
         {/* the grab bar and the header stay put; the thread scrolls */}
         <div className="flex flex-col gap-4 px-4 pb-4 pt-3 sm:px-6">
           <span aria-hidden className="mx-auto h-1 w-10 bg-blue-dim sm:hidden" />
           <div className="flex items-start justify-between gap-4">
             <div className="flex min-w-0 flex-col gap-1.5">
-              <span className="truncate font-pixel text-[11px] uppercase tracking-[0.1em] text-ink">
+              <span className="truncate font-pixel text-[11px] uppercase tracking-[0.04em] text-ink">
                 {item.player.handle}
               </span>
               {item.task ? (
-                <span className="truncate font-body text-caption uppercase tracking-[0.12em] text-ink-faint">
+                <span className="truncate font-pixel text-caption uppercase tracking-[0.04em] text-ink-faint">
                   {item.task.title}
                 </span>
               ) : null}
@@ -85,7 +85,7 @@ export function CommentSheet({ item, onClose }: { item: FeedItem; onClose: () =>
           />
           <Link
             href={`/feed/${item.id}`}
-            className="mt-8 inline-flex items-center gap-2 font-pixel text-[9px] uppercase tracking-[0.14em] text-ink-faint transition-colors hover:text-cyan"
+            className="mt-8 inline-flex items-center gap-2 font-pixel text-[9px] uppercase tracking-[0.04em] text-ink-faint transition-colors hover:text-cyan"
           >
             Open the post ▶
           </Link>

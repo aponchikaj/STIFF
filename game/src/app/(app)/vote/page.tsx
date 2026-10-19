@@ -127,7 +127,7 @@ function VoteCard({ item }: { item: VotableItem }) {
       <div className="flex items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-2.5">
           <Icon name="profile" size="xs" glow className="shrink-0" />
-          <span className="min-w-0 truncate font-pixel text-[11px] uppercase tracking-[0.1em] text-ink">
+          <span className="min-w-0 truncate font-pixel text-[11px] uppercase tracking-[0.04em] text-ink">
             {item.player.handle}
           </span>
         </div>

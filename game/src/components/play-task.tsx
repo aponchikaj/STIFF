@@ -210,7 +210,7 @@ function Stage({ children }: { children: ReactNode }) {
 function Dealing({ day }: { day: SeasonDay }) {
   return (
     <div className="flex flex-col items-center gap-4 py-8 text-center">
-      <span className="font-pixel text-[11px] uppercase tracking-[0.14em] text-cyan text-glow-cyan">
+      <span className="font-pixel text-[11px] uppercase tracking-[0.04em] text-cyan text-glow-cyan">
         Opal {NAME[day]} is dealing
         <span className="animate-[blink_0.7s_steps(2,end)_infinite]"> ▮</span>
       </span>
@@ -402,7 +402,7 @@ function TaskBody({ task }: { task: PlayableTask }) {
                   <span className="font-body text-body-sm leading-[18px] text-ink-muted">
                     {c.text}
                   </span>
-                  <span className="font-body text-[10px] uppercase tracking-[0.14em] text-ink-faint">
+                  <span className="font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-faint">
                     {c.modality === "audio" ? "Heard" : "Seen"}
                     {c.required === false ? " · optional" : ""}
                   </span>
@@ -456,7 +456,7 @@ function Prize({ task, running = false }: { task: PlayableTask; running?: boolea
         className="scanlines pointer-events-none absolute inset-0 border-y border-blue-dim/70"
         style={{
           background:
-            "radial-gradient(ellipse 80% 120% at 50% 0%, rgb(1 163 255 / 0.13), transparent 70%)",
+            "radial-gradient(ellipse 80% 120% at 50% 0%, rgb(67 223 255 / 0.13), transparent 70%)",
         }}
       />
 
@@ -485,7 +485,7 @@ function Prize({ task, running = false }: { task: PlayableTask; running?: boolea
           />
         </div>
 
-        <p className="font-body text-caption leading-4 uppercase tracking-[0.1em] text-ink-faint">
+        <p className="font-pixel text-caption leading-4 uppercase tracking-[0.04em] text-ink-faint">
           Paid when the watchers pass your hand-in.
         </p>
 
@@ -549,7 +549,7 @@ function PrizeLine({
         >
           +{amount}
         </span>
-        <span className="font-pixel text-[9px] uppercase tracking-[0.14em] text-ink">
+        <span className="font-pixel text-[9px] uppercase tracking-[0.04em] text-ink">
           {unit}
         </span>
         <span className="hidden font-body text-[11px] leading-[14px] text-ink-faint sm:block">
@@ -633,7 +633,7 @@ function Answer({
     >
       <span
         className={cn(
-          "relative inline-flex items-center font-pixel text-[clamp(16px,5vw,24px)] uppercase tracking-[0.14em] transition-all duration-200",
+          "relative inline-flex items-center font-pixel text-[clamp(16px,5vw,24px)] uppercase tracking-[0.04em] transition-all duration-200",
           accept
             ? "text-blue [text-shadow:var(--glow-blue)] group-hover:text-cyan group-hover:[text-shadow:var(--glow-cyan-lg)]"
             : "text-heart [text-shadow:var(--glow-heart)] group-hover:text-danger group-hover:[text-shadow:0_0_6px_rgb(255_59_48/1),0_0_22px_rgb(255_59_48/0.7)]",
@@ -655,7 +655,7 @@ function Answer({
           label
         )}
       </span>
-      <span className="whitespace-nowrap font-body text-[10px] uppercase tracking-[0.12em] text-ink-faint">
+      <span className="whitespace-nowrap font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-faint">
         {note}
       </span>
     </motion.button>

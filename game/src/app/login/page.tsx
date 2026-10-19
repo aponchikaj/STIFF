@@ -96,7 +96,7 @@ function LoginForm() {
         <div className="flex items-center justify-between gap-4">
           <Link
             href="/join"
-            className="font-body text-[11px] uppercase tracking-[0.12em] text-ink-faint transition-colors hover:text-cyan"
+            className="font-pixel text-[11px] uppercase tracking-[0.04em] text-ink-faint transition-colors hover:text-cyan"
           >
             No account?
           </Link>

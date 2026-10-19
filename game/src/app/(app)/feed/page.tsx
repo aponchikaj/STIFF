@@ -68,7 +68,7 @@ function FeedScreen() {
         player ? (
           <Link
             href={`/u/${encodeURIComponent(player)}`}
-            className="inline-flex items-center gap-2 bg-void/55 px-3 py-2 font-pixel text-[9px] uppercase tracking-[0.12em] text-ink backdrop-blur-sm frame-notch hover:text-cyan"
+            className="inline-flex items-center gap-2 bg-void/55 px-3 py-2 font-pixel text-[9px] uppercase tracking-[0.04em] text-ink backdrop-blur-sm frame-notch hover:text-cyan"
           >
             ◀ @{player}
           </Link>

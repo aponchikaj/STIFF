@@ -57,7 +57,7 @@ export default function FeedItemPage() {
             <div className="flex min-w-0 flex-col gap-1">
               <span
                 className={cn(
-                  "truncate font-pixel text-[12px] uppercase tracking-[0.1em]",
+                  "truncate font-pixel text-[12px] uppercase tracking-[0.04em]",
                   cheater ? "text-danger" : "text-ink text-glow",
                 )}
               >

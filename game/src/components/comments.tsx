@@ -81,7 +81,7 @@ function CommentComposer({
       <button
         type="button"
         onClick={() => router.push(`/login?next=${encodeURIComponent(returnTo)}`)}
-        className="py-3 text-left font-body text-caption uppercase tracking-[0.12em] text-ink-faint transition-colors hover:text-cyan"
+        className="py-3 text-left font-pixel text-caption uppercase tracking-[0.04em] text-ink-faint transition-colors hover:text-cyan"
       >
         Sign in to say something
       </button>
@@ -108,7 +108,7 @@ function CommentComposer({
           autoFocus={autoFocus}
           aria-label="Your comment"
           placeholder="SAY SOMETHING"
-          className="flex-1 border-b border-blue-dim bg-transparent pb-2.5 font-pixel text-[11px] uppercase tracking-[0.08em] text-ink outline-none transition-all placeholder:text-ink-faint/50 focus:border-cyan focus:[box-shadow:0_1px_0_0_rgb(1_231_255/0.6)]"
+          className="flex-1 border-b border-blue-dim bg-transparent pb-2.5 font-pixel text-[11px] uppercase tracking-[0.04em] text-ink outline-none transition-all placeholder:text-ink-faint/50 focus:border-cyan focus:[box-shadow:0_1px_0_0_rgb(67_223_255/0.6)]"
         />
         <Button
           type="submit"
@@ -145,7 +145,7 @@ function CommentRow({
     >
       {/* The backend composes this string; render it, do not rewrite it. */}
       {comment.notice ? (
-        <span className="font-pixel text-[8px] uppercase tracking-[0.12em] text-danger [text-shadow:var(--glow-danger)]">
+        <span className="font-pixel text-[8px] uppercase tracking-[0.04em] text-danger [text-shadow:var(--glow-danger)]">
           {comment.notice}
         </span>
       ) : null}
@@ -153,7 +153,7 @@ function CommentRow({
       <div className="flex items-baseline gap-3">
         <span
           className={cn(
-            "font-pixel text-[10px] uppercase tracking-[0.1em]",
+            "font-pixel text-[10px] uppercase tracking-[0.04em]",
             cheater ? "text-danger" : "text-cyan",
           )}
         >
@@ -166,7 +166,7 @@ function CommentRow({
             type="button"
             onClick={() => remove.mutate(comment.id)}
             disabled={remove.isPending}
-            className="ml-auto font-body text-[10px] uppercase tracking-[0.12em] text-ink-faint transition-colors hover:text-danger disabled:opacity-40"
+            className="ml-auto font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-faint transition-colors hover:text-danger disabled:opacity-40"
           >
             Delete
           </button>

@@ -78,7 +78,7 @@ export function FeedTaskDetails({
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
             aria-controls={panelId}
-            className="group inline-flex min-h-9 items-center gap-2 font-pixel text-[9px] uppercase tracking-[0.14em] text-blue transition-colors hover:text-cyan"
+            className="group inline-flex min-h-9 items-center gap-2 font-pixel text-[9px] uppercase tracking-[0.04em] text-blue transition-colors hover:text-cyan"
           >
             <span
               aria-hidden

@@ -71,7 +71,7 @@ export default function BoardPage() {
             placeholder="FIND A PLAYER"
             maxLength={24}
             aria-label="Find a player"
-            className="w-full bg-transparent font-pixel text-[11px] uppercase tracking-[0.1em] text-ink outline-none placeholder:text-ink-faint/50"
+            className="w-full bg-transparent font-pixel text-[11px] uppercase tracking-[0.04em] text-ink outline-none placeholder:text-ink-faint/50"
           />
           {query ? (
             <button
@@ -173,7 +173,7 @@ function YourStanding() {
           <span className="shrink-0 font-pixel text-[32px] leading-none text-cyan text-glow-lg tabular-nums">
             #{data.rank}
           </span>
-          <span className="min-w-0 truncate font-pixel text-[13px] uppercase tracking-[0.1em] text-ink">
+          <span className="min-w-0 truncate font-pixel text-[13px] uppercase tracking-[0.04em] text-ink">
             {data.handle}
           </span>
         </div>
@@ -251,7 +251,7 @@ function Row({
 
       <span
         className={cn(
-          "min-w-0 flex-1 truncate font-pixel text-[11px] uppercase tracking-[0.08em]",
+          "min-w-0 flex-1 truncate font-pixel text-[11px] uppercase tracking-[0.04em]",
           cheater ? "text-danger" : me ? "text-cyan text-glow-cyan" : "text-ink",
         )}
       >

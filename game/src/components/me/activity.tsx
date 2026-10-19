@@ -71,7 +71,7 @@ export function Shortcuts({
             </span>
           </span>
           <span className="flex flex-col gap-1">
-            <span className="font-pixel text-[10px] uppercase tracking-[0.1em] text-ink transition-colors group-hover:text-cyan">
+            <span className="font-pixel text-[10px] uppercase tracking-[0.04em] text-ink transition-colors group-hover:text-cyan">
               {t.label}
             </span>
             {t.note ? (
@@ -106,7 +106,7 @@ export function Inbox() {
         <div className="flex items-center justify-between gap-4 px-5 pb-3 pt-5 sm:px-6">
           <div className="flex items-center gap-2.5">
             <Icon name="notify" size="sm" glow={unread > 0} dim={unread === 0} />
-            <span className="font-pixel text-[11px] uppercase tracking-[0.1em] text-ink">Inbox</span>
+            <span className="font-pixel text-[11px] uppercase tracking-[0.04em] text-ink">Inbox</span>
             {unread > 0 ? (
               <span className="min-w-5 bg-heart px-1.5 py-0.5 text-center font-pixel text-[8px] tabular-nums text-void frame-notch">
                 {unread > 99 ? "99+" : unread}
@@ -118,7 +118,7 @@ export function Inbox() {
               type="button"
               onClick={() => markAll.mutate()}
               disabled={markAll.isPending}
-              className="font-body text-[11px] uppercase tracking-[0.12em] text-blue hover:text-cyan disabled:opacity-40"
+              className="font-pixel text-[11px] uppercase tracking-[0.04em] text-blue hover:text-cyan disabled:opacity-40"
             >
               Mark all read
             </button>
@@ -126,7 +126,7 @@ export function Inbox() {
         </div>
 
         {inbox.isLoading ? (
-          <p className="px-6 pb-6 font-pixel text-[9px] uppercase tracking-[0.14em] text-blue">
+          <p className="px-6 pb-6 font-pixel text-[9px] uppercase tracking-[0.04em] text-blue">
             Reading <span className="animate-[blink_0.7s_steps(2,end)_infinite]">▮</span>
           </p>
         ) : items.length === 0 ? (
@@ -164,7 +164,7 @@ export function Inbox() {
                         </span>
                       ) : null}
                     </span>
-                    <span className="shrink-0 font-body text-[10px] uppercase tracking-[0.1em] text-ink-faint">
+                    <span className="shrink-0 font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-faint">
                       {formatAgo(n.createdAt)}
                     </span>
                   </button>
@@ -205,11 +205,11 @@ export function HandIns({ playing }: { playing: boolean }) {
       aria-label="Your hand-ins"
     >
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <span className="font-pixel text-[11px] uppercase tracking-[0.1em] text-ink">
+        <span className="font-pixel text-[11px] uppercase tracking-[0.04em] text-ink">
           Your hand-ins {list.length ? <span className="text-ink-faint">· {list.length}</span> : null}
         </span>
         {list.length ? (
-          <span className="flex flex-wrap gap-x-3 gap-y-1 font-body text-[10px] uppercase tracking-[0.12em]">
+          <span className="flex flex-wrap gap-x-3 gap-y-1 font-pixel text-[10px] uppercase tracking-[0.04em]">
             {counts.published ? <span className="text-good">{counts.published} on the feed</span> : null}
             {counts.submitted ? <span className="text-caution">{counts.submitted} being judged</span> : null}
             {counts.rejected ? <span className="text-heart">{counts.rejected} rejected</span> : null}
@@ -218,7 +218,7 @@ export function HandIns({ playing }: { playing: boolean }) {
       </div>
 
       {attempts.isLoading ? (
-        <p className="font-pixel text-[9px] uppercase tracking-[0.14em] text-blue">Loading ▮</p>
+        <p className="font-pixel text-[9px] uppercase tracking-[0.04em] text-blue">Loading ▮</p>
       ) : list.length === 0 ? (
         <div className="flex flex-col items-center gap-3 bg-surface-2 px-5 py-8 text-center frame-notch">
           <Icon name="camera" size="lg" dim />
@@ -226,7 +226,7 @@ export function HandIns({ playing }: { playing: boolean }) {
             {playing ? "Nothing handed in yet. Your first task is waiting." : "Nothing handed in."}
           </p>
           {playing ? (
-            <Link href="/play" className="font-pixel text-[10px] uppercase tracking-[0.12em] text-blue hover:text-cyan">
+            <Link href="/play" className="font-pixel text-[10px] uppercase tracking-[0.04em] text-blue hover:text-cyan">
               ▶ Go to the opals
             </Link>
           ) : null}
@@ -277,7 +277,7 @@ function AttemptTile({ attempt }: { attempt: AttemptView }) {
         </span>
       )}
       <span className="absolute inset-x-0 top-0 flex items-center justify-between p-1.5">
-        <span className="bg-void/60 px-1.5 py-0.5 font-pixel text-[7px] uppercase tracking-[0.1em] text-ink backdrop-blur-sm frame-notch">
+        <span className="bg-void/60 px-1.5 py-0.5 font-pixel text-[7px] uppercase tracking-[0.04em] text-ink backdrop-blur-sm frame-notch">
           {String(attempt.day).padStart(3, "0")}
         </span>
         <span className="font-body text-[9px] text-ink [text-shadow:0_1px_2px_rgb(0_0_0/0.9)]">
@@ -285,7 +285,7 @@ function AttemptTile({ attempt }: { attempt: AttemptView }) {
         </span>
       </span>
       <span className="absolute inset-x-0 bottom-0 p-1.5">
-        <span className={cn("block truncate px-1.5 py-1 text-center font-pixel text-[7px] uppercase tracking-[0.08em] frame-notch", status.cls)}>
+        <span className={cn("block truncate px-1.5 py-1 text-center font-pixel text-[7px] uppercase tracking-[0.04em] frame-notch", status.cls)}>
           {status.word}
         </span>
       </span>

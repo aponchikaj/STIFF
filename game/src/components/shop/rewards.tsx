@@ -77,7 +77,7 @@ export function Rewards({
     <section className="flex flex-col gap-5">
       {balance !== null ? (
         <div className="flex items-center justify-between gap-4">
-          <span className="font-body text-caption uppercase tracking-[0.12em] text-ink-faint">
+          <span className="font-pixel text-caption uppercase tracking-[0.04em] text-ink-faint">
             {shown.length} of {all.length}
           </span>
           <button
@@ -85,7 +85,7 @@ export function Rewards({
             role="switch"
             aria-checked={onlyAffordable}
             onClick={() => setOnlyAffordable((v) => !v)}
-            className="group inline-flex items-center gap-2.5 font-pixel text-[9px] uppercase tracking-[0.12em] text-ink-muted"
+            className="group inline-flex items-center gap-2.5 font-pixel text-[9px] uppercase tracking-[0.04em] text-ink-muted"
           >
             <span
               aria-hidden
@@ -176,7 +176,7 @@ function RewardCard({
       type="button"
       onClick={onOpen}
       aria-label={`${item.name}, ${formatNumber(item.priceCoins)} opals`}
-      className="group block w-full text-left transition-[filter] duration-200 hover:[filter:drop-shadow(0_0_2px_rgb(1_163_255/0.9))_drop-shadow(0_0_12px_rgb(1_163_255/0.45))]"
+      className="group block w-full text-left transition-[filter] duration-200 hover:[filter:drop-shadow(0_0_2px_rgb(67_223_255/0.9))_drop-shadow(0_0_12px_rgb(67_223_255/0.45))]"
     >
       <span className="block bg-blue-dim/60 p-px frame-notch transition-colors group-hover:bg-blue">
         <span className="flex flex-col bg-surface-2 frame-notch">
@@ -214,7 +214,7 @@ function RewardCard({
           <span className="flex flex-col gap-2.5 p-3">
             <span
               className={cn(
-                "line-clamp-2 min-h-[2.4em] font-pixel text-[10px] uppercase leading-[1.2] tracking-[0.06em]",
+                "line-clamp-2 min-h-[2.4em] font-pixel text-[10px] uppercase leading-[1.2] tracking-[0.04em]",
                 gone ? "text-ink-faint" : "text-ink",
               )}
             >
@@ -224,7 +224,7 @@ function RewardCard({
               <OpalPrice amount={item.priceCoins} dim={gone} />
               <span
                 className={cn(
-                  "font-body text-[10px] uppercase tracking-[0.1em]",
+                  "font-pixel text-[10px] uppercase tracking-[0.04em]",
                   standing.kind === "ok"
                     ? "text-good"
                     : standing.kind === "short"
@@ -268,7 +268,7 @@ function Flag({
   return (
     <span
       className={cn(
-        "px-1.5 py-1 font-pixel text-[7px] uppercase tracking-[0.1em] frame-notch",
+        "px-1.5 py-1 font-pixel text-[7px] uppercase tracking-[0.04em] frame-notch",
         tone === "heart" && "bg-heart text-void",
         tone === "caution" && "bg-caution text-void",
         tone === "good" && "bg-good text-void",
@@ -374,14 +374,14 @@ function RewardSheet({
             {!isSignedIn ? (
               <Link
                 href="/login?next=/shop"
-                className="block bg-blue py-4 text-center font-pixel text-[13px] uppercase tracking-[0.12em] text-void frame-notch hover:bg-cyan"
+                className="block bg-blue py-4 text-center font-pixel text-[13px] uppercase tracking-[0.04em] text-void frame-notch hover:bg-cyan"
               >
                 Sign in to buy
               </Link>
             ) : !canBuy ? (
               <Link
                 href="/join"
-                className="block bg-blue py-4 text-center font-pixel text-[13px] uppercase tracking-[0.12em] text-void frame-notch hover:bg-cyan"
+                className="block bg-blue py-4 text-center font-pixel text-[13px] uppercase tracking-[0.04em] text-void frame-notch hover:bg-cyan"
               >
                 Join the season to buy
               </Link>
@@ -393,7 +393,7 @@ function RewardSheet({
                 <button
                   type="button"
                   onClick={onTopUp}
-                  className="block bg-coin py-4 font-pixel text-[13px] uppercase tracking-[0.12em] text-void frame-notch hover:brightness-110"
+                  className="block bg-coin py-4 font-pixel text-[13px] uppercase tracking-[0.04em] text-void frame-notch hover:brightness-110"
                 >
                   Top up opals
                 </button>
@@ -421,7 +421,7 @@ function RewardSheet({
               />
             )}
 
-            <p className="text-center font-body text-[11px] uppercase tracking-[0.12em] text-ink-faint">
+            <p className="text-center font-pixel text-[11px] uppercase tracking-[0.04em] text-ink-faint">
               Purchases are final
             </p>
           </div>
@@ -434,7 +434,7 @@ function RewardSheet({
 function Fact({ term, value }: { term: string; value: string }) {
   return (
     <div className="flex flex-col items-center gap-1.5 text-center">
-      <dt className="font-body text-[10px] uppercase tracking-[0.12em] text-ink-faint">{term}</dt>
+      <dt className="font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-faint">{term}</dt>
       <dd className="font-pixel text-[12px] text-ink">{value}</dd>
     </div>
   );

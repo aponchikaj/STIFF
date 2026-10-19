@@ -54,7 +54,7 @@ export default function WarsPage() {
               onClick={() => setFilter(option.value)}
               aria-pressed={filter === option.value}
               className={cn(
-                "font-pixel text-[10px] uppercase tracking-[0.12em] transition-all duration-200",
+                "font-pixel text-[10px] uppercase tracking-[0.04em] transition-all duration-200",
                 filter === option.value
                   ? "text-cyan [text-shadow:var(--glow-cyan)]"
                   : "text-ink-faint hover:text-ink-muted",
@@ -126,7 +126,7 @@ function WarRow({ war }: { war: WarView }) {
             ) : null}
             <span
               className={cn(
-                "font-pixel text-[9px] uppercase tracking-[0.14em]",
+                "font-pixel text-[9px] uppercase tracking-[0.04em]",
                 STATUS_TONE[war.status],
               )}
             >
@@ -212,7 +212,7 @@ function Side({
     >
       <span
         className={cn(
-          "w-full truncate font-pixel text-[12px] uppercase tracking-[0.08em] transition-colors",
+          "w-full truncate font-pixel text-[12px] uppercase tracking-[0.04em] transition-colors",
           won
             ? "text-good [text-shadow:0_0_6px_rgb(47_217_107/0.8)]"
             : lost

@@ -18,7 +18,7 @@ export function Providers({ children }: { children: ReactNode }) {
         // in each `toast()` call so a new one cannot land looking generic.
         toastOptions={{
           className:
-            "!bg-void !text-ink !border !border-blue !rounded-none !font-pixel !text-[10px] !leading-4 !uppercase !tracking-[0.08em] glow-blue-sm",
+            "!bg-void !text-ink !border !border-blue !rounded-none !font-pixel !text-[10px] !leading-4 !uppercase !tracking-[0.04em] glow-blue-sm",
           duration: 4000,
         }}
       />

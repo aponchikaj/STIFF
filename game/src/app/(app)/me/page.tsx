@@ -88,7 +88,7 @@ function SignedOut() {
         </motion.span>
 
         <div className="flex flex-col gap-3">
-          <p className="font-pixel text-[15px] uppercase tracking-[0.1em] text-ink text-glow">
+          <p className="font-pixel text-[15px] uppercase tracking-[0.04em] text-ink text-glow">
             You are not signed in
           </p>
           <p className="mx-auto max-w-xs font-body text-body-sm leading-[20px] text-ink-muted">
@@ -100,13 +100,13 @@ function SignedOut() {
         <div className="flex w-full max-w-xs flex-col gap-3">
           <Link
             href="/login?next=/me"
-            className="block bg-blue py-3.5 font-pixel text-[12px] uppercase tracking-[0.12em] text-void frame-notch hover:bg-cyan"
+            className="block bg-blue py-3.5 font-pixel text-[12px] uppercase tracking-[0.04em] text-void frame-notch hover:bg-cyan"
           >
             Sign in
           </Link>
           <Link
             href="/join"
-            className="block bg-surface-3 py-3.5 font-pixel text-[12px] uppercase tracking-[0.12em] text-ink frame-notch hover:bg-surface-2 hover:text-cyan"
+            className="block bg-surface-3 py-3.5 font-pixel text-[12px] uppercase tracking-[0.04em] text-ink frame-notch hover:bg-surface-2 hover:text-cyan"
           >
             Make an account
           </Link>

@@ -59,15 +59,28 @@ component.
 
 ## Design system
 
-Tokens live in `src/app/globals.css` and come off the three spec boards.
-Read a token; never hardcode a hex, a size or a gutter.
+Tokens live in `src/app/globals.css`. Read a token; never hardcode a hex, a
+size or a gutter.
 
-- **Nothing without blur.** Every blue is painted with a glow token. A flat
-  `#01a3ff` is off-brand.
+The look is a phosphor tube showing a GAME OVER screen: pale electric-blue
+letterforms emitting a bloom, sliced by scanlines, on pure black.
+
+- **Two blues, both lit.** `blue` is the glow, `#43DFFF`; `cyan` is the
+  core, `#A8F8FF`; `bone` is the white-hot centre, `#E4FDFF`. Every blue is
+  painted with a glow token — a flat blue is off-brand. Red (`heart`) and
+  amber (`coin`) are game semantics only: lives and currency, nothing else.
+- **`.phosphor` is the signature.** Big display type gets the pale core,
+  the bloom and scanlines cut *through* the glyphs. The bands are re-drawn
+  from `data-text`, so the element must carry it — `<Display>` does this
+  for string children from `title` up.
+- **`<CabinetMenu>` is the one selection device.** Answers on a line, a
+  blinking ▶ on the selected one, ←/→ to step. The title screen, the 404
+  and `<Dialog>` all use it; reach for it before inventing a toggle.
 - **No radius.** The rounded look is a 6px corner notch (`.frame-notch`).
 - **Type has three roles**: `font-display` (headlines), `font-pixel`
-  (labels, buttons, HUD), `font-body` (sentences). Pixel faces are uppercase
-  and letter-spaced; body text is not.
+  (labels, buttons, HUD, any all-caps caption), `font-body` (sentences).
+  Pixel faces are uppercase with tight tracking (`0.04em`); body text is
+  sentence case.
 - **Grid** is `.grid-stiff` — 4/8/12 columns, 16px gutter.
 
 ### The trap
@@ -91,10 +104,18 @@ icon. Prefer `ICON_ROLES` over a bare name so a screen asks for a meaning.
 
 ## Fonts
 
-Press Start 2P is installed. **PPNeueBit is not** — commercial Pangram
-Pangram licence, files deliberately absent. `--font-display` falls through
-to Press Start 2P meanwhile, which is a much wider face, so headline
-line-breaks will move when the real files land. See `public/fonts/README.md`.
+**CC Pixel Arcade is not installed** — commercial Comicraft licence, files
+deliberately absent. Both pixel roles fall through to Silkscreen (OFL,
+self-hosted as "STIFF Pixel" with `size-adjust: 120%`). The metrics differ,
+so headline line-breaks will move when the real files land. See
+`public/fonts/README.md`.
+
+## Icons are tinted
+
+The rasters in `public/icons/` were recoloured from the old `#01A3FF` to the
+phosphor palette — blue hues shifted to `#43DFFF`, white cores to `#E4FDFF`.
+A new icon off the old sheet needs the same pass or it will sit a shade
+too deep next to the rest.
 
 ## Before claiming something works
 

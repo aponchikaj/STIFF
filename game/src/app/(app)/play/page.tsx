@@ -133,7 +133,7 @@ function Opals({
             onClick={() => embla?.scrollTo(index)}
             aria-current={index === selected ? "true" : undefined}
             className={cn(
-              "flex min-h-11 items-center gap-2 px-1 font-pixel text-[10px] uppercase tracking-[0.14em] transition-all duration-200",
+              "flex min-h-11 items-center gap-2 px-1 font-pixel text-[10px] uppercase tracking-[0.04em] transition-all duration-200",
               index === selected
                 ? "text-ink text-glow-cyan-xs"
                 : "text-ink-faint hover:text-ink-muted",
@@ -391,7 +391,7 @@ function StatusLine({
     >
       <span
         className={cn(
-          "flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.18em]",
+          "flex items-center gap-2 font-pixel text-[10px] uppercase tracking-[0.08em]",
           tone,
         )}
       >
@@ -403,15 +403,15 @@ function StatusLine({
           : word}
       </span>
       {opal.state === "locked" && opal.opensAt !== null && now !== null && !active ? (
-        <span className="font-body text-caption uppercase tracking-[0.12em] text-ink-faint">
+        <span className="font-pixel text-caption uppercase tracking-[0.04em] text-ink-faint">
           Opens in {short(opal.opensAt - now)}
         </span>
       ) : opal.state === "open" && opal.closesAt !== null && now !== null ? (
-        <span className="font-body text-caption uppercase tracking-[0.12em] text-ink-faint">
+        <span className="font-pixel text-caption uppercase tracking-[0.04em] text-ink-faint">
           Closes in {short(opal.closesAt - now)}
         </span>
       ) : opal.state === "locked" && opal.opensAt === null ? (
-        <span className="font-body text-caption uppercase tracking-[0.12em] text-ink-faint">
+        <span className="font-pixel text-caption uppercase tracking-[0.04em] text-ink-faint">
           Date to come
         </span>
       ) : null}
@@ -463,10 +463,10 @@ function Underneath({
         >
           ▲
         </motion.span>
-        <span className="animate-[blink_1.1s_steps(2,end)_infinite] font-pixel text-[12px] uppercase tracking-[0.16em] text-cyan text-glow-cyan">
+        <span className="animate-[blink_1.1s_steps(2,end)_infinite] font-pixel text-[12px] uppercase tracking-[0.08em] text-cyan text-glow-cyan">
           Tap the opal to open it
         </span>
-        <span className="font-body text-caption uppercase tracking-[0.12em] text-ink-faint">
+        <span className="font-pixel text-caption uppercase tracking-[0.04em] text-ink-faint">
           Your task is inside
         </span>
       </div>
@@ -479,7 +479,7 @@ function Underneath({
       <Link href={opalHref(opal.day, demo)}>
         <Button size="lg">Go to your task</Button>
       </Link>
-      <span className="font-body text-caption uppercase tracking-[0.12em] text-ink-faint">
+      <span className="font-pixel text-caption uppercase tracking-[0.04em] text-ink-faint">
         Or tap the opal
       </span>
     </div>
@@ -563,7 +563,7 @@ function Countdown({ target, now }: { target: number; now: number | null }) {
             <span className="min-w-[2ch] font-pixel text-[clamp(26px,8vw,44px)] leading-none tabular-nums text-cyan text-glow-lg">
               {value === null ? "--" : String(value).padStart(2, "0")}
             </span>
-            <span className="font-body text-[10px] uppercase tracking-[0.16em] text-ink-faint">
+            <span className="font-pixel text-[10px] uppercase tracking-[0.04em] text-ink-faint">
               {unit}
             </span>
           </div>

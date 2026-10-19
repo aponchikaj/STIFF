@@ -213,14 +213,14 @@ export function ReelSlide({
         <Link
           href={`/u/${encodeURIComponent(item.player.handle)}`}
           className={cn(
-            "font-pixel text-[12px] uppercase tracking-[0.08em] [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]",
+            "font-pixel text-[12px] uppercase tracking-[0.04em] [text-shadow:0_1px_3px_rgb(0_0_0/0.9)]",
             cheater ? "text-danger" : "text-ink hover:text-cyan",
           )}
         >
           @{item.player.handle}
         </Link>
         {cheater ? (
-          <span className="font-pixel text-[8px] uppercase tracking-[0.1em] text-danger">
+          <span className="font-pixel text-[8px] uppercase tracking-[0.04em] text-danger">
             Cheater
           </span>
         ) : (
@@ -258,7 +258,7 @@ export function ReelSlide({
             className="group inline-flex max-w-full items-center gap-2 self-start bg-void/55 px-2.5 py-1.5 backdrop-blur-sm frame-notch"
           >
             <Icon name="opal" size="xs" glow />
-            <span className="truncate font-pixel text-[9px] uppercase tracking-[0.1em] text-cyan">
+            <span className="truncate font-pixel text-[9px] uppercase tracking-[0.04em] text-cyan">
               {OPAL[item.day]} · {item.task.title}
             </span>
             <span
@@ -516,7 +516,7 @@ function Speaker({ muted }: { muted: boolean }) {
       height={20}
       shapeRendering="crispEdges"
       aria-hidden
-      className="text-ink [filter:drop-shadow(0_0_3px_rgb(1_231_255/0.7))]"
+      className="text-ink [filter:drop-shadow(0_0_3px_rgb(67_223_255/0.7))]"
     >
       <rect x="2" y="6" width="3" height="4" fill="currentColor" />
       <rect x="5" y="5" width="1" height="6" fill="currentColor" />
