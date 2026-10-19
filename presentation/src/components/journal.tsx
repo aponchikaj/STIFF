@@ -7,22 +7,20 @@ import {
   useSyncExternalStore,
   type CSSProperties,
 } from "react";
-import Link from "next/link";
-import { SLIDES } from "@/content/deck";
+import { MANUAL } from "@/content/manual";
 import { BlankPage, PageFace } from "./page";
 import { useBook } from "./use-book";
 
 /**
- * The journal.
+ * The journal — STIFF's operator's manual, sponsor edition.
  *
  * A stack of leaves standing in a stage that is as tall as the viewport
  * allows. Wide screens get a two-page spread; anything narrower than a small
  * laptop, or in portrait, gets one tall page. The URL is the page state —
- * `#/7` is page seven, the same scheme the slide deck at /deck uses, so a
- * link works in both.
+ * `#/7` is page seven, so a link to a page can be sent on its own.
  */
 
-const TOTAL = SLIDES.length;
+const TOTAL = MANUAL.length;
 /** Must match `--turn-ms` in globals.css. */
 const TURN_MS = 900;
 const SPREAD_QUERY = "(min-width: 900px) and (min-height: 540px)";
@@ -195,7 +193,7 @@ export function Journal() {
   const counter = closed
     ? "Cover"
     : finished
-      ? "End"
+      ? "Game over"
       : spread
         ? `${2 * turned}–${2 * turned + 1} / ${TOTAL}`
         : `${turned + 1} / ${TOTAL}`;
@@ -203,7 +201,7 @@ export function Journal() {
   const leaves = Array.from({ length: leafCount }, (_, i) => i);
 
   return (
-    <div className="journal" data-theme="light">
+    <div className="journal">
       <div className="journal-main">
         <div
           className={`book-stage ${spread ? "is-spread" : "is-single"} ${ready ? "is-ready" : ""}`}
@@ -227,13 +225,13 @@ export function Journal() {
             className={`book-surface ${dragging ? "is-dragging" : ""} ${frozen ? "is-frozen" : ""}`}
             role="group"
             aria-roledescription="journal"
-            aria-label={`STIFF journal, ${counter}. Use the arrow keys, or drag a page, to turn.`}
+            aria-label={`STIFF operator's manual, ${counter}. Use the arrow keys, or drag a page, to turn.`}
             tabIndex={0}
             {...handlers}
           >
             {leaves.map((i) => {
-              const front = SLIDES[i * ppl];
-              const back = spread ? SLIDES[i * 2 + 1] : undefined;
+              const front = MANUAL[i * ppl];
+              const back = spread ? MANUAL[i * 2 + 1] : undefined;
               const isTurned = i < turned;
               const near = i >= turned - 1 - NEAR && i <= turned + NEAR;
               const style: CSSProperties & { "--p": number } = {
@@ -250,14 +248,14 @@ export function Journal() {
                 >
                   <div className="leaf-face leaf-front" aria-hidden={isTurned}>
                     {near && front ? (
-                      <PageFace slide={front} index={i * ppl} total={TOTAL} side="recto" />
+                      <PageFace page={front} index={i * ppl} side="recto" />
                     ) : (
                       <BlankPage />
                     )}
                   </div>
                   <div className="leaf-face leaf-back" aria-hidden={!isTurned}>
                     {near && back ? (
-                      <PageFace slide={back} index={i * 2 + 1} total={TOTAL} side="verso" />
+                      <PageFace page={back} index={i * 2 + 1} side="verso" />
                     ) : (
                       <BlankPage />
                     )}
@@ -298,10 +296,7 @@ export function Journal() {
         >
           ›
         </button>
-        <span className="mx-2 h-5 w-px bg-[var(--rule)]" aria-hidden />
-        <Link href="/deck" className="ctl" data-book-control>
-          Slides
-        </Link>
+        <span className="hud-sep" aria-hidden />
         <button
           data-book-control
           type="button"
@@ -330,7 +325,7 @@ export function Journal() {
           onClick={() => setHelp(false)}
         >
           <div className="help-card" onClick={(e) => e.stopPropagation()}>
-            <p className="t-eyebrow text-[0.7rem]!">Keyboard</p>
+            <p className="eyebrow">Keyboard</p>
             <table>
               <tbody>
                 <tr>
@@ -361,13 +356,16 @@ export function Journal() {
                   <td>
                     <kbd>?</kbd>
                   </td>
-                  <td>This card. The URL always carries the page number. /deck is the same fifteen pages as 16:9 slides.</td>
+                  <td>This card. The URL always carries the page number, so a page can be linked on its own.</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
       ) : null}
+
+      {/* The glass over the whole room. */}
+      <div className="tube" aria-hidden />
     </div>
   );
 }
