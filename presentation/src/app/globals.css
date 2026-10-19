@@ -973,7 +973,8 @@ body {
 .status-row {
   display: grid;
   grid-template-columns: calc(10 * var(--u)) 1fr;
-  gap: calc(2 * var(--u));
+  /* The text sits under its label; a full gap there split one row in two. */
+  gap: calc(0.5 * var(--u)) calc(2 * var(--u));
   padding: calc(1.2 * var(--u)) 0;
   border-bottom: 1px solid var(--line);
   align-items: baseline;
@@ -1149,21 +1150,31 @@ body {
   .cover-mark { font-size: 16cqi; }
   .big-value { font-size: 14cqi; }
   .cont-title { font-size: 8.5cqi; }
-  .stats,
-  .sides {
+  /* Restacking is for a phone's single page only. A spread on a short
+     laptop also has pages this narrow, but it scales instead (below). */
+  .is-single .stats,
+  .is-single .sides {
     grid-template-columns: 1fr;
   }
-  .table-row {
+  .is-single .table-row {
     grid-template-columns: 1fr;
     gap: calc(0.5 * var(--u));
   }
-  .table-head {
+  .is-single .table-head {
     display: none;
   }
-  .step {
+  .is-single .step {
     grid-template-columns: 1fr;
     gap: calc(0.5 * var(--u));
   }
+}
+
+/* A spread is a printed page at whatever size the screen allows: every
+   measure tracks the page width, so a short laptop shows the same layout
+   smaller rather than overflowing it. The floor only stops it at
+   unreadable, and the spread itself gives way to one page before then. */
+.is-spread .page {
+  --u: max(1.12cqi, 0.25rem);
 }
 
 /* --- HUD -------------------------------------------------------------------- */

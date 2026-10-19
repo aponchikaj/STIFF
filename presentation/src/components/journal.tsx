@@ -23,7 +23,12 @@ import { useBook } from "./use-book";
 const TOTAL = MANUAL.length;
 /** Must match `--turn-ms` in globals.css. */
 const TURN_MS = 900;
-const SPREAD_QUERY = "(min-width: 900px) and (min-height: 540px)";
+/**
+ * A spread scales its type with the page, so it needs the height to stay
+ * readable: below about 680px body text falls under 9.5px, and one taller
+ * page that scrolls reads better than two that do not.
+ */
+const SPREAD_QUERY = "(min-width: 900px) and (min-height: 680px)";
 /** Leaves this far from the open one carry real pages; the rest are blank. */
 const NEAR = 2;
 /** px of page-block edge per leaf. */
