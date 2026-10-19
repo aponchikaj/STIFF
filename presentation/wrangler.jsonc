@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The journal: a static export (`next build` → out/) served as Worker
+  // static assets. No script, so no Worker code runs and nothing is billed
+  // per request beyond the asset itself.
+  "name": "stiff-journal",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "out",
+    "not_found_handling": "404-page"
+  },
+  "routes": [
+    // stiff.ge's DNS is on Cloudflare; this creates the record and the
+    // certificate for the subdomain on first deploy.
+    { "pattern": "journal.stiff.ge", "custom_domain": true }
+  ]
+}
