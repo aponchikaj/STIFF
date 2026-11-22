@@ -24,6 +24,8 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
 
   images: {
+    // Cloudflare Workers has no Next image optimizer on the Free plan; serve originals.
+    unoptimized: true,
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 2678400,
     qualities: [65, 75],
