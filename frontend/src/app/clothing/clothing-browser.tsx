@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { productsApi } from "@/lib/api";
 import type { Product, ProductSort } from "@/lib/api";
@@ -25,6 +26,17 @@ const SORTS: { value: ProductSort; label: string }[] = [
   { value: "price_asc", label: "Price ↑" },
   { value: "price_desc", label: "Price ↓" },
 ];
+
+/**
+ * Reads the category from `?c=` in the browser, so the page around it can be
+ * prerendered once instead of rendered on the server for every visit. The
+ * product list was already fetched client-side, so nothing is lost.
+ */
+export function ClothingBrowserFromUrl() {
+  const c = useSearchParams().get("c");
+  const category = c && CATEGORIES.includes(c) ? c : "All";
+  return <ClothingBrowser category={category} />;
+}
 
 export function ClothingBrowser({ category }: { category: string }) {
   const { shopEnabled } = useSession();

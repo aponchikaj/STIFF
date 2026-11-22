@@ -18,6 +18,17 @@ async function fetchProduct(slug: string): Promise<ProductDetail | null> {
   }
 }
 
+/**
+ * Nothing on this page is per-visitor: the product comes from the public API.
+ * With no paths listed, each one is rendered on its first visit and then
+ * served from the cache, refreshed in the background at most every 300s
+ * (the same window as the fetch below), instead of on every request.
+ */
+export const revalidate = 300;
+export async function generateStaticParams() {
+  return [];
+}
+
 export async function generateMetadata({
   params,
 }: PageProps<"/clothing/[slug]">): Promise<Metadata> {

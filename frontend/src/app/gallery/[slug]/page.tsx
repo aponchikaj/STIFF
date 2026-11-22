@@ -28,6 +28,17 @@ async function fetchShot(slug: string): Promise<GalleryItemDetail | null> {
  * instead of the generic site card. A failure here must not break the page —
  * the client view renders its own not-found state.
  */
+/**
+ * Nothing on this page is per-visitor: the shot comes from the public API.
+ * With no paths listed, each one is rendered on its first visit and then
+ * served from the cache, refreshed in the background at most every 60s
+ * (the same window as the fetch below), instead of on every request.
+ */
+export const revalidate = 60;
+export async function generateStaticParams() {
+  return [];
+}
+
 export async function generateMetadata({
   params,
 }: PageProps<"/gallery/[slug]">): Promise<Metadata> {

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { ClothingBrowser } from "./clothing-browser";
+import { Suspense } from "react";
+import { ClothingBrowserFromUrl } from "./clothing-browser";
 
 export const metadata: Metadata = {
   title: "Clothing",
@@ -8,17 +9,13 @@ export const metadata: Metadata = {
   alternates: { canonical: "/clothing" },
 };
 
-const categories = ["All", "Tees", "Hoodies", "Pants", "Accessories"];
-
-export default async function ClothingPage({
-  searchParams,
-}: PageProps<"/clothing">) {
-  const { c } = await searchParams;
-  const active = typeof c === "string" && categories.includes(c) ? c : "All";
-
+export default function ClothingPage() {
   return (
     <section className="w-full px-4 py-12 sm:px-6 sm:py-16">
-      <ClothingBrowser category={active} />
+      {/* useSearchParams needs a Suspense boundary to keep the page static. */}
+      <Suspense fallback={null}>
+        <ClothingBrowserFromUrl />
+      </Suspense>
     </section>
   );
 }
