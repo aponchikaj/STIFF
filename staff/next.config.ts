@@ -22,6 +22,8 @@ function backendOrigin(): string | undefined {
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Cloudflare Workers has no Next image optimizer on the Free plan; serve originals.
+  images: { unoptimized: true },
   experimental: {
     optimizePackageImports: ["framer-motion"],
   },
